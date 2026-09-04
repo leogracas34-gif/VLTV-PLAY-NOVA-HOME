@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="#000000">
+
+    <!-- BACKGROUND DINÂMICO — mesma lógica do celular, cor/posição
+         controlados via Kotlin (ProfilesActivity) -->
+    <ImageView
+        android:id="@+id/imgDynamicBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.0"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_profile_scrim"/>
+
+    <!-- PAINEL INFERIOR — cor e cantos controlados 100% via Kotlin
+         (aplicarPainelInicial / animarCorPainel), igual ao celular.
+         Em paisagem, o painel fica com largura limitada e centralizado
+         em vez de ocupar a tela toda, pra não esticar feio numa TV. -->
+    <LinearLayout
+        android:id="@+id/layoutPainelPerfis"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical">
+
+        <!-- Logo do filme/série (PT-BR via TMDB) -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="90dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginHorizontal="48dp">
+
+            <ImageView
+                android:id="@+id/imgDynamicLogo"
+                android:layout_width="wrap_content"
+                android:layout_height="76dp"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"
+                android:visibility="gone"
+                android:alpha="0"/>
+
+            <TextView
+                android:id="@+id/tvDynamicTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textColor="#FFFFFF"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-condensed"
+                android:gravity="center"
+                android:shadowColor="#DD000000"
+                android:shadowRadius="10"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:alpha="0"/>
+        </FrameLayout>
+
+        <!-- Badge: ícone TOP10/NOVO + texto -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="6dp">
+
+            <ImageView
+                android:id="@+id/imgBadgeIcon"
+                android:layout_width="44dp"
+                android:layout_height="27dp"
+                android:layout_marginEnd="8dp"
+                android:src="@drawable/ic_top10"
+                android:visibility="gone"/>
+
+            <TextView
+                android:id="@+id/tvDynamicBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#DDDDDD"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium"
+                android:shadowColor="#AA000000"
+                android:shadowRadius="6"
+                android:alpha="0"/>
+        </LinearLayout>
+
+        <!-- PAINEL SÓLIDO DOS PERFIS — arco superior, cor via Kotlin -->
+        <LinearLayout
+            android:id="@+id/layoutProfilesPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="10dp"
+            android:paddingBottom="36dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="14dp"
+                android:text="Escolha o seu perfil"
+                android:textColor="#AAAAAA"
+                android:textSize="16sp"
+                android:letterSpacing="0.04"/>
+
+            <!-- Fileira de avatares — RecyclerView horizontal, foco/scale
+                 já é feito no adapter (ProfilesActivity), aqui só precisa
+                 garantir que a fileira consegue receber e repassar foco. -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvProfiles"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:descendantFocusability="afterDescendants"
+                android:overScrollMode="never"/>
+
+            <!-- Botões ADICIONAR e EDITAR -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginTop="16dp">
+
+                <LinearLayout
+                    android:id="@+id/layoutAddProfile"
+                    android:layout_width="140dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginEnd="16dp"
+                    android:background="@drawable/bg_profile_btn"
+                    android:paddingVertical="18dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="+"
+                        android:textColor="#FFFFFF"
+                        android:textSize="26sp"
+                        android:textStyle="bold"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Adicionar"
+                        android:textColor="#888888"
+                        android:textSize="13sp"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/layoutEditProfiles"
+                    android:layout_width="140dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:layout_marginStart="16dp"
+                    android:background="@drawable/bg_profile_btn"
+                    android:paddingVertical="18dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="✎"
+                        android:textColor="#FFFFFF"
+                        android:textSize="22sp"/>
+
+                    <TextView
+                        android:id="@+id/tvEditProfiles"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Editar"
+                        android:textColor="#888888"
+                        android:textSize="13sp"
+                        android:layout_marginTop="4dp"/>
+                </LinearLayout>
+
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+</FrameLayout>

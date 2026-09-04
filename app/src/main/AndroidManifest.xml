@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+=============================================================
+  INSTRUÇÕES DE INSTALAÇÃO DO ÍCONE SAZONAL DA COPA
+=============================================================
+
+1. IMAGENS: Copie as pastas do ZIP para app/src/main/res/
+   (mipmap-mdpi, mipmap-hdpi, mipmap-xhdpi, mipmap-xxhdpi, mipmap-xxxhdpi)
+   Cada pasta contém: ic_launcher_copa.png, ic_launcher_copa_round.png,
+   ic_launcher_copa_background.png e ic_launcher_copa_foreground.png
+
+2. MANIFEST: Este arquivo já está pronto — basta substituir o seu AndroidManifest.xml
+
+3. FIREBASE: No console do Firebase Remote Config, crie a chave:
+   - Nome: show_copa_icon
+   - Tipo: Boolean
+   - Valor padrão: true
+   Quando a copa acabar, mude para false → ícone volta ao normal em até 1h
+
+4. KOTLIN: Substitua HomeActivity.kt e IconeSazonalHelper.kt pelos arquivos do ZIP
+
+=============================================================
+  ✅ NOVO: DOWNLOADS VIA MEDIA3
+=============================================================
+
+  - Permissões WRITE_EXTERNAL_STORAGE / READ_EXTERNAL_STORAGE foram
+    REMOVIDAS: não são mais necessárias (o Media3 grava no cache interno
+    do app via getExternalFilesDir, que não exige essas permissões desde
+    o Android 10, e o app já tinha minSdk 23 mas targetSdk 35 — manter
+    essas permissões declaradas sem uso é só ruído).
+
+  - NOVAS permissões: FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC
+    e POST_NOTIFICATIONS — necessárias pro VltvDownloadService rodar em
+    segundo plano com notificação (obrigatório a partir do Android 8,
+    e a permissão de notificação em si é obrigatória a partir do
+    Android 13/API 33).
+
+  - NOVO <service>: registra o VltvDownloadService, que é quem mantém
+    o download rodando quando o app vai pra background.
+
+=============================================================
+  ✅ NOVO: SPLASH SCREEN PRÓPRIA E ANIMADA
+=============================================================
+
+  - Criada a SplashActivity, que agora é o launcher de fato: os
+    activity-aliases LauncherNormal e LauncherCopa passaram a apontar
+    pra ela (targetActivity) em vez de para a LoginActivity.
+
+  - A SplashActivity mantém o tema Theme.VLTVPlay.Splash (splash nativa
+    do sistema) só pra cobrir o instante inicial de carregamento do
+    processo. Assim que ela desenha, a animação própria (letras do
+    wordmark "VLTV PLAY" entrando + brilho) toma conta, e depois ela
+    mesma navega pra LoginActivity.
+
+  - A LoginActivity deixou de usar o tema de splash (voltou pro tema
+    normal Theme.VLTVPlay) e deixou de chamar installSplashScreen() no
+    Kotlin, já que ela não é mais a porta de entrada do app.
+
+=============================================================
+  ✅ NOVO: ABA DE JOGOS RETRÔ
+=============================================================
+
+  - RetroGamesActivity: lista os jogos vindos de
+    https://cdn.vltvplay.tech/retro/games.json
+
+  - RetroGamePlayerActivity: abre o emulador (EmulatorJS) em tela cheia
+    via WebView, apontando pra https://cdn.vltvplay.tech/retro/index.html
+
+  - Ambas usam o tema padrão do app, Theme.VLTVPlay.
+
+=============================================================
+  ❌ REMOVIDO: AUTOATUALIZAÇÃO DO APP (FORA DA PLAY STORE)
+=============================================================
+
+  Sistema de autoatualização via VPS foi desativado por decisão do
+  desenvolvedor (voltou a fazer atualização manual, enviando o APK
+  direto pro cliente). Foram removidos deste manifest:
+
+  - A permissão REQUEST_INSTALL_PACKAGES
+  - O <provider> FileProvider (não usado em mais nada no app)
+  - O <receiver> AppUpdateManager$DownloadCompleteReceiver
+
+  Se quiser reativar no futuro, o código-fonte do AppUpdateManager.kt
+  precisa ser recriado e essas três entradas devolvidas aqui.
+
+=============================================================
+  ✅ NOVO: PICTURE-IN-PICTURE NA LIVE TV
+=============================================================
+
+  - LiveTvActivity agora declara android:supportsPictureInPicture="true"
+    e android:resizeableActivity="true", igual à PlayerActivity. O
+    código Kotlin (onUserLeaveHint chamando enterPictureInPictureMode)
+    já estava correto — faltava só essa declaração no manifest, sem
+    ela o sistema recusa a chamada com IllegalStateException
+    ("Current activity does not support picture-in-picture").
+
+=============================================================
+  ✅ NOVO: TECLADO NÃO EMPURRA MAIS O RODAPÉ NA BUSCA
+=============================================================
+
+  - SearchActivity agora declara android:windowSoftInputMode="adjustNothing".
+    Antes, o comportamento padrão (adjustResize) fazia a Activity inteira
+    ser redimensionada quando o teclado abria, o que empurrava o
+    BottomNavigationView pra cima junto com ele. Com adjustNothing, o
+    teclado passa a flutuar por cima do conteúdo sem redimensionar o
+    layout, então o rodapé fica fixo embaixo, como nos apps de
+    referência (Netflix/Prime). Isso não atrapalha a digitação porque
+    o campo de busca (etQuery) fica no topo da tela, longe de onde o
+    teclado cobre.
+
+=============================================================
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Necessárias pro download em segundo plano do Media3 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application
+        android:name=".VLTVApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:logo="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="VLTV+"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.VLTVPlay"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:launchMode="singleTask"
+        android:resizeableActivity="true"
+        tools:targetApi="31">
+
+        <!-- ✅ LAUNCHER NORMAL (ativo por padrão, desativado durante a copa)
+             Agora aponta pra SplashActivity em vez de LoginActivity. -->
+        <activity-alias
+            android:name=".LauncherNormal"
+            android:targetActivity=".SplashActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:label="VLTV+">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ LAUNCHER COPA 2026 (desativado por padrão, ativado pelo Firebase)
+             Também aponta pra SplashActivity. -->
+        <activity-alias
+            android:name=".LauncherCopa"
+            android:targetActivity=".SplashActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_copa"
+            android:roundIcon="@mipmap/ic_launcher_copa_round"
+            android:label="VLTV+">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ NOVA: SplashActivity — é ela quem assume o tema de splash e
+             a animação do wordmark. Sem intent-filter próprio: quem manda
+             no launcher são os aliases acima. -->
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.VLTVPlay.Splash"
+            android:screenOrientation="unspecified" />
+
+        <!-- LoginActivity: voltou ao tema normal, não é mais a entrada
+             direta do app (a SplashActivity que navega até ela). -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true"
+            android:theme="@style/Theme.VLTVPlay"
+            android:screenOrientation="unspecified" />
+
+        <!-- ✅ NOVO (temporário, pra debug): tela que mostra o stacktrace
+             completo quando o app crasha, em vez de só fechar. -->
+        <activity
+            android:name=".CrashActivity"
+            android:exported="false"
+            android:theme="@style/Theme.VLTVPlay"
+            android:screenOrientation="unspecified" />
+
+        <activity
+            android:name=".HomeActivity"
+            android:banner="@mipmap/ic_launcher"
+            android:exported="true"
+            android:screenOrientation="unspecified" />
+
+        <!-- ✅ CORRIGIDO: adicionado supportsPictureInPicture e
+             resizeableActivity, faltavam aqui (a PlayerActivity já
+             tinha). Sem eles o enterPictureInPictureMode() do Kotlin
+             era recusado pelo sistema com IllegalStateException. -->
+        <activity
+            android:name=".LiveTvActivity"
+            android:banner="@mipmap/ic_launcher"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|layoutDirection|keyboardHidden"
+            android:launchMode="singleTop"
+            android:screenOrientation="sensorLandscape" />
+
+        <activity
+            android:name=".PlayerActivity"
+            android:banner="@mipmap/ic_launcher"
+            android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden"
+            android:resizeableActivity="true"
+            android:screenOrientation="sensorLandscape" />
+
+        <!-- ✅ NOVO: Aba de Jogos Retrô -->
+        <activity
+            android:name=".retro.RetroGamesActivity"
+            android:exported="false"
+            android:label="@string/retro_games_tab_title"
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.VLTVPlay" />
+
+        <activity
+            android:name=".retro.RetroGamePlayerActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="sensorLandscape"
+            android:hardwareAccelerated="true"
+            android:theme="@style/Theme.VLTVPlay" />
+
+        <activity android:name=".VodActivity" android:banner="@mipmap/ic_launcher" android:screenOrientation="unspecified" />
+        <activity android:name=".DetailsActivity" android:banner="@mipmap/ic_launcher" android:screenOrientation="unspecified" />
+        <activity android:name=".SeriesActivity" android:banner="@mipmap/ic_launcher" android:screenOrientation="unspecified" />
+        <activity android:name=".SeriesDetailsActivity" android:banner="@mipmap/ic_launcher" android:screenOrientation="unspecified" />
+
+        <!-- ✅ CORRIGIDO: adjustNothing evita que o BottomNavigationView
+             suba junto com o teclado ao abrir a busca (ver nota acima). -->
+        <activity
+            android:name=".SearchActivity"
+            android:banner="@mipmap/ic_launcher"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustNothing" />
+
+        <activity android:name=".SettingsActivity" android:banner="@mipmap/ic_launcher" android:screenOrientation="unspecified" />
+        <activity android:name=".DownloadsActivity" android:banner="@mipmap/ic_launcher" android:screenOrientation="unspecified" />
+        <activity android:name=".KidsActivity" android:banner="@mipmap/ic_launcher" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".ProfilesActivity" android:exported="false" android:screenOrientation="sensorPortrait" android:theme="@style/Theme.AppCompat.NoActionBar" />
+        <activity android:name=".NovidadesActivity" android:screenOrientation="portrait" android:exported="false" />
+        <activity android:name=".EditProfileActivity" />
+        <activity android:name=".TmdbDetailsActivity" />
+        <activity android:name=".CopaMundoActivity" android:screenOrientation="portrait" />
+        <activity android:name=".SeriesEpisodesActivity" />
+        <activity android:name=".KidsDownloadsActivity" android:exported="false" />
+        <activity android:name=".KidsSeriesEpisodesActivity" android:exported="false" />
+        <activity android:name=".KidsMovieDownloadActivity" android:exported="false" />
+
+        <!-- Tela dedicada de gerenciamento de download de um filme
+             (equivalente à SeriesEpisodesActivity, mas para filme avulso) -->
+        <activity android:name=".MovieDownloadActivity" android:screenOrientation="unspecified" android:exported="false" />
+
+        <!-- Serviço de foreground que mantém os downloads do
+             Media3 rodando em segundo plano com notificação -->
+        <service
+            android:name=".download.VltvDownloadService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="androidx.media3.exoplayer.downloadService.action.RESTART" />
+            </intent-filter>
+        </service>
+
+    </application>
+
+</manifest>

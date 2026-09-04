@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- circle_avatar_ring.xml — anel dourado ao redor do avatar -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <stroke
+        android:width="2dp"
+        android:color="#B8860B" />
+    <solid android:color="@android:color/transparent" />
+</shape>

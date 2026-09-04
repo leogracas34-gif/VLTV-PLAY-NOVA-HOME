@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:layout_marginStart="8dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginTop="2dp"
+    android:layout_marginBottom="2dp"
+    android:paddingStart="12dp"
+    android:paddingEnd="10dp"
+    android:paddingTop="11dp"
+    android:paddingBottom="11dp"
+    android:focusable="true"
+    android:clickable="true">
+
+    <!-- Indicador de seleção — largura fixa, o resto do espaço vai
+         inteiro pro texto (ver layout_weight abaixo). Cor e visibilidade
+         controladas 100% via Kotlin (atualizarEstilo), o que está aqui
+         é só o estado inicial antes do primeiro bind. -->
+    <View
+        android:id="@+id/viewIndicator"
+        android:layout_width="3dp"
+        android:layout_height="18dp"
+        android:background="@drawable/bg_indicator_bar"
+        android:layout_marginEnd="10dp"
+        android:visibility="invisible"/>
+
+    <!-- ✅ Corrigido: era match_parent, o que brigava de espaço com o
+         indicador num LinearLayout horizontal. Agora é 0dp + weight=1,
+         que é a forma certa de dizer "ocupe o espaço restante". -->
+    <TextView
+        android:id="@+id/tvName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Categoria"
+        android:textColor="#88FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:ellipsize="end"/>
+
+</LinearLayout>

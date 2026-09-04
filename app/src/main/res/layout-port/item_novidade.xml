@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:layout_marginBottom="28dp">
+
+    <!-- Card da imagem — MaterialCardView dá cantos arredondados + sombra
+         reais, clipando o conteúdo automaticamente (sem precisar de outline
+         manual). Visual muito mais profissional que o FrameLayout quadrado
+         de antes. -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="220dp"
+        android:layout_marginHorizontal="14dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="#111111"
+        app:strokeWidth="0dp">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/imgFundoNovidade"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/gradient_card_scrim"/>
+
+            <View android:id="@+id/btnPlayTrailer"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone"/>
+
+        </FrameLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Logo do título (TMDB) — altura FIXA para não causar re-medição -->
+    <ImageView
+        android:id="@+id/imgLogoNovidade"
+        android:layout_width="200dp"
+        android:layout_height="64dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="14dp"
+        android:scaleType="fitStart"
+        android:visibility="gone"/>
+
+    <!-- Título texto (fallback) -->
+    <TextView
+        android:id="@+id/tvTituloNovidade"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="14dp"
+        android:textColor="#FFFFFF"
+        android:textSize="21sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-condensed"
+        android:letterSpacing="0.01"
+        android:ellipsize="end"
+        android:maxLines="2"/>
+
+    <!-- Tag (data de estreia ou posição Top 10) — agora em formato de badge/pill -->
+    <TextView
+        android:id="@+id/tvTagline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_badge_tagline"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        android:textColor="#FF5C5C"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.06"/>
+
+    <!-- Sinopse — altura fixa para evitar re-layout de texto -->
+    <TextView
+        android:id="@+id/tvSinopseNovidade"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="10dp"
+        android:maxLines="3"
+        android:ellipsize="end"
+        android:lineSpacingExtra="2dp"
+        android:textColor="#BFBFBF"
+        android:textSize="13sp"/>
+
+    <!-- Mensagem quando não disponível no servidor -->
+    <TextView
+        android:id="@+id/tvMensagemDisponibilidade"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:textColor="#99FFFFFF"
+        android:textSize="11.5sp"
+        android:textStyle="italic"
+        android:visibility="gone"/>
+
+    <!-- Botões de ação — MaterialButton: cantos arredondados, ripple nativo,
+         ícone integrado (sem precisar de ImageView+TextView manuais) -->
+    <LinearLayout
+        android:id="@+id/containerBotoesAtivos"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal"
+        android:weightSum="2">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnAssistirNovidade"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="ASSISTIR"
+            android:textAllCaps="false"
+            android:textColor="#000000"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.03"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:icon="@android:drawable/ic_media_play"
+            app:iconTint="#000000"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:iconSize="16dp"
+            app:cornerRadius="10dp"
+            app:backgroundTint="#FFFFFF"
+            app:rippleColor="#33000000"
+            app:elevation="0dp"
+            android:visibility="gone"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMinhaListaNovidade"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="DETALHES"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.03"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:icon="@android:drawable/ic_menu_info_details"
+            app:iconTint="#FFFFFF"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:iconSize="15dp"
+            app:cornerRadius="10dp"
+            app:strokeColor="#66FFFFFF"
+            app:strokeWidth="1dp"
+            app:rippleColor="#22FFFFFF"
+            app:elevation="0dp"/>
+
+    </LinearLayout>
+
+    <View android:id="@+id/tvNumeroTop10"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"/>
+    <View android:id="@+id/containerBotaoAviso"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="22dp"
+        android:background="#14FFFFFF"/>
+
+</LinearLayout>

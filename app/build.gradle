@@ -1,0 +1,198 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
+    id("kotlin-kapt")
+}
+
+android {
+    namespace = "com.vltv.play"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "com.vltv.play"
+        minSdk = 23
+        targetSdk = 36
+        versionCode = 9
+        versionName = "1.5.2"
+
+        multiDexEnabled = true
+
+        // ✅ NOVO: chave da TMDB agora vem do Secret TMDB_API_KEY do GitHub
+        // Actions (via variável de ambiente), em vez de ficar fixa no
+        // código-fonte. O valor depois de "?:" é só um fallback pra build
+        // local continuar funcionando caso a variável de ambiente não
+        // esteja definida (ex: build feito direto no computador, fora do
+        // Actions) — troque-o pela sua chave se for compilar localmente.
+        buildConfigField "String", "TMDB_API_KEY", "\"${System.getenv("TMDB_API_KEY") ?: "9b73f5dd15b8165b1b57419be2f29128"}\""
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
+    // ✅ NOVO: keystore de RELEASE fixa (release.keystore, um nível acima da
+    // pasta app/, igual ao esquema já usado pra debug.keystore). O
+    // GitHub Actions recria esse arquivo a partir do Secret
+    // RELEASE_KEYSTORE_BASE64 a cada build — o arquivo em si NUNCA fica
+    // commitado no repositório. A senha (mesma pra store e key, formato
+    // PKCS12) vem do Secret RELEASE_STORE_PASSWORD via variável de
+    // ambiente, também sem ficar exposta no código.
+    signingConfigs {
+        debug {
+            storeFile file("../debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+        release {
+            storeFile file("../release.keystore")
+            storePassword System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+            keyAlias "vltvplay"
+            keyPassword System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig signingConfigs.release
+        }
+        debug {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    // ✅ NOVO: renomeia o APK de saída pra "VLTV-Play.apk" (build de
+    // release) — o nome final já sai pronto pra subir na VPS, sem
+    // precisar baixar do GitHub Actions e renomear na mão toda vez.
+    // O ".apk" no final é obrigatório: sem a extensão, o Android não
+    // reconhece o arquivo como instalável.
+    applicationVariants.all { variant ->
+        if (variant.buildType.name == "release") {
+            variant.outputs.all { output ->
+                outputFileName = "VLTV-Play.apk"
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+        languageVersion = "2.1"
+        apiVersion = "2.1"
+    }
+
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+kapt {
+    correctErrorTypes = true
+    javacOptions {
+        option("-source", "17")
+        option("-target", "17")
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.3.20")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.20")
+    }
+}
+
+dependencies {
+    // Essenciais
+    implementation("androidx.core:core-ktx:1.19.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("com.google.android.material:material:1.14.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.2")
+    implementation("androidx.multidex:multidex:2.0.1")
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
+    implementation("androidx.cardview:cardview:1.0.0")
+
+    // ROOM DATABASE
+    def room_version = "2.8.4"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    kapt("androidx.room:room-compiler:$room_version")
+
+    // FIREBASE
+    // ⚠️ A partir do BoM 34.0.0 as bibliotecas -ktx foram descontinuadas e
+    // fundidas nos artefatos normais (Firebase.remoteConfig etc. já vêm
+    // embutidos). Por isso os artefatos abaixo NÃO têm mais o sufixo -ktx.
+    // Os imports de com.google.firebase.ktx.Firebase e
+    // com.google.firebase.remoteconfig.ktx.remoteConfig também mudam para
+    // com.google.firebase.Firebase e com.google.firebase.remoteconfig.remoteConfig
+    // — já corrigi isso em IconeSazonalHelper.kt e HomeActivity.kt.
+    implementation(platform("com.google.firebase:firebase-bom:34.15.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-config")
+    implementation("com.google.firebase:firebase-auth")
+
+    // Rede e Imagens
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    implementation("com.github.bumptech.glide:glide:5.0.5")
+    // ✅ NOVO: integração do Glide com OkHttp 3.x. Usada pelo
+    // VltvGlideModule.kt para trocar o carregador de rede padrao do Glide
+    // (timeout curto, ~2,5s) por um OkHttpClient com timeout maior e
+    // retry automatico, corrigindo capas que nao carregavam em aparelhos
+    // ou internet mais fracos. O "exclude" evita duplicar o OkHttp, ja
+    // que o projeto ja declara sua propria versao dele logo abaixo.
+    implementation("com.github.bumptech.glide:okhttp3-integration:5.0.5") {
+        exclude group: "com.squareup.okhttp3", module: "okhttp"
+    }
+    implementation("com.squareup.okhttp3:okhttp:5.4.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:5.4.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:5.4.0")
+
+    // Player de Vídeo (Media3/ExoPlayer)
+    // ⚠️ media3 1.10.1 exige compileSdk 36+; agora que o projeto está em
+    // compileSdk 37 / AGP 9.3.0, essas versões compilam normalmente.
+    def media3_version = "1.10.1"
+    implementation("androidx.media3:media3-exoplayer:$media3_version")
+    implementation("androidx.media3:media3-ui:$media3_version")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3_version")
+    implementation("androidx.media3:media3-common:$media3_version")
+
+    // YouTube Player (Trailer)
+    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+
+    // ❌ REMOVIDO: Cast Framework (com.google.android.gms:play-services-cast-framework)
+    // Removido porque a inicialização do CastContext fazia o ícone de
+    // cast/compartilhamento de tela aparecer permanentemente no status bar
+    // do Android, mesmo sem nenhum Chromecast conectado, e a descoberta de
+    // dispositivos na rede não estava funcionando. Se quiser reativar o
+    // Cast no futuro, basta devolver esta linha:
+    // implementation("com.google.android.gms:play-services-cast-framework:21.4.0")
+
+    implementation("androidx.palette:palette-ktx:1.0.0")
+    implementation("com.google.android.flexbox:flexbox:3.0.0")
+
+    kapt("com.github.bumptech.glide:compiler:5.0.5")
+}

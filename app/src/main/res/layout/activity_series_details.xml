@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0A0A0A">
+
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <com.google.android.material.appbar.AppBarLayout
+            android:id="@+id/appBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent">
+
+            <com.google.android.material.appbar.CollapsingToolbarLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:layout_scrollFlags="scroll|exitUntilCollapsed">
+
+                <!-- HERO — reduzido para paisagem -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="360dp"
+                    app:layout_collapseMode="parallax">
+
+                    <ImageView
+                        android:id="@+id/imgBackground"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"/>
+
+                    <WebView
+                        android:id="@+id/webViewTrailer"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="invisible"
+                        android:alpha="0"/>
+
+                    <View
+                        android:id="@+id/viewTrailerBlocker"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@android:color/transparent"
+                        android:clickable="true"
+                        android:focusable="false"/>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_gradient_details"/>
+
+                    <ProgressBar
+                        android:id="@+id/trailerLoadingSpinner"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="center"
+                        android:indeterminateTint="#AAFFFFFF"
+                        android:visibility="gone"/>
+
+                    <ImageView
+                        android:id="@+id/btnToggleMute"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="24dp"
+                        android:layout_marginEnd="24dp"
+                        android:src="@drawable/ic_volume_off"
+                        android:padding="8dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:elevation="12dp"
+                        android:visibility="gone"
+                        android:contentDescription="Mudo"/>
+
+                </FrameLayout>
+
+                <!-- Conteúdo — coluna central com largura máxima -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom"
+                    android:orientation="vertical"
+                    android:paddingBottom="20dp">
+
+                    <Space
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp" />
+
+                    <LinearLayout
+                        android:layout_width="720dp"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <ImageView
+                            android:id="@+id/imgTitleLogo"
+                            android:layout_width="360dp"
+                            android:layout_height="130dp"
+                            android:layout_gravity="center"
+                            android:visibility="gone"
+                            android:scaleType="fitCenter" />
+
+                        <TextView
+                            android:id="@+id/tvTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:textColor="#FFFFFF"
+                            android:textSize="30sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:gravity="center"
+                            android:layout_marginTop="8dp">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center">
+
+                                <TextView
+                                    android:id="@+id/tvRating"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="#FFD700"
+                                    android:textStyle="bold"
+                                    android:layout_marginEnd="8dp"/>
+
+                                <TextView
+                                    android:id="@+id/tvReleaseDate"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="13sp"
+                                    android:layout_marginEnd="8dp"/>
+
+                                <TextView
+                                    android:id="@+id/tvGenre"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="13sp"/>
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tvCreatedBy"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="#999999"
+                                android:textSize="12sp"
+                                android:layout_marginTop="4dp"/>
+
+                            <LinearLayout
+                                android:id="@+id/llTechBadges"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="8dp"
+                                android:visibility="gone">
+                                <TextView android:id="@+id/tvBadge4k" android:text="4K" android:background="#33FFFFFF" android:paddingHorizontal="5dp" android:layout_marginEnd="5dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                                <TextView android:id="@+id/tvBadgeHdr" android:text="HDR" android:background="#33FFFFFF" android:paddingHorizontal="5dp" android:layout_marginEnd="5dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                                <TextView android:id="@+id/tvBadgeDolby" android:text="ATMOS" android:background="#33FFFFFF" android:paddingHorizontal="5dp" android:layout_marginEnd="5dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                                <TextView android:id="@+id/tvBadge51" android:text="5.1" android:background="#33FFFFFF" android:paddingHorizontal="5dp" android:layout_marginEnd="5dp" android:textColor="#FFF" android:textSize="11sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone"/>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <FrameLayout
+                            android:layout_width="420dp"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_horizontal"
+                            android:layout_marginTop="20dp">
+
+                            <Button
+                                android:id="@+id/btnPlay"
+                                android:layout_width="match_parent"
+                                android:layout_height="54dp"
+                                android:backgroundTint="#FFFFFF"
+                                android:text="▶ ASSISTIR"
+                                android:textColor="#000000"
+                                android:textStyle="bold"
+                                android:textSize="16sp"
+                                android:focusable="true"
+                                android:nextFocusDown="@id/tabLayout"/>
+
+                            <Button
+                                android:id="@+id/btnResume"
+                                android:layout_width="match_parent"
+                                android:layout_height="54dp"
+                                android:backgroundTint="#FFFFFF"
+                                android:text="▶ CONTINUAR"
+                                android:textColor="#000000"
+                                android:textStyle="bold"
+                                android:textSize="16sp"
+                                android:visibility="gone"
+                                android:focusable="true"
+                                android:nextFocusDown="@id/tabLayout"/>
+                        </FrameLayout>
+
+                        <LinearLayout
+                            android:id="@+id/layoutProgress"
+                            android:layout_width="420dp"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_horizontal"
+                            android:orientation="vertical"
+                            android:visibility="gone"
+                            android:layout_marginTop="12dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <ProgressBar
+                                    android:id="@+id/progressBarMovie"
+                                    style="?android:attr/progressBarStyleHorizontal"
+                                    android:layout_width="0dp"
+                                    android:layout_height="4dp"
+                                    android:layout_weight="1"
+                                    android:progressBackgroundTint="#333333"
+                                    android:progress="0" />
+
+                                <TextView
+                                    android:id="@+id/tvTimeRemaining"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="--min"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="11sp"
+                                    android:layout_marginStart="8dp"/>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/btnRestartAction"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center"
+                                android:layout_marginTop="8dp"
+                                android:layout_gravity="center_horizontal"
+                                android:padding="8dp"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:background="@drawable/selector_downloads_premium">
+
+                                <ImageView
+                                    android:layout_width="18dp"
+                                    android:layout_height="18dp"
+                                    android:src="@android:drawable/ic_menu_rotate"
+                                    app:tint="#CCCCCC"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Assistir do Início"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="13sp"
+                                    android:layout_marginStart="6dp"/>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="420dp"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center_horizontal"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="16dp"
+                            android:gravity="center">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="center"
+                                android:layout_weight="1"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <ImageButton
+                                    android:id="@+id/btnFavorite"
+                                    android:layout_width="30dp"
+                                    android:layout_height="30dp"
+                                    android:background="@android:color/transparent"
+                                    android:src="@android:drawable/btn_star_big_off"
+                                    android:focusable="false"
+                                    android:scaleType="fitCenter"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Minha Lista"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:layout_marginTop="4dp"/>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/btnDownloadArea"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="center"
+                                android:layout_weight="1"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:visibility="visible">
+
+                                <ImageView
+                                    android:id="@+id/imgDownloadState"
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:src="@android:drawable/stat_sys_download"
+                                    app:tint="#FFFFFF" />
+
+                                <TextView
+                                    android:id="@+id/tvDownloadState"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Baixar"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="11sp"
+                                    android:layout_marginTop="8dp"/>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvPlot"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:maxLines="3"
+                            android:ellipsize="end"
+                            android:lineSpacingExtra="3dp"
+                            android:textColor="#DDDDDD"
+                            android:textSize="14sp"
+                            android:gravity="center"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.appbar.CollapsingToolbarLayout>
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabLayout"
+                android:layout_width="720dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:background="#0A0A0A"
+                app:tabIndicatorColor="#FFFFFF"
+                app:tabSelectedTextColor="#FFFFFF"
+                app:tabTextColor="#888888" />
+
+        </com.google.android.material.appbar.AppBarLayout>
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="40dp">
+
+                <RelativeLayout
+                    android:id="@+id/seasonHeaderContainer"
+                    android:layout_width="720dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:paddingVertical="14dp">
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#333333">
+
+                        <TextView
+                            android:id="@+id/btnSeasonSelector"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:paddingHorizontal="18dp"
+                            android:paddingVertical="10dp"
+                            android:text="Temporada 1 ▼"
+                            android:textColor="#FFFFFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:nextFocusDown="@id/recyclerEpisodes" />
+                    </androidx.cardview.widget.CardView>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Temporada"
+                            android:textColor="#CCCCCC"
+                            android:textSize="13sp"
+                            android:layout_marginEnd="8dp" />
+
+                        <Button
+                            android:id="@+id/btnDownloadSeason"
+                            android:layout_width="34dp"
+                            android:layout_height="34dp"
+                            android:background="@android:drawable/stat_sys_download"
+                            android:backgroundTint="#FFFFFF"
+                            android:focusable="true"
+                            android:visibility="visible" />
+                    </LinearLayout>
+
+                </RelativeLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerEpisodes"
+                    android:layout_width="720dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:nestedScrollingEnabled="false" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerSuggestions"
+                    android:layout_width="720dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:visibility="gone"
+                    android:nestedScrollingEnabled="false" />
+
+                <TextView
+                    android:id="@+id/tvCast"
+                    android:layout_width="720dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:visibility="gone" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerCast"
+                    android:layout_width="720dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:visibility="gone"
+                    android:nestedScrollingEnabled="false" />
+
+                <ImageView
+                    android:id="@+id/imgPoster"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:visibility="gone" />
+
+                <TextView android:id="@+id/btnCloseSeasonSelectorText" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+                <TextView android:id="@+id/tvSeriesCast" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone"/>
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    <ImageButton
+        android:id="@+id/btnCloseDetails"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="24dp"
+        android:background="@drawable/bg_circle_dark"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        android:focusable="true"
+        app:tint="#FFFFFF" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#000000"
+        android:focusable="true"
+        app:itemIconTint="@color/white"
+        app:itemTextColor="@color/white"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/bottom_nav_menu" />
+
+</FrameLayout>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0D0D0D"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="32dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:id="@+id/btnBackMovieDownload"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:text="‹"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:gravity="center"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="@drawable/selector_downloads_premium" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Download do Filme"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingEnd="48dp" />
+        </LinearLayout>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="200dp"
+            android:layout_height="300dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="6dp">
+
+            <ImageView
+                android:id="@+id/imgMoviePoster"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:id="@+id/tvMovieName"
+            android:layout_width="700dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="21sp"
+            android:textStyle="bold"
+            android:maxLines="2" />
+
+        <TextView
+            android:id="@+id/tvMovieStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:textColor="#A6FFFFFF"
+            android:textSize="15sp" />
+
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="24dp">
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/pbMovieProgress"
+                android:layout_width="110dp"
+                android:layout_height="110dp"
+                app:indicatorColor="#E50914"
+                app:trackColor="#33FFFFFF"
+                app:trackThickness="7dp"
+                android:max="100" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tvMoviePercent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="480dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:orientation="vertical"
+            android:layout_marginTop="32dp">
+
+            <Button
+                android:id="@+id/btnMoviePrimary"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="▶  Assistir"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:backgroundTint="#FFFFFF"
+                android:textColor="#000000"
+                android:focusable="true"
+                android:nextFocusDown="@id/btnMovieSecondary" />
+
+            <Button
+                android:id="@+id/btnMovieSecondary"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="14dp"
+                android:text="Excluir Download"
+                android:textAllCaps="false"
+                android:textStyle="bold"
+                android:backgroundTint="#2E2E38"
+                android:textColor="#FFFFFF"
+                android:focusable="true"
+                android:nextFocusUp="@id/btnMoviePrimary"
+                android:nextFocusDown="@id/btnVerDetalhesFilme" />
+
+            <Button
+                android:id="@+id/btnVerDetalhesFilme"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="14dp"
+                android:text="Ver Detalhes do Filme"
+                android:textAllCaps="false"
+                android:backgroundTint="#1A1A1A"
+                android:textColor="#AAAAAA"
+                android:focusable="true"
+                android:nextFocusUp="@id/btnMovieSecondary" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

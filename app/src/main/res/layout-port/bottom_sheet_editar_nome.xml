@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    bottom_sheet_editar_nome.xml
+    BottomSheet para editar o nome do perfil — design premium VLTV Play
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_bottom_sheet_rounded">
+
+    <!-- Handle de arraste -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_sheet_handle"/>
+
+    <!-- Título do sheet -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Editar Nome"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-condensed"
+        android:letterSpacing="0.02"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="4dp"/>
+
+    <!-- Campo de texto estilizado -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp">
+
+        <EditText
+            android:id="@+id/etEditarNome"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:paddingHorizontal="16dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#66FFFFFF"
+            android:hint="Nome do perfil"
+            android:textSize="15sp"
+            android:fontFamily="sans-serif"
+            android:background="@drawable/bg_input_dark"
+            android:inputType="textPersonName|textCapWords"
+            android:maxLines="1"
+            android:imeOptions="actionDone"
+            android:singleLine="true"/>
+    </FrameLayout>
+
+    <!-- Botões em linha -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:gravity="end">
+
+        <!-- Cancelar -->
+        <TextView
+            android:id="@+id/btnCancelarNome"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="CANCELAR"
+            android:textColor="#888888"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.08"
+            android:gravity="center"
+            android:paddingHorizontal="20dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"/>
+
+        <!-- Salvar -->
+        <TextView
+            android:id="@+id/btnSalvarNome"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="SALVAR"
+            android:textColor="#E50914"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.08"
+            android:gravity="center"
+            android:paddingHorizontal="20dp"
+            android:layout_marginStart="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"/>
+    </LinearLayout>
+
+    <!-- Espaço inferior — padding para respirar acima do teclado -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="300dp"/>
+
+</LinearLayout>

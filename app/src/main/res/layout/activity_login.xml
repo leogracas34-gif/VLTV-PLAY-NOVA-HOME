@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#080808">
+
+    <!-- Fundo com gradiente radial vermelho (igual ao celular) -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_login_radial"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Card central — em paisagem a largura fica limitada em dp fixo
+         pra não esticar feio numa TV grande -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/cardLogin"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="36dp"
+        android:background="@drawable/bg_login_card_premium"
+        android:elevation="32dp"
+        app:layout_constraintWidth_max="460dp"
+        app:layout_constraintWidth_percent="0.42"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Logo -->
+        <LinearLayout
+            android:id="@+id/layoutLogo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="bottom">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="VLTV"
+                    android:textColor="#FFFFFF"
+                    android:textSize="48sp"
+                    android:fontFamily="sans-serif-condensed"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.10"
+                    android:shadowColor="#99E50914"
+                    android:shadowDx="0"
+                    android:shadowDy="0"
+                    android:shadowRadius="18"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+"
+                    android:textColor="#E50914"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp"
+                    android:shadowColor="#CCE50914"
+                    android:shadowDx="0"
+                    android:shadowDy="0"
+                    android:shadowRadius="16"/>
+
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ENTRETENIMENTO PREMIUM"
+                android:textColor="#55FFFFFF"
+                android:textSize="9sp"
+                android:letterSpacing="0.30"
+                android:layout_marginTop="2dp"/>
+
+            <!-- Divisor dourado -->
+            <View
+                android:layout_width="40dp"
+                android:layout_height="1dp"
+                android:background="@drawable/bg_gold_divider"
+                android:layout_marginTop="10dp"/>
+
+        </LinearLayout>
+
+        <!-- Subtitle -->
+        <TextView
+            android:id="@+id/tvSubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ACESSE SUA CONTA"
+            android:textColor="#44FFFFFF"
+            android:textSize="10sp"
+            android:letterSpacing="0.22"
+            android:layout_marginTop="18dp"
+            app:layout_constraintTop_toBottomOf="@id/layoutLogo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Campo usuário -->
+        <EditText
+            android:id="@+id/etUsername"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_login_input_premium"
+            android:paddingStart="44dp"
+            android:paddingEnd="14dp"
+            android:hint="Usuário"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#44FFFFFF"
+            android:textSize="15sp"
+            android:inputType="text"
+            android:imeOptions="actionNext"
+            android:singleLine="true"
+            android:drawableStart="@drawable/ic_login_user"
+            android:drawablePadding="8dp"
+            android:drawableTint="#44FFFFFF"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusDown="@id/etPassword"
+            app:layout_constraintTop_toBottomOf="@id/tvSubtitle"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Campo senha -->
+        <EditText
+            android:id="@+id/etPassword"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_login_input_premium"
+            android:paddingStart="44dp"
+            android:paddingEnd="14dp"
+            android:hint="Senha"
+            android:inputType="textPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#44FFFFFF"
+            android:textSize="15sp"
+            android:imeOptions="actionDone"
+            android:singleLine="true"
+            android:drawableStart="@drawable/ic_lock"
+            android:drawablePadding="8dp"
+            android:drawableTint="#44FFFFFF"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusUp="@id/etUsername"
+            android:nextFocusDown="@id/btnLogin"
+            app:layout_constraintTop_toBottomOf="@id/etUsername"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Botão ENTRAR -->
+        <Button
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="54dp"
+            android:layout_marginTop="22dp"
+            android:background="@drawable/bg_button_login_neon"
+            android:backgroundTint="@null"
+            app:backgroundTint="@null"
+            android:text="ENTRAR"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:letterSpacing="0.18"
+            android:textStyle="bold"
+            android:elevation="6dp"
+            android:stateListAnimator="@null"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:clickable="true"
+            android:nextFocusUp="@id/etPassword"
+            app:layout_constraintTop_toBottomOf="@id/etPassword"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
+        <!-- Bloco de loading: oculto até clicar ENTRAR -->
+        <LinearLayout
+            android:id="@+id/layoutLoading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="20dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/btnLogin"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="10dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Conectando ao servidor"
+                    android:textColor="#88FFFFFF"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.10"/>
+
+                <TextView
+                    android:id="@+id/tvLoadingDots"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="..."
+                    android:textColor="#88FFFFFF"
+                    android:textSize="11sp"
+                    android:layout_marginStart="3dp"/>
+
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:indeterminate="true"
+                android:indeterminateTint="#E50914"
+                android:progressTint="#E50914"
+                android:progressBackgroundTint="#1AFFFFFF"/>
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Rodapé -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ACESSO SEGURO · VLTV PLAY"
+        android:textColor="#1AFFFFFF"
+        android:textSize="8sp"
+        android:letterSpacing="0.20"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

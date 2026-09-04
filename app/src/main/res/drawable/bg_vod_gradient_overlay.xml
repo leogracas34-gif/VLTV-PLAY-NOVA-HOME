@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- bg_vod_gradient_overlay.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:bottomLeftRadius="12dp" android:bottomRightRadius="12dp"/>
+    <gradient
+        android:startColor="#00000000"
+        android:endColor="#EE000000"
+        android:angle="270"/>
+</shape>

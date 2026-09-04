@@ -1,0 +1,42 @@
+name: Atualizar catálogo de avatares
+
+# Roda manualmente: abra o app do GitHub (ou o site) no celular > Actions >
+# "Atualizar catálogo de avatares" > Run workflow. Não precisa de computador.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  gerar-avatares:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install requests pillow
+
+      - name: Gerar avatares (busca no TMDB + recorte quadrado)
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python3 scripts/gerar_avatares.py
+
+      - name: Copiar PNGs para o res/drawable
+        run: |
+          mkdir -p app/src/main/res/drawable
+          cp saida/*.png app/src/main/res/drawable/
+
+      - name: Commitar e enviar (push)
+        run: |
+          git config user.name "vltv-bot"
+          git config user.email "bot@vltvplay.tech"
+          git add app/src/main/res/drawable/av_*.png
+          git diff --cached --quiet || git commit -m "chore: atualiza catálogo de avatares (automático)"
+          git push

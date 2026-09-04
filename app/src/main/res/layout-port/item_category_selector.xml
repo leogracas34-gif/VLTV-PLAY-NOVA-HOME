@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="14dp"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- ✅ Indicador de selecionado (barra vertical vermelha à esquerda) -->
+    <View
+        android:id="@+id/viewCheck"
+        android:layout_width="3dp"
+        android:layout_height="22dp"
+        android:background="#E50914"
+        android:layout_marginEnd="14dp"
+        android:visibility="invisible"/>
+
+    <!-- Nome da categoria -->
+    <TextView
+        android:id="@+id/tvCatName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="#AAAAAA"
+        android:textSize="15sp"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:ellipsize="end"/>
+
+    <!-- Badge de contagem (ex: "3" para Continuar Assistindo) -->
+    <TextView
+        android:id="@+id/tvCatCount"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:background="@drawable/bg_badge_red"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:visibility="gone"/>
+
+</LinearLayout>

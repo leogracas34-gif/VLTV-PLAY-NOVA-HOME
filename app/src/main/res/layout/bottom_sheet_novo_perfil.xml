@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    bottom_sheet_novo_perfil.xml (TV)
+    Usado em ProfilesActivity.addNewProfile()
+    IDs esperados: etNovoNome, btnSalvarNovoPerfil, btnCancelarNovoPerfil
+    Em TV o BottomSheetDialog fica centralizado com largura fixa em vez
+    de ocupar a tela toda, e cada opção é navegável por D-pad.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="140dp"
+    android:paddingVertical="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:orientation="vertical"
+        android:background="@drawable/bg_bottom_sheet_rounded">
+
+        <!-- Cabeçalho -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingTop="22dp"
+            android:paddingBottom="20dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="NOVO PERFIL"
+                    android:textColor="#88FFFFFF"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.12"
+                    android:fontFamily="sans-serif-medium"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Escolha um nome"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-condensed"
+                    android:letterSpacing="0.01"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF"
+            android:layout_marginHorizontal="28dp"/>
+
+        <!-- Campo de nome -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="8dp">
+
+            <FrameLayout
+                android:layout_width="42dp"
+                android:layout_height="42dp">
+                <View
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_option_icon_circle_edit"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_person"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Nome do perfil"/>
+            </FrameLayout>
+
+            <EditText
+                android:id="@+id/etNovoNome"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:hint="Nome do perfil"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#66FFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"
+                android:inputType="textPersonName"
+                android:maxLines="1"
+                android:background="@android:color/transparent"
+                android:paddingVertical="8dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:nextFocusDown="@id/btnSalvarNovoPerfil"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF"
+            android:layout_marginHorizontal="28dp"
+            android:layout_marginBottom="8dp"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF"
+            android:layout_marginHorizontal="28dp"
+            android:layout_marginTop="4dp"/>
+
+        <!-- Botão: Salvar -->
+        <LinearLayout
+            android:id="@+id/btnSalvarNovoPerfil"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:background="@drawable/selector_downloads_premium"
+            android:clickable="true"
+            android:focusable="true"
+            android:nextFocusUp="@id/etNovoNome"
+            android:nextFocusDown="@id/btnCancelarNovoPerfil">
+
+            <FrameLayout
+                android:layout_width="42dp"
+                android:layout_height="42dp">
+                <View
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_option_icon_circle_avatar"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_edit"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Salvar"/>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Criar Perfil"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"/>
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="#44FFFFFF"
+                android:contentDescription=""/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF"
+            android:layout_marginHorizontal="28dp"
+            android:layout_marginTop="4dp"/>
+
+        <!-- Botão: Cancelar -->
+        <LinearLayout
+            android:id="@+id/btnCancelarNovoPerfil"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:background="@drawable/selector_downloads_premium"
+            android:clickable="true"
+            android:focusable="true"
+            android:nextFocusUp="@id/btnSalvarNovoPerfil">
+
+            <FrameLayout
+                android:layout_width="42dp"
+                android:layout_height="42dp">
+                <View
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_option_icon_circle_delete"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_delete"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Cancelar"/>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Cancelar"
+                android:textColor="#FF4444"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"/>
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="#44FF4444"
+                android:contentDescription=""/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="20dp"/>
+
+    </LinearLayout>
+</FrameLayout>

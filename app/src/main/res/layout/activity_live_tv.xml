@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#060610">
+
+    <!-- ══════════════════════════════════════════════════════════════
+         COLUNA 1 — Categorias
+         ══════════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/sidebarCategories"
+        android:layout_width="190dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:background="@drawable/bg_panel_card"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            android:paddingTop="18dp"
+            android:paddingBottom="12dp"
+            android:gravity="center_vertical">
+
+            <View
+                android:layout_width="3dp"
+                android:layout_height="14dp"
+                android:background="@drawable/bg_epg_header_accent"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CATEGORIAS"
+                android:textColor="#99FFFFFF"
+                android:textSize="9.5sp"
+                android:letterSpacing="0.22"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@drawable/bg_section_divider"
+            android:layout_marginHorizontal="6dp"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCategories"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingTop="8dp"
+            android:paddingBottom="10dp"
+            android:paddingHorizontal="4dp"
+            android:overScrollMode="never"
+            android:clipToPadding="false"/>
+    </LinearLayout>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         COLUNA 2 — Lista de canais da categoria
+         ══════════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/columnChannels"
+        android:layout_width="250dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:background="#0A0A14"
+        android:paddingStart="12dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="6dp"
+        app:layout_constraintStart_toEndOf="@id/sidebarCategories"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp"
+            android:paddingEnd="6dp">
+
+            <View
+                android:layout_width="3dp"
+                android:layout_height="18dp"
+                android:background="@drawable/bg_epg_header_accent"
+                android:layout_marginEnd="9dp"/>
+
+            <TextView
+                android:id="@+id/tvCategoryTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Carregando..."
+                android:textColor="#FFFFFF"
+                android:textSize="14.5sp"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:indeterminateTint="#E50914"
+                android:visibility="gone"/>
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvChannels"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:overScrollMode="never"
+            android:clipToPadding="false"/>
+    </LinearLayout>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         PLAYER — único, fixo. Mesma altura mini (280dp) e mesmo
+         comportamento de expansão via ConstraintSet (inalterado).
+         ══════════════════════════════════════════════════════════════ -->
+    <FrameLayout
+        android:id="@+id/playerCard"
+        android:layout_width="0dp"
+        android:layout_height="280dp"
+        android:background="#000000"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        app:layout_constraintStart_toEndOf="@id/columnChannels"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:elevation="6dp">
+
+        <androidx.media3.ui.PlayerView
+            android:id="@+id/playerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:resize_mode="fill"
+            app:use_controller="false"
+            app:surface_type="surface_view"/>
+
+        <ProgressBar
+            android:id="@+id/playerLoading"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="center"
+            android:indeterminateTint="#E50914"
+            android:visibility="visible"/>
+
+        <!-- Faixa inferior com nome do canal — modo MINI.
+             Agora com scrim em gradiente em vez de cor chapada,
+             pra ficar mais elegante e o texto sempre legível. -->
+        <LinearLayout
+            android:id="@+id/playerMiniInfoBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:background="@drawable/bg_player_scrim_bottom"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="20dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvPlayerChannelName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Selecione um canal"
+                android:textColor="#FFFFFF"
+                android:textSize="11.5sp"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+        </LinearLayout>
+
+        <!-- HUD de informação — modo EXPANDIDO. Mesmo comportamento
+             de toggle ao tocar; só o visual foi refinado. -->
+        <LinearLayout
+            android:id="@+id/expandedInfoBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:orientation="vertical"
+            android:background="@drawable/bg_player_scrim_bottom"
+            android:rotation="180"
+            android:paddingHorizontal="18dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="18dp"
+            android:visibility="gone">
+
+            <!-- Conteúdo interno "des-rotacionado" pra compensar o
+                 truque do scrim invertido acima -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:rotation="180">
+
+                <TextView
+                    android:id="@+id/tvExpandedChannelName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Canal"
+                    android:textColor="#FFFFFF"
+                    android:textSize="17sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end"/>
+
+                <TextView
+                    android:id="@+id/tvExpandedNowPlaying"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text=""
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="12.5sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"/>
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         Programação (EPG) — mesmo espaço/posição de antes, só com
+         cabeçalho mais elegante (barrinha gradiente + tipografia).
+         ══════════════════════════════════════════════════════════════ -->
+    <LinearLayout
+        android:id="@+id/epgContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:background="#0A0A14"
+        android:paddingHorizontal="14dp"
+        android:paddingTop="12dp"
+        app:layout_constraintStart_toStartOf="@id/playerCard"
+        app:layout_constraintEnd_toEndOf="@id/playerCard"
+        app:layout_constraintTop_toBottomOf="@id/playerCard"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <View
+                android:layout_width="3dp"
+                android:layout_height="12dp"
+                android:background="@drawable/bg_epg_header_accent"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PROGRAMAÇÃO"
+                android:textColor="#99FFFFFF"
+                android:textSize="9.5sp"
+                android:letterSpacing="0.18"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@drawable/bg_section_divider"
+            android:layout_marginBottom="6dp"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvEpgProgram"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:overScrollMode="never"
+            android:clipToPadding="false"/>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- bg_pill_green.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="4dp"/>
+    <gradient
+        android:startColor="#7DDF64"
+        android:endColor="#2EA44F"
+        android:angle="270"/>
+</shape>

@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    bottom_sheet_perfil_opcoes.xml (TV)
+    Usado em ProfilesActivity.showEditOptions()
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="140dp"
+    android:paddingVertical="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:orientation="vertical"
+        android:background="@drawable/bg_bottom_sheet_rounded">
+
+        <!-- Cabeçalho: avatar + nome do perfil -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:paddingTop="22dp"
+            android:paddingBottom="20dp">
+
+            <ImageView
+                android:id="@+id/ivSheetAvatar"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:scaleType="centerCrop"
+                android:contentDescription="Avatar"/>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="16dp">
+
+                <TextView
+                    android:id="@+id/tvSheetLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PERFIL"
+                    android:textColor="#88FFFFFF"
+                    android:textSize="11sp"
+                    android:letterSpacing="0.12"
+                    android:fontFamily="sans-serif-medium"/>
+
+                <TextView
+                    android:id="@+id/tvSheetNome"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Leandro"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-condensed"
+                    android:letterSpacing="0.01"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF"
+            android:layout_marginHorizontal="28dp"/>
+
+        <!-- Opção: Editar Nome -->
+        <LinearLayout
+            android:id="@+id/optionEditarNome"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:background="@drawable/selector_downloads_premium"
+            android:clickable="true"
+            android:focusable="true"
+            android:nextFocusDown="@id/optionTrocarAvatar">
+
+            <FrameLayout
+                android:layout_width="42dp"
+                android:layout_height="42dp">
+                <View
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_option_icon_circle_edit"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_edit"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Editar nome"/>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Editar Nome"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"/>
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="#44FFFFFF"
+                android:contentDescription=""/>
+        </LinearLayout>
+
+        <!-- Opção: Trocar Avatar -->
+        <LinearLayout
+            android:id="@+id/optionTrocarAvatar"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:background="@drawable/selector_downloads_premium"
+            android:clickable="true"
+            android:focusable="true"
+            android:nextFocusUp="@id/optionEditarNome"
+            android:nextFocusDown="@id/optionExcluirPerfil">
+
+            <FrameLayout
+                android:layout_width="42dp"
+                android:layout_height="42dp">
+                <View
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_option_icon_circle_avatar"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_person"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Trocar avatar"/>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Trocar Avatar"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"/>
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="#44FFFFFF"
+                android:contentDescription=""/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#1AFFFFFF"
+            android:layout_marginHorizontal="28dp"
+            android:layout_marginTop="4dp"/>
+
+        <!-- Opção: Excluir Perfil (destrutiva) -->
+        <LinearLayout
+            android:id="@+id/optionExcluirPerfil"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="28dp"
+            android:background="@drawable/selector_downloads_premium"
+            android:clickable="true"
+            android:focusable="true"
+            android:nextFocusUp="@id/optionTrocarAvatar">
+
+            <FrameLayout
+                android:layout_width="42dp"
+                android:layout_height="42dp">
+                <View
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_option_icon_circle_delete"/>
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_delete"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="Excluir perfil"/>
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="16dp"
+                android:text="Excluir Perfil"
+                android:textColor="#FF4444"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif"/>
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_chevron_right"
+                android:tint="#44FF4444"
+                android:contentDescription=""/>
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="20dp"/>
+
+    </LinearLayout>
+</FrameLayout>

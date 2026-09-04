@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="110dp"
+    android:layout_height="160dp"
+    android:layout_marginEnd="4dp"
+    android:layout_marginBottom="4dp"
+    android:focusable="true"
+    android:clickable="true">
+
+    <!-- Número enorme deslocado para a esquerda (estilo Netflix Top 10) -->
+    <TextView
+        android:id="@+id/tvRankNumber"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:text="1"
+        android:textColor="#1AFFFFFF"
+        android:textSize="110sp"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-black"
+        android:layout_marginStart="-8dp"
+        android:layout_marginBottom="-16dp"
+        android:includeFontPadding="false"/>
+
+    <!-- Card do poster à direita do número -->
+    <androidx.cardview.widget.CardView
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="80dp"
+        android:layout_height="118dp"
+        android:layout_gravity="top|end"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="#111118">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/ivPoster"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_launcher"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:layout_gravity="bottom"
+                android:background="@drawable/gradient_card_bottom"/>
+
+        </FrameLayout>
+
+    </androidx.cardview.widget.CardView>
+
+    <!-- Título invisível (mantido para o adapter) -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:visibility="invisible"/>
+
+</FrameLayout>

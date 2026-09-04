@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="retro_games_empty">Nenhum jogo disponível no momento.</string>
+    <string name="retro_games_tab_title">Jogos Retrô</string>
+    <string name="retro_tab_classicos">Clássicos</string>
+    <string name="retro_tab_n64">Nintendo 64</string>
+    <string name="retro_tab_ps1">PS1</string>
+</resources>

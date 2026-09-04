@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!--
+        ✅ NOVO: exclui SÓ o arquivo "vltv_device_marker.xml" do backup
+        (API ≤ 30). Como não há nenhuma tag <include> aqui, o padrão já é
+        "incluir tudo, exceto o que for listado em <exclude>" — então essa
+        única linha não muda o comportamento de mais nada que já era
+        salvo antes.
+
+        Esse arquivo guarda só um marcador local ("este app já rodou
+        neste aparelho"), usado pela LoginActivity para detectar quando um
+        login foi restaurado por backup depois de uma reinstalação, em vez
+        de vir de um login real.
+    -->
+    <exclude domain="sharedpref" path="vltv_device_marker.xml"/>
+</full-backup-content>

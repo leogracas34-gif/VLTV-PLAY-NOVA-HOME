@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="300dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@drawable/bg_kids_voice_dialog"
+    android:padding="28dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🎬 🍿 🎨"
+        android:textSize="20sp"
+        android:layout_marginBottom="12dp"/>
+
+    <FrameLayout
+        android:layout_width="130dp"
+        android:layout_height="130dp"
+        android:layout_gravity="center">
+
+        <View
+            android:id="@+id/viewPulseRing3"
+            android:layout_width="130dp"
+            android:layout_height="130dp"
+            android:layout_gravity="center"
+            android:background="@drawable/circle_pulse_yellow"
+            android:alpha="0.5"/>
+
+        <View
+            android:id="@+id/viewPulseRing2"
+            android:layout_width="110dp"
+            android:layout_height="110dp"
+            android:layout_gravity="center"
+            android:background="@drawable/circle_pulse_cyan"
+            android:alpha="0.5"/>
+
+        <View
+            android:id="@+id/viewPulseRing1"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_gravity="center"
+            android:background="@drawable/circle_pulse_pink"
+            android:alpha="0.5"/>
+
+        <ImageView
+            android:id="@+id/ivMicKids"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_gravity="center"
+            android:padding="14dp"
+            android:src="@drawable/ic_mic"
+            android:background="@drawable/circle_mic_gradient_kids"/>
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvVoiceStatusKids"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:text="👂 Ouvindo..."
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:text="Fala o nome do desenho\nque você quer ver! 🌈"
+        android:textColor="#CCFFFFFF"
+        android:textSize="13sp"/>
+</LinearLayout>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="280dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@drawable/dialog_voice_bg"
+    android:padding="32dp">
+
+    <FrameLayout
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:layout_gravity="center">
+
+        <View
+            android:id="@+id/viewPulse"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:background="@drawable/circle_mic_pulse"
+            android:alpha="0.3" />
+
+        <ImageView
+            android:id="@+id/ivMic"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_mic"
+            android:background="@drawable/circle_mic_pulse" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvVoiceStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Ouvindo..."
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Diga o nome do filme ou desenho"
+        android:textColor="#B0B0B0"
+        android:textSize="13sp" />
+</LinearLayout>

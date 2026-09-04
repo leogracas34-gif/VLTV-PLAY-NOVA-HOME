@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#070710">
+
+    <!-- Imagem de fundo full-screen -->
+    <ImageView
+        android:id="@+id/imgBanner"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="Banner"/>
+
+    <!-- Gradiente escuro em cima da imagem -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_banner_scrim"/>
+
+    <!-- Conteúdo sobreposto ao banner — em TV o texto ocupa só a
+         metade esquerda pra não conflitar com áreas seguras de imagem -->
+    <LinearLayout
+        android:layout_width="640dp"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="bottom"
+        android:paddingStart="40dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="40dp">
+
+        <!-- Logo do título (quando disponível via TMDB) -->
+        <ImageView
+            android:id="@+id/imgBannerLogo"
+            android:layout_width="320dp"
+            android:layout_height="110dp"
+            android:scaleType="fitStart"
+            android:adjustViewBounds="true"
+            android:visibility="gone"
+            android:contentDescription="Logo do título"/>
+
+        <!-- Título texto (fallback quando não tem logo) -->
+        <TextView
+            android:id="@+id/tvBannerTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="38sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-condensed"
+            android:maxLines="2"
+            android:shadowColor="#CC000000"
+            android:shadowRadius="8"
+            android:shadowDx="0"
+            android:shadowDy="2"/>
+
+        <!-- Tags de gênero/qualidade -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HD"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_tag_hd"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="2dp"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tvBannerGenre"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="• Em Destaque"
+                android:textColor="#CCFFFFFF"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif"/>
+
+        </LinearLayout>
+
+        <!-- Botões de ação — focusable pra D-pad, com borda de foco
+             usando o mesmo padrão de destaque do resto do app -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="20dp"
+            android:gravity="start">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnBannerPlay"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
+                android:clickable="true"
+                android:focusable="true"
+                xmlns:app="http://schemas.android.com/apk/res-auto"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="#FFFFFF">
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:paddingHorizontal="24dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="▶"
+                        android:textColor="#000000"
+                        android:textSize="15sp"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ASSISTIR"
+                        android:textColor="#000000"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/btnBannerInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
+                android:layout_marginStart="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                xmlns:app="http://schemas.android.com/apk/res-auto"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="#55FFFFFF">
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:paddingHorizontal="20dp">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ⓘ"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:layout_marginEnd="8dp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="DETALHES"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.05"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

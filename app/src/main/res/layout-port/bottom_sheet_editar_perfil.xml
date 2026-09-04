@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_bottom_sheet_rounded"
+    android:paddingHorizontal="24dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="28dp">
+
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="20dp"
+        android:background="@drawable/bg_sheet_handle"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="Editar perfil"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp"/>
+
+    <!-- Avatar grande com o lápis sobreposto no canto — clique em
+         qualquer um dos dois já abre a troca de avatar. Some pra
+         perfis Kids, que mantêm avatar fixo. -->
+    <FrameLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="22dp">
+
+        <ImageView
+            android:id="@+id/ivEditarAvatar"
+            android:layout_width="104dp"
+            android:layout_height="104dp"
+            android:scaleType="centerCrop"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackgroundBorderless"/>
+
+        <ImageView
+            android:id="@+id/ivEditarAvatarLapis"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="bottom|end"
+            android:src="@drawable/ic_edit_pencil_badge"
+            android:background="@drawable/bg_pencil_badge"
+            android:padding="6dp"/>
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nome do perfil"
+        android:textColor="#888888"
+        android:textSize="12sp"
+        android:layout_marginBottom="6dp"/>
+
+    <!-- Campo de nome já editável direto nesta mesma tela — não abre
+         uma tela separada como antes. -->
+    <EditText
+        android:id="@+id/etEditarNomeCompleto"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:background="@drawable/bg_input_editar_nome"
+        android:paddingHorizontal="16dp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#777777"
+        android:textSize="16sp"
+        android:maxLength="20"
+        android:inputType="textCapWords"
+        android:singleLine="true"
+        android:layout_marginBottom="24dp"/>
+
+    <Button
+        android:id="@+id/btnSalvarEdicaoCompleta"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Salvar"
+        android:textAllCaps="false"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/bg_botao_salvar_perfil"
+        android:layout_marginBottom="14dp"/>
+
+    <TextView
+        android:id="@+id/tvExcluirPerfilCompleto"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="Excluir perfil"
+        android:textColor="#E53935"
+        android:textSize="14sp"
+        android:padding="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackgroundBorderless"/>
+
+</LinearLayout>

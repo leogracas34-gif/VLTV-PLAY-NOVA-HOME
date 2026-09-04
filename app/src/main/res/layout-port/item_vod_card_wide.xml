@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardWide"
+    android:layout_width="200dp"
+    android:layout_height="115dp"
+    android:layout_marginEnd="10dp"
+    android:layout_marginBottom="4dp"
+    android:focusable="true"
+    android:clickable="true"
+    app:cardBackgroundColor="#111118"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="6dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/ivPoster"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_launcher"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/gradient_card_scrim"/>
+
+        <!-- Barra de progresso (Continuar Assistindo) -->
+        <ProgressBar
+            android:id="@+id/pbProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="24dp"
+            android:layout_marginHorizontal="8dp"
+            android:progress="40"
+            android:progressTint="#E50914"
+            android:progressBackgroundTint="#44FFFFFF"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="7dp"
+            android:text=""
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-condensed"
+            android:shadowColor="#CC000000"
+            android:shadowRadius="4"/>
+
+        <!-- Ícone play centralizado ao focar -->
+        <ImageView
+            android:id="@+id/ivPlayIcon"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_play_circle"
+            android:alpha="0"
+            android:contentDescription="Play"/>
+
+    </FrameLayout>
+
+</androidx.cardview.widget.CardView>

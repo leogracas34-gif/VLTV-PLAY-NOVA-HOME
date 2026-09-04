@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="."/>
+        <!--
+            ✅ NOVO: dentro do "sharedpref" que já é incluído por completo
+            acima, exclui só o arquivo "vltv_device_marker.xml" — um
+            marcador local ("este app já rodou neste aparelho") usado pela
+            LoginActivity pra detectar quando um login foi restaurado por
+            backup depois de uma reinstalação, em vez de vir de um login
+            real. Nenhum outro arquivo de sharedpref muda de comportamento.
+        -->
+        <exclude domain="sharedpref" path="vltv_device_marker.xml"/>
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="."/>
+        <exclude domain="sharedpref" path="vltv_device_marker.xml"/>
+    </device-transfer>
+</data-extraction-rules>

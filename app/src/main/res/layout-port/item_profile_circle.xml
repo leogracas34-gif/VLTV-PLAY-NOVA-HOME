@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="8dp"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- Avatar quadrado com cantos arredondados — estilo Netflix.
+         O recorte (rounded corners) é feito via Canvas no Kotlin
+         (ProfilesActivity.exibirAvatar), não precisa de máscara aqui. -->
+    <FrameLayout
+        android:layout_width="76dp"
+        android:layout_height="76dp">
+
+        <ImageView
+            android:id="@+id/ivProfileAvatar"
+            android:layout_width="76dp"
+            android:layout_height="76dp"
+            android:scaleType="centerCrop"/>
+
+        <!-- Ícone de edição (aparece no modo editar) -->
+        <ImageView
+            android:id="@+id/ivEditOverlay"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_gravity="bottom|end"
+            android:src="@android:drawable/ic_menu_edit"
+            android:background="#CC000000"
+            android:padding="4dp"
+            android:visibility="gone"/>
+
+    </FrameLayout>
+
+    <!-- Nome do perfil -->
+    <TextView
+        android:id="@+id/tvProfileName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:maxWidth="90dp"/>
+
+</LinearLayout>

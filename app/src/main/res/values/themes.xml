@@ -1,0 +1,98 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ✅ CORRIGIDO: a splash nativa do sistema (que aparece um instante
+         ANTES da nossa SplashActivity desenhar a animação própria do
+         wordmark) estava usando @mipmap/ic_launcher_foreground como ícone.
+         Esse recurso não é uma camada adaptativa com padding — é a imagem
+         cheia (fundo + texto + triângulo), então o sistema esticava/cortava
+         ela dentro da moldura pequena de ícone da splash, aparecendo
+         "estourada" e cortada no topo da tela.
+
+         Trocado para @mipmap/ic_launcher, que já é o ícone adaptativo
+         correto usado em todo o resto do app (launcher, manifest, etc) e
+         funciona certinho.
+
+         Duração também reduzida de 600ms pra 250ms: essa fase é só uma
+         ponte rápida até o processo carregar — quem deve protagonizar é a
+         animação das letras "VLTV PLAY" que já roda na SplashActivity. -->
+    <style name="Theme.VLTVPlay.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/background_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenAnimationDuration">250</item>
+        <item name="postSplashScreenTheme">@style/Theme.VLTVPlay</item>
+    </style>
+
+    <style name="Theme.VLTVPlay" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/red_primary</item>
+        <item name="colorPrimaryVariant">@color/red_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/red_primary</item>
+        <item name="colorSecondaryVariant">@color/red_dark</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:windowBackground">@color/background_dark</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:navigationBarColor">@color/black</item>
+    </style>
+
+    <style name="DialogTemporadaTransparente" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/FundoInvisivelContent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
+    <style name="FundoInvisivelContent" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <style name="CircleImage" parent="">
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <style name="DisneyMenuText">
+        <item name="android:textSize">10sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <!-- BottomSheetDialogTheme referencia BottomSheetStyle -->
+    <style name="BottomSheetDialogTheme" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/BottomSheetStyle</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- UMA única definição de BottomSheetStyle -->
+    <style name="BottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="behavior_peekHeight">400dp</item>
+        <item name="behavior_hideable">true</item>
+    </style>
+
+    <!-- BottomSheetModalStyle mantido caso ainda seja usado em algum lugar -->
+    <style name="BottomSheetModalStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <style name="AlertDialogThemeDark" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:background">#1E1E2E</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="colorAccent">#E50914</item>
+        <item name="buttonBarPositiveButtonStyle">@style/AlertButtonDestructive</item>
+        <item name="buttonBarNegativeButtonStyle">@style/AlertButtonNeutral</item>
+    </style>
+
+    <style name="AlertButtonDestructive" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">#FF4444</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="AlertButtonNeutral" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">#888888</item>
+    </style>
+
+</resources>
