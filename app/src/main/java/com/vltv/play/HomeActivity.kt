@@ -1807,14 +1807,14 @@ class HomeActivity : AppCompatActivity() {
         val info = jogo.info
 
         val tvBadge = card.findViewById<TextView>(R.id.tvGameBadge)
-        val statusTexto = if (info.is_live) "AO VIVO" else "EM BREVE"
+        val statusTexto = if (info.is_live) "Ao vivo" else "Em breve"
         tvBadge.text = if (info.competition.isNotBlank()) "⚽  ${info.competition}  •  $statusTexto" else "⚽  $statusTexto"
         if (info.is_live) {
             tvBadge.setBackgroundColor(android.graphics.Color.parseColor("#CC1B5E20"))
             tvBadge.setTextColor(android.graphics.Color.parseColor("#00FF88"))
         } else {
-            tvBadge.setBackgroundColor(android.graphics.Color.parseColor("#88333344"))
-            tvBadge.setTextColor(android.graphics.Color.WHITE)
+            tvBadge.setBackgroundColor(android.graphics.Color.parseColor("#402C2C2A"))
+            tvBadge.setTextColor(android.graphics.Color.parseColor("#F5F3EF"))
         }
 
         val tvGameTitle = card.findViewById<TextView>(R.id.tvGameTitle)

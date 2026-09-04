@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Gradiente base: roxo → magenta, clima "arcade" -->
+    <!-- Gradiente ambar/terracota — unico momento de cor saturada da Home,
+         reservado pra esse card promocional -->
     <item>
         <shape android:shape="rectangle">
             <corners android:radius="14dp" />
             <gradient
                 android:type="linear"
                 android:angle="45"
-                android:startColor="#6D28D9"
-                android:centerColor="#9333EA"
-                android:endColor="#DB2777" />
+                android:startColor="#8A5A1E"
+                android:centerColor="#B97328"
+                android:endColor="#D9A24B" />
         </shape>
     </item>
 
-    <!-- Borda neon fina por cima, pra dar aquele contorno "brilhando" -->
     <item>
         <shape android:shape="rectangle">
             <corners android:radius="14dp" />
             <stroke
-                android:width="1.5dp"
-                android:color="#66FFFFFF" />
+                android:width="1dp"
+                android:color="#40F5F3EF" />
         </shape>
     </item>
 
