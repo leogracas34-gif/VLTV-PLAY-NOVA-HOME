@@ -28,33 +28,72 @@
             android:layout_height="match_parent"
             android:background="@drawable/gradient_black_bottom" />
 
-        <TextView
-            android:id="@+id/tvTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:padding="8dp"
-            android:text="Título do Filme"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end" />
-
-        <TextView
-            android:id="@+id/tvBadgeNew"
+        <LinearLayout
+            android:id="@+id/tvBadgeTop10"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|start"
-            android:layout_margin="6dp"
-            android:text="Novo"
-            android:textColor="#FFFFFF"
-            android:textSize="9sp"
-            android:textStyle="bold"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="2dp"
-            android:background="@drawable/bg_badge_new"
-            android:visibility="gone" />
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_top10_badge"
+            android:paddingHorizontal="5dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="3dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TOP"
+                android:textColor="#0B0B0C"
+                android:textSize="6sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10"
+                android:textColor="#0B0B0C"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-black"
+                android:includeFontPadding="false"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:text="Título do Filme"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tvBadgeNew"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Novidade"
+                android:textColor="#0B0B0C"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="3dp"
+                android:background="#D9A24B"
+                android:visibility="gone" />
+
+        </LinearLayout>
 
     </FrameLayout>
 </androidx.cardview.widget.CardView>

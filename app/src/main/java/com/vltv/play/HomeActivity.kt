@@ -446,10 +446,10 @@ class HomeActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.Default) {
             val movieItems = localMovies.map {
-                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1)
+                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1)
             }
             val seriesItems = localSeries.map {
-                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1)
+                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1)
             }
 
             withContext(Dispatchers.Main) {
@@ -1238,9 +1238,9 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val localMovies = database.streamDao().getRecentVods(60)
-                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1) }
+                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1) }
                 val localSeries = database.streamDao().getRecentSeries(60)
-                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1) }
+                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1) }
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
                     agendarPopularSections(movieItems, seriesItems, localMovies, localSeries)

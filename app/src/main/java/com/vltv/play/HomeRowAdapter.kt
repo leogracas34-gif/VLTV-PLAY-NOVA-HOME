@@ -20,6 +20,7 @@ class HomeRowAdapter(
         val ivPoster: ImageView = view.findViewById(R.id.ivPoster)
         val tvTitle: TextView = view.findViewById(R.id.tvTitle)
         val tvBadgeNew: TextView = view.findViewById(R.id.tvBadgeNew)
+        val tvBadgeTop10: View = view.findViewById(R.id.tvBadgeTop10)
     }
 
     fun updateList(newList: List<VodItem>) {
@@ -45,6 +46,7 @@ class HomeRowAdapter(
         val item = list[position]
         holder.tvTitle.text = item.name
         holder.tvBadgeNew.visibility = if (item.isNovidade) View.VISIBLE else View.GONE
+        holder.tvBadgeTop10.visibility = if (item.isTop10) View.VISIBLE else View.GONE
 
         Glide.with(holder.itemView.context)
             .asBitmap()

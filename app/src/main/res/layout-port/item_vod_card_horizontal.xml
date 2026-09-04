@@ -3,8 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/cardPoster"
-    android:layout_width="140dp"
-    android:layout_height="208dp"
+    android:layout_width="162dp"
+    android:layout_height="240dp"
     android:layout_marginEnd="10dp"
     android:layout_marginBottom="4dp"
     android:focusable="true"
@@ -26,44 +26,92 @@
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="80dp"
+            android:layout_height="90dp"
             android:layout_gravity="bottom"
             android:background="@drawable/gradient_card_bottom"/>
 
-        <TextView
-            android:id="@+id/tvTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="8dp"
-            android:text=""
-            android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:maxLines="2"
-            android:ellipsize="end"
-            android:fontFamily="sans-serif-condensed"
-            android:shadowColor="#CC000000"
-            android:shadowRadius="4"
-            android:shadowDx="0"
-            android:shadowDy="1"/>
-
-        <TextView
-            android:id="@+id/tvBadgeNew"
+        <!-- Selo pequeno TOP 10 no canto — aparece quando esse mesmo item
+             também está no ranking, mesmo estando numa fileira diferente
+             (ex: "Filmes Para Você"). Independente da faixa de novidade
+             abaixo, os dois podem aparecer juntos. -->
+        <LinearLayout
+            android:id="@+id/tvBadgeTop10"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|start"
-            android:layout_margin="6dp"
-            android:text="Novo"
-            android:textColor="#FFFFFF"
-            android:textSize="8sp"
-            android:textStyle="bold"
-            android:paddingHorizontal="5dp"
-            android:paddingVertical="2dp"
-            android:background="@drawable/bg_badge_new"
-            android:visibility="gone"/>
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_top10_badge"
+            android:paddingHorizontal="6dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TOP"
+                android:textColor="#0B0B0C"
+                android:textSize="7sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:fontFamily="sans-serif-medium"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10"
+                android:textColor="#0B0B0C"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-black"
+                android:includeFontPadding="false"/>
+
+        </LinearLayout>
+
+        <!-- Titulo e faixa de novidade empilhados no rodape do card,
+             igual a referencia (Netflix): titulo em cima, faixa colorida
+             (quando existe) ocupa a base inteira do card. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text=""
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-condensed"
+                android:shadowColor="#CC000000"
+                android:shadowRadius="4"
+                android:shadowDx="0"
+                android:shadowDy="1"/>
+
+            <TextView
+                android:id="@+id/tvBadgeNew"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Novidade"
+                android:textColor="#0B0B0C"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingVertical="4dp"
+                android:background="#D9A24B"
+                android:visibility="gone"/>
+
+        </LinearLayout>
 
     </FrameLayout>
 
