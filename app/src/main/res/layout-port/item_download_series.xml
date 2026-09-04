@@ -94,7 +94,7 @@
                     android:layout_width="0dp"
                     android:layout_height="4dp"
                     android:layout_weight="1"
-                    android:progressTint="#E50914"
+                    android:progressTint="#D9A24B"
                     android:progressBackgroundTint="#2A2A34"
                     android:max="100"
                     android:progress="0"/>
@@ -104,7 +104,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:textColor="#E50914"
+                    android:textColor="#D9A24B"
                     android:textSize="11sp"
                     android:textStyle="bold"
                     android:text="0%"/>

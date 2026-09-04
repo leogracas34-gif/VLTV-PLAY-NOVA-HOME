@@ -49,7 +49,7 @@
             android:paddingHorizontal="10dp"
             android:paddingVertical="6dp"
             android:text="Limpar"
-            android:textColor="#E50914"
+            android:textColor="#D9A24B"
             android:textSize="12.5sp"
             android:textStyle="bold"
             android:background="?attr/selectableItemBackgroundBorderless"

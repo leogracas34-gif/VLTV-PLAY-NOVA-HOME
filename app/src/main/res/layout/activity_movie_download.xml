@@ -89,7 +89,7 @@
                 android:id="@+id/pbMovieProgress"
                 android:layout_width="110dp"
                 android:layout_height="110dp"
-                app:indicatorColor="#E50914"
+                app:indicatorColor="#D9A24B"
                 app:trackColor="#33FFFFFF"
                 app:trackThickness="7dp"
                 android:max="100" />

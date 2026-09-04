@@ -81,7 +81,7 @@
     <style name="AlertDialogThemeDark" parent="Theme.AppCompat.Dialog.Alert">
         <item name="android:background">#1E1E2E</item>
         <item name="android:textColorPrimary">#FFFFFF</item>
-        <item name="colorAccent">#E50914</item>
+        <item name="colorAccent">#D9A24B</item>
         <item name="buttonBarPositiveButtonStyle">@style/AlertButtonDestructive</item>
         <item name="buttonBarNegativeButtonStyle">@style/AlertButtonNeutral</item>
     </style>

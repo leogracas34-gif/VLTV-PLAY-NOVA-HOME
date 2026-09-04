@@ -7,7 +7,7 @@
 
     <!-- Fundo vermelho arredondado -->
     <path
-        android:fillColor="#E50914"
+        android:fillColor="#D9A24B"
         android:pathData="M4,0 L44,0 Q48,0 48,4 L48,24 Q48,28 44,28 L4,28 Q0,28 0,24 L0,4 Q0,0 4,0 Z"/>
 
     <!-- Texto TOP -->

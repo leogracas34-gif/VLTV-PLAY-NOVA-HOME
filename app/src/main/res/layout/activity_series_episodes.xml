@@ -79,7 +79,7 @@
             android:layout_height="44dp"
             android:padding="9dp"
             android:src="@android:drawable/ic_menu_delete"
-            app:tint="#E50914"
+            app:tint="#D9A24B"
             android:background="@drawable/selector_downloads_premium"
             android:clickable="true"
             android:focusable="true"/>

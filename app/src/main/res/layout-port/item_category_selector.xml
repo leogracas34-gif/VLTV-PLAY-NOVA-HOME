@@ -16,7 +16,7 @@
         android:id="@+id/viewCheck"
         android:layout_width="3dp"
         android:layout_height="22dp"
-        android:background="#E50914"
+        android:background="#D9A24B"
         android:layout_marginEnd="14dp"
         android:visibility="invisible"/>
 

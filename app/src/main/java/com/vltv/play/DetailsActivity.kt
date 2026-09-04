@@ -533,7 +533,7 @@ class DetailsActivity : AppCompatActivity() {
                 isIndeterminate = false
                 max = 100
                 trackThickness = 3.toPx()
-                setIndicatorColor(Color.parseColor("#E50914"))
+                setIndicatorColor(Color.parseColor("#D9A24B"))
                 trackColor = Color.parseColor("#33FFFFFF")
                 visibility = View.GONE
             }

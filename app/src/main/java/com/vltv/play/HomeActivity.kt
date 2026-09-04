@@ -78,6 +78,7 @@ class HomeActivity : AppCompatActivity() {
 
     private val bannerFila = mutableListOf<Any>()
     private var bannerFilaIndex = 0
+    private var wordmarkView: TextView? = null
     private var bannerCarregado = false
     private var bannerItemAtual: Any? = null
     private var bannerBuscaJob: kotlinx.coroutines.Job? = null
@@ -313,7 +314,10 @@ class HomeActivity : AppCompatActivity() {
 
     private fun adicionarWordmarkVLTV() {
         val contentRoot = window.decorView.findViewById<ViewGroup>(android.R.id.content)
-        if (contentRoot.findViewWithTag<View>(WORDMARK_TAG) != null) return
+        contentRoot.findViewWithTag<View>(WORDMARK_TAG)?.let {
+            wordmarkView = it as? TextView
+            return
+        }
 
         val statusBarHeightPx = run {
             val id = resources.getIdentifier("status_bar_height", "dimen", "android")
@@ -342,6 +346,24 @@ class HomeActivity : AppCompatActivity() {
         }
 
         contentRoot.addView(wordmark, params)
+        wordmarkView = wordmark
+        configurarSumicoDaWordmarkAoRolar()
+    }
+
+    // ✅ NOVO: a wordmark "VLTV" fica fixa na tela (não faz parte do que rola
+    // dentro do NestedScrollView), então antes ela ficava sobrepondo os
+    // cards conforme o usuário descia a tela. Agora ela desaparece suave
+    // (fade) assim que a rolagem começa, e volta a aparecer se o usuário
+    // sobe de novo até o topo.
+    private fun configurarSumicoDaWordmarkAoRolar() {
+        val distanciaFadePx = 90.dp.toFloat()
+        binding.nestedScrollView.setOnScrollChangeListener(
+            androidx.core.widget.NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
+                val alvo = wordmarkView ?: return@OnScrollChangeListener
+                val progresso = (scrollY / distanciaFadePx).coerceIn(0f, 1f)
+                alvo.alpha = 1f - progresso
+            }
+        )
     }
 
     private fun iniciarCarrosselBanner() {
@@ -424,10 +446,10 @@ class HomeActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.Default) {
             val movieItems = localMovies.map {
-                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "")
+                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1)
             }
             val seriesItems = localSeries.map {
-                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "")
+                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1)
             }
 
             withContext(Dispatchers.Main) {
@@ -1216,9 +1238,9 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val localMovies = database.streamDao().getRecentVods(60)
-                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "") }
+                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1) }
                 val localSeries = database.streamDao().getRecentSeries(60)
-                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "") }
+                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1) }
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
                     agendarPopularSections(movieItems, seriesItems, localMovies, localSeries)

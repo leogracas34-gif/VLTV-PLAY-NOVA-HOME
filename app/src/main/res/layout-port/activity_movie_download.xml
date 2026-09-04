@@ -109,7 +109,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="6dp"
                 android:max="100"
-                android:progressTint="#E50914"
+                android:progressTint="#D9A24B"
                 android:progressBackgroundTint="#33FFFFFF" />
 
             <TextView
@@ -132,7 +132,7 @@
                 android:id="@+id/pbMovieProgress"
                 android:layout_width="96dp"
                 android:layout_height="96dp"
-                app:indicatorColor="#E50914"
+                app:indicatorColor="#D9A24B"
                 app:trackColor="#33FFFFFF"
                 app:trackThickness="6dp"
                 android:max="100" />

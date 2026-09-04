@@ -86,7 +86,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:text="SALVAR"
-                android:textColor="#E50914"
+                android:textColor="#D9A24B"
                 android:textSize="14sp"
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="0.08"

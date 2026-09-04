@@ -136,7 +136,7 @@
                 android:layout_height="28dp"
                 android:layout_gravity="center"
                 android:visibility="gone"
-                app:indicatorColor="#E50914"
+                app:indicatorColor="#D9A24B"
                 app:trackColor="#33FFFFFF"
                 app:trackThickness="3dp"
                 app:indicatorSize="28dp"/>

@@ -41,5 +41,20 @@
             android:maxLines="1"
             android:ellipsize="end" />
 
+        <TextView
+            android:id="@+id/tvBadgeNew"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="6dp"
+            android:text="Novo"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:background="@drawable/bg_badge_new"
+            android:visibility="gone" />
+
     </FrameLayout>
 </androidx.cardview.widget.CardView>

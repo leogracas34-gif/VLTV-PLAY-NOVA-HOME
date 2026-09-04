@@ -60,7 +60,7 @@
                     android:fontFamily="sans-serif-condensed"
                     android:textStyle="bold"
                     android:letterSpacing="0.10"
-                    android:shadowColor="#99E50914"
+                    android:shadowColor="#99D9A24B"
                     android:shadowDx="0"
                     android:shadowDy="0"
                     android:shadowRadius="18"/>
@@ -69,11 +69,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="+"
-                    android:textColor="#E50914"
+                    android:textColor="#D9A24B"
                     android:textSize="34sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="7dp"
-                    android:shadowColor="#CCE50914"
+                    android:shadowColor="#CCD9A24B"
                     android:shadowDx="0"
                     android:shadowDy="0"
                     android:shadowRadius="16"/>
@@ -229,8 +229,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="2dp"
                 android:indeterminate="true"
-                android:indeterminateTint="#E50914"
-                android:progressTint="#E50914"
+                android:indeterminateTint="#D9A24B"
+                android:progressTint="#D9A24B"
                 android:progressBackgroundTint="#1AFFFFFF"/>
 
         </LinearLayout>

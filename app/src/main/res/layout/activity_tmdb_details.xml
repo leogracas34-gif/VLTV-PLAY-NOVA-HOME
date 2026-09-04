@@ -84,7 +84,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:textColor="#E50914"
+                    android:textColor="#D9A24B"
                     android:textSize="13sp"
                     android:textStyle="bold"/>
 

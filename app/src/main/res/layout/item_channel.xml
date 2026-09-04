@@ -52,7 +52,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text=""
-            android:textColor="#E50914"
+            android:textColor="#D9A24B"
             android:textSize="10sp"
             android:maxLines="1"
             android:ellipsize="end"

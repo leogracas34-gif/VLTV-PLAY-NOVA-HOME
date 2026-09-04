@@ -620,7 +620,7 @@ class SettingsActivity : AppCompatActivity() {
         val spannable = SpannableString(texto)
         spannable.setSpan(StyleSpan(Typeface.BOLD), 0, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         spannable.setSpan(ForegroundColorSpan(Color.WHITE), 0, 4, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        spannable.setSpan(ForegroundColorSpan(Color.parseColor("#E50914")), 4, texto.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        spannable.setSpan(ForegroundColorSpan(Color.parseColor("#D9A24B")), 4, texto.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         return TextView(this).apply {
             text = spannable
             textSize = 24f
@@ -1327,7 +1327,7 @@ class SettingsActivity : AppCompatActivity() {
         val tvSubtitulo = TextView(this).apply {
             text = if (isAtivo) "Perfil ativo" else "Toque em uma opção"
             textSize = 12f
-            setTextColor(if (isAtivo) Color.parseColor("#E50914") else Color.parseColor("#777777"))
+            setTextColor(if (isAtivo) Color.parseColor("#D9A24B") else Color.parseColor("#777777"))
             gravity = Gravity.CENTER
         }
         header.addView(imgHeader)

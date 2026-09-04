@@ -80,7 +80,7 @@
             android:layout_height="36dp"
             android:padding="7dp"
             android:src="@android:drawable/ic_menu_delete"
-            app:tint="#E50914"
+            app:tint="#D9A24B"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"/>

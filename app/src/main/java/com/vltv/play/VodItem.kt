@@ -6,5 +6,6 @@ data class VodItem(
     val name: String = "",
     val streamIcon: String = "",
     val containerExtension: String = "mp4",
-    val rating: String = ""
+    val rating: String = "",
+    val isNovidade: Boolean = false
 )

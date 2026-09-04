@@ -19,6 +19,7 @@ class HomeRowAdapter(
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val ivPoster: ImageView = view.findViewById(R.id.ivPoster)
         val tvTitle: TextView = view.findViewById(R.id.tvTitle)
+        val tvBadgeNew: TextView = view.findViewById(R.id.tvBadgeNew)
     }
 
     fun updateList(newList: List<VodItem>) {
@@ -43,6 +44,7 @@ class HomeRowAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = list[position]
         holder.tvTitle.text = item.name
+        holder.tvBadgeNew.visibility = if (item.isNovidade) View.VISIBLE else View.GONE
 
         Glide.with(holder.itemView.context)
             .asBitmap()

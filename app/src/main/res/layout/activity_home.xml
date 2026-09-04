@@ -74,99 +74,99 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:paddingHorizontal="24dp"
-                android:paddingTop="14dp"
-                android:paddingBottom="8dp"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="18dp"
+                android:paddingBottom="6dp"
                 android:weightSum="4">
 
                 <androidx.cardview.widget.CardView
                     android:id="@+id/cardLiveTv"
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="46dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="8dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="5dp"
+                    app:cardCornerRadius="23dp"
+                    app:cardElevation="0dp"
                     app:cardBackgroundColor="#00000000">
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="vertical"
+                        android:orientation="horizontal"
                         android:gravity="center"
-                        android:background="@drawable/bg_card_live">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📡" android:textSize="22sp"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ao vivo" android:textColor="#F5F3EF" android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1" android:layout_marginTop="3dp"/>
+                        android:background="@drawable/bg_pill_quiet">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📡" android:textSize="14sp"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ao vivo" android:textColor="#F5F3EF" android:textSize="12sp" android:fontFamily="sans-serif-medium" android:layout_marginStart="6dp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
                     android:id="@+id/cardMovies"
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="46dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="8dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="5dp"
+                    app:cardCornerRadius="23dp"
+                    app:cardElevation="0dp"
                     app:cardBackgroundColor="#00000000">
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="vertical"
+                        android:orientation="horizontal"
                         android:gravity="center"
-                        android:background="@drawable/bg_card_movies">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎬" android:textSize="22sp"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Filmes" android:textColor="#F5F3EF" android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1" android:layout_marginTop="3dp"/>
+                        android:background="@drawable/bg_pill_quiet">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎬" android:textSize="14sp"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Filmes" android:textColor="#F5F3EF" android:textSize="12sp" android:fontFamily="sans-serif-medium" android:layout_marginStart="6dp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
                     android:id="@+id/cardSeries"
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="46dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="8dp"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="5dp"
+                    app:cardCornerRadius="23dp"
+                    app:cardElevation="0dp"
                     app:cardBackgroundColor="#00000000">
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="vertical"
+                        android:orientation="horizontal"
                         android:gravity="center"
-                        android:background="@drawable/bg_card_series">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎭" android:textSize="22sp"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Séries" android:textColor="#F5F3EF" android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1" android:layout_marginTop="3dp"/>
+                        android:background="@drawable/bg_pill_quiet">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎭" android:textSize="14sp"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Séries" android:textColor="#F5F3EF" android:textSize="12sp" android:fontFamily="sans-serif-medium" android:layout_marginStart="6dp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
                     android:id="@+id/cardDownloads"
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="46dp"
                     android:layout_weight="1"
                     android:clickable="true"
                     android:focusable="true"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="5dp"
+                    app:cardCornerRadius="23dp"
+                    app:cardElevation="0dp"
                     app:cardBackgroundColor="#00000000">
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:orientation="vertical"
+                        android:orientation="horizontal"
                         android:gravity="center"
-                        android:background="@drawable/bg_card_downloads">
+                        android:background="@drawable/bg_pill_quiet">
                         <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
+                            android:layout_width="15dp"
+                            android:layout_height="15dp"
                             android:src="@drawable/ic_download_box_premium"
                             android:contentDescription="Downloads"/>
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Downloads" android:textColor="#F5F3EF" android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.1" android:layout_marginTop="3dp"/>
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Downloads" android:textColor="#F5F3EF" android:textSize="12sp" android:fontFamily="sans-serif-medium" android:layout_marginStart="6dp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
