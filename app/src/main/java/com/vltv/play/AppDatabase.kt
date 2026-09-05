@@ -451,9 +451,14 @@ interface StreamDao {
 }
 
 // ==========================================
-// DATABASE — version 13 (novos índices em downloads: android_download_id,
-// file_path, stream_id+type — antes só havia índice em status/
-// name+season/profile_name)
+// DATABASE — version 15 (correção do erro
+// "Room cannot verify the data integrity": a versão estava em 14 mas o
+// schema realmente aplicado no dispositivo tinha um hash diferente do
+// esperado — algumas instalações ficaram com a versão do banco igual à
+// declarada no código, porém com uma estrutura de tabelas antiga. Como o
+// Room só aciona fallbackToDestructiveMigration() quando a versão do
+// banco muda, bastava subir a versão pra forçar a recriação das tabelas
+// e resolver a inconsistência.)
 // ==========================================
 
 @Database(
@@ -467,7 +472,7 @@ interface StreamDao {
         DownloadEntity::class,
         ProfileEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -490,13 +495,13 @@ abstract class AppDatabase : RoomDatabase() {
                 "vltv_play_db"
             )
                 // ✅ fallbackToDestructiveMigration recria as tabelas automaticamente
-                // por causa da mudança de versão 12→13 (novos índices em
-                // "downloads"). Isso apaga downloads salvos localmente (o
+                // por causa da mudança de versão 14→15 (correção do erro de
+                // identidade do schema). Isso apaga downloads salvos localmente (o
                 // usuário vai precisar baixar de novo o que já tinha baixado)
                 // e o catálogo (vod_streams/series_streams), mas o catálogo
                 // resincroniza sozinho na próxima abertura do app — mesmo
                 // comportamento já aceito nas migrações anteriores (v9→v10,
-                // v10→v11, v11→v12).
+                // v10→v11, v11→v12, v12→v13).
                 .fallbackToDestructiveMigration()
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 // ✅ Esse queryExecutor é compartilhado por TODAS as queries
