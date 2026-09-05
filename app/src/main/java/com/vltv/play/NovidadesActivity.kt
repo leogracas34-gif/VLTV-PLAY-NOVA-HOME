@@ -300,13 +300,13 @@ class NovidadesActivity : AppCompatActivity() {
     }
 
     private fun carregarTudo() {
-        // ── Em Breve — CORRIGIDO: agora usa /discover em vez de /movie/upcoming.
+        // ── Em Breve — usa /discover em vez de /movie/upcoming.
         // O endpoint /movie/upcoming sem parâmetro "region" devolve filmes que já
         // foram lançados há semanas/meses (é um problema conhecido do TMDB — o
         // cálculo interno de "em breve" depende da região e fica inconsistente
         // sem ela). /discover/movie + /discover/tv com "primary_release_date.gte"
         // / "first_air_date.gte" força o TMDB a só devolver itens com estreia
-        // igual ou depois de hoje. Agora também traz SÉRIES, não só filmes.
+        // igual ou depois de hoje. Também traz SÉRIES, não só filmes.
         carregarEmBreve()
 
         // ── Bombando — trending da semana ─────────────────────────────────────
@@ -361,12 +361,25 @@ class NovidadesActivity : AppCompatActivity() {
         }
     }
 
-    // ── NOVO: busca combinada filmes + séries realmente futuros ─────────────
+    // ── Busca combinada filmes + séries realmente futuros ─────────────
     // Faz duas chamadas em paralelo (/discover/movie e /discover/tv), cada uma
     // já filtrada por data de estreia >= hoje. Junta os dois resultados,
     // remove duplicados, ordena por data de estreia (mais próxima primeiro)
     // e corta em 20 itens. Cada chamada tem sua própria lógica de retry
     // (mesmo padrão de backoff usado no resto da tela).
+    //
+    // ✅ CORRIGIDO: as URLs usavam sort_by=primary_release_date.asc /
+    // first_air_date.asc (ordenar pela estreia mais próxima primeiro). Isso
+    // fazia o TMDB devolver, na página 1, um monte de título obscuro
+    // (documentários, produções regionais pequenas) que têm data de estreia
+    // cadastrada mas quase nunca têm poster_path preenchido — e como o
+    // filtro abaixo descarta qualquer item sem pôster, a lista final vinha
+    // vazia mesmo com a API respondendo "ok". Trocado para
+    // sort_by=popularity.desc: continua só trazendo itens com estreia >=
+    // hoje (o filtro de data é por parâmetro, não pela ordenação), mas
+    // agora prioriza os lançamentos mais conhecidos — que quase sempre têm
+    // pôster. A ordenação final por data mais próxima continua acontecendo
+    // depois, no sortedBy abaixo, então a ordem de exibição não muda.
     private fun carregarEmBreve() {
         val hoje = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         val lock = Any()
@@ -496,15 +509,17 @@ class NovidadesActivity : AppCompatActivity() {
             })
         }
 
+        // ✅ sort_by=popularity.desc (era primary_release_date.asc /
+        // first_air_date.asc) — ver explicação no comentário acima da função.
         val urlFilmes = "https://api.themoviedb.org/3/discover/movie" +
                         "?api_key=$apiKey&language=pt-BR&region=BR" +
-                        "&sort_by=primary_release_date.asc" +
+                        "&sort_by=popularity.desc" +
                         "&primary_release_date.gte=$hoje" +
                         "&include_adult=false&page=1"
 
         val urlSeries = "https://api.themoviedb.org/3/discover/tv" +
                         "?api_key=$apiKey&language=pt-BR" +
-                        "&sort_by=first_air_date.asc" +
+                        "&sort_by=popularity.desc" +
                         "&first_air_date.gte=$hoje" +
                         "&include_adult=false&page=1"
 
