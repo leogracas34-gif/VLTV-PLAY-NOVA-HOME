@@ -202,20 +202,28 @@ object SyncManager {
             val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
             val vodArray = JSONArray(URL(vodUrl).readText())
             val vodBatch = mutableListOf<VodEntity>()
+            // ✅ NOVO: guarda (stream_id, added) de TODO filme que veio da API
+            // nesta sincronização, pra alimentar o PainelBadgeSync depois de
+            // inserir os lotes — é assim que detectamos filme novo no painel,
+            // independente do TMDB.
+            val vodIdsRecebidos = mutableListOf<Pair<Int, Long>>()
             for (i in 0 until vodArray.length()) {
                 val obj = vodArray.getJSONObject(i)
                 val nome = obj.optString("name")
                 if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                    val streamId = obj.optInt("stream_id")
+                    val added = obj.optLong("added")
                     vodBatch.add(VodEntity(
-                        stream_id = obj.optInt("stream_id"),
+                        stream_id = streamId,
                         name = nome,
                         title = obj.optString("name"),
                         stream_icon = obj.optString("stream_icon"),
                         container_extension = obj.optString("container_extension"),
                         rating = obj.optString("rating"),
                         category_id = obj.optString("category_id"),
-                        added = obj.optLong("added")
+                        added = added
                     ))
+                    vodIdsRecebidos.add(Pair(streamId, added))
                 }
                 if (vodBatch.size >= 200) {
                     db.streamDao().insertVodStreams(vodBatch)
@@ -224,6 +232,11 @@ object SyncManager {
             }
             if (vodBatch.isNotEmpty()) db.streamDao().insertVodStreams(vodBatch)
 
+            // ✅ Roda ANTES de reler pra ContentRepository, assim a Home já
+            // recebe os filmes com o selo de "Novidade" de painel aplicado.
+            try { PainelBadgeSync.sincronizarBadgesVod(db, vodIdsRecebidos) }
+            catch (e: Exception) { e.printStackTrace() }
+
             val vodsAtualizados = db.streamDao().getRecentVods(200)
             ContentRepository.atualizarVods(vodsAtualizados)
 
@@ -231,18 +244,25 @@ object SyncManager {
             val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
             val seriesArray = JSONArray(URL(seriesUrl).readText())
             val seriesBatch = mutableListOf<SeriesEntity>()
+            // ✅ NOVO: (series_id, last_modified) de toda série vinda da API
+            // agora — usado pra detectar série nova / episódio novo / temporada
+            // nova no painel (ver PainelBadgeSync.kt).
+            val seriesIdsRecebidos = mutableListOf<Pair<Int, Long>>()
             for (i in 0 until seriesArray.length()) {
                 val obj = seriesArray.getJSONObject(i)
                 val nome = obj.optString("name")
                 if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                    val seriesId = obj.optInt("series_id")
+                    val lastModified = obj.optLong("last_modified")
                     seriesBatch.add(SeriesEntity(
-                        series_id = obj.optInt("series_id"),
+                        series_id = seriesId,
                         name = nome,
                         cover = obj.optString("cover"),
                         rating = obj.optString("rating"),
                         category_id = obj.optString("category_id"),
-                        last_modified = obj.optLong("last_modified")
+                        last_modified = lastModified
                     ))
+                    seriesIdsRecebidos.add(Pair(seriesId, lastModified))
                 }
                 if (seriesBatch.size >= 200) {
                     db.streamDao().insertSeriesStreams(seriesBatch)
@@ -250,6 +270,13 @@ object SyncManager {
                 }
             }
             if (seriesBatch.isNotEmpty()) db.streamDao().insertSeriesStreams(seriesBatch)
+
+            // ✅ Roda ANTES de reler pra ContentRepository — mesma lógica do
+            // VOD acima. Faz até MAX_SERIES_INFO_POR_CICLO chamadas extras
+            // (get_series_info) só pras séries cujo last_modified realmente
+            // mudou, pra distinguir "novo episódio" de "nova temporada".
+            try { PainelBadgeSync.sincronizarBadgesSeries(db, dns, user, pass, seriesIdsRecebidos) }
+            catch (e: Exception) { e.printStackTrace() }
 
             val seriesAtualizadas = db.streamDao().getRecentSeries(200)
             ContentRepository.atualizarSeries(seriesAtualizadas)

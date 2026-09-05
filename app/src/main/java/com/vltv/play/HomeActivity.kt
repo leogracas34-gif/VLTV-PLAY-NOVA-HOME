@@ -190,6 +190,7 @@ class HomeActivity : AppCompatActivity() {
         private val REGEX_TMDB_SPACES = Regex("\\s+")
 
         private const val WORDMARK_TAG = "vltv_home_wordmark"
+        private const val BUSCA_TOPO_TAG = "vltv_home_busca_topo"
 
         @Volatile private var ultimoFetchRemoteConfigMs = 0L
         private const val INTERVALO_MINIMO_FETCH_MS = 30_000L
@@ -347,7 +348,48 @@ class HomeActivity : AppCompatActivity() {
 
         contentRoot.addView(wordmark, params)
         wordmarkView = wordmark
+        adicionarBotaoBuscaFlutuante(contentRoot, statusBarHeightPx)
         configurarSumicoDaWordmarkAoRolar()
+    }
+
+    // ✅ NOVO: lupa de busca flutuando no topo do banner, ao lado da
+    // wordmark — mesmo destino do botão "Buscar" que já existe no rodapé.
+    // Some/aparece junto com a wordmark ao rolar a tela.
+    private var botaoBuscaTopo: View? = null
+
+    private fun adicionarBotaoBuscaFlutuante(contentRoot: ViewGroup, statusBarHeightPx: Int) {
+        contentRoot.findViewWithTag<View>(BUSCA_TOPO_TAG)?.let {
+            botaoBuscaTopo = it
+            return
+        }
+
+        val botaoBusca = ImageView(this).apply {
+            tag = BUSCA_TOPO_TAG
+            setImageResource(R.drawable.ic_nav_search)
+            setColorFilter(Color.WHITE)
+            setPadding(10.dp, 10.dp, 10.dp, 10.dp)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(Color.parseColor("#40000000"))
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                val intent = Intent(this@HomeActivity, SearchActivity::class.java)
+                intent.putExtra("PROFILE_NAME", currentProfile)
+                intent.putExtra("PROFILE_ICON", currentProfileIcon)
+                startActivity(intent)
+            }
+        }
+
+        val params = FrameLayout.LayoutParams(38.dp, 38.dp).apply {
+            gravity = Gravity.TOP or Gravity.END
+            topMargin = statusBarHeightPx + 6.dp
+            marginEnd = 16.dp
+        }
+
+        contentRoot.addView(botaoBusca, params)
+        botaoBuscaTopo = botaoBusca
     }
 
     // ✅ NOVO: a wordmark "VLTV" fica fixa na tela (não faz parte do que rola
@@ -362,6 +404,7 @@ class HomeActivity : AppCompatActivity() {
                 val alvo = wordmarkView ?: return@OnScrollChangeListener
                 val progresso = (scrollY / distanciaFadePx).coerceIn(0f, 1f)
                 alvo.alpha = 1f - progresso
+                botaoBuscaTopo?.alpha = 1f - progresso
             }
         )
     }
@@ -446,10 +489,10 @@ class HomeActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.Default) {
             val movieItems = localMovies.map {
-                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1)
+                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url, badgeLabel = it.badgeAtual())
             }
             val seriesItems = localSeries.map {
-                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1)
+                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url, badgeLabel = it.badgeAtual())
             }
 
             withContext(Dispatchers.Main) {
@@ -493,7 +536,7 @@ class HomeActivity : AppCompatActivity() {
                     .thenByDescending { it.tmdb_release_date ?: "" }
                     .thenByDescending { it.added }
             ).take(20).map {
-                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "")
+                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isTop10 = it.is_top10 == 1, badgeLabel = it.badgeAtual())
             }
         } else emptyList()
 
@@ -503,7 +546,7 @@ class HomeActivity : AppCompatActivity() {
                     .thenByDescending { it.tmdb_release_date ?: "" }
                     .thenByDescending { it.last_modified }
             ).take(20).map {
-                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "")
+                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isTop10 = it.is_top10 == 1, badgeLabel = it.badgeAtual())
             }
         } else emptyList()
 
@@ -617,10 +660,10 @@ class HomeActivity : AppCompatActivity() {
                 val seriesIds: Set<String>
                 if (novidadesDbFilmes.isNotEmpty() || novidadesDbSeries.isNotEmpty()) {
                     val filmeItems = novidadesDbFilmes.map {
-                        VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "")
+                        VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isTop10 = it.is_top10 == 1, badgeLabel = it.badgeAtual())
                     }
                     val serieItems = novidadesDbSeries.map {
-                        VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "")
+                        VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isTop10 = it.is_top10 == 1, badgeLabel = it.badgeAtual())
                     }
                     novidades = (filmeItems + serieItems).take(20)
                     seriesIds = novidadesDbSeries.map { it.series_id.toString() }.toSet()
@@ -1238,9 +1281,9 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val localMovies = database.streamDao().getRecentVods(60)
-                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1) }
+                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url, badgeLabel = it.badgeAtual()) }
                 val localSeries = database.streamDao().getRecentSeries(60)
-                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1) }
+                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url, badgeLabel = it.badgeAtual()) }
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
                     agendarPopularSections(movieItems, seriesItems, localMovies, localSeries)
