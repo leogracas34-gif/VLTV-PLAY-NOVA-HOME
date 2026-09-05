@@ -250,38 +250,56 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ CORRIGIDO: função nova, reaproveitada pelas duas fases do login.
+    // ANTES, a fase rápida testava os servidores em paralelo (bom), mas a
+    // fase de fallback testava os MESMOS 15 servidores em SEQUÊNCIA — um
+    // esperando o outro terminar — cada um com até 25s de conexão + 25s de
+    // leitura. Com o painel/servidor respondendo devagar (não caindo, só
+    // lento), isso podia levar minutos (na prática, o Leandro reportou
+    // quase 5 minutos parado na tela de login). Agora as duas fases testam
+    // todos os servidores AO MESMO TEMPO e ficam sujeitas a um teto de
+    // tempo total (timeoutMs) — o primeiro que responder com sucesso já
+    // resolve o login, e o pior caso passa a ser limitado (a soma das duas
+    // fases abaixo, no máximo ~40s) em vez de ilimitado.
+    private suspend fun testarServidoresEmParalelo(
+        servers: List<String>,
+        user: String,
+        pass: String,
+        httpClient: OkHttpClient,
+        timeoutMs: Long
+    ): String? = coroutineScope {
+        var vencedor: String? = null
+        try {
+            val canal = Channel<String>(Channel.UNLIMITED)
+            val jobs = servers.map { url ->
+                launch(Dispatchers.IO) {
+                    val r = testarServidor(url, user, pass, httpClient)
+                    if (r != null) canal.trySend(r)
+                }
+            }
+            vencedor = withTimeoutOrNull(timeoutMs) { canal.receive() }
+            jobs.forEach { it.cancel() }
+            canal.close()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        vencedor
+    }
+
     // ── Fluxo de login novo ───────────────────────────────────────────────────
     private fun iniciarLoginTurbo(user: String, pass: String) {
         mostrarLoading()
 
         lifecycleScope.launch(Dispatchers.IO) {
-            var dnsVencedor: String? = null
+            // Fase 1: todos os servidores em paralelo, client rápido, até 18s.
+            var dnsVencedor = testarServidoresEmParalelo(SERVERS, user, pass, clientRapido, 18_000L)
 
-            try {
-                val canal = Channel<String>(Channel.UNLIMITED)
-                val jobs = SERVERS.map { url ->
-                    launch(Dispatchers.IO) {
-                        val r = testarServidor(url, user, pass, clientRapido)
-                        if (r != null) canal.trySend(r)
-                    }
-                }
-                dnsVencedor = withTimeoutOrNull(18_000L) { canal.receive() }
-                jobs.forEach { it.cancel() }
-                canal.close()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-            // ✅ Fallback agora usa a MESMA lista (SERVERS), só que com o
-            // client mais tolerante (clientLento: timeout maior e retry
-            // ativado) — pra dar uma segunda chance aos mesmos 7 DNS reais
-            // antes de desistir, em vez de testar servidores que você não
-            // usa mais.
+            // ✅ Fase 2 (fallback) agora TAMBÉM em paralelo, com o client mais
+            // tolerante (clientLento: timeout maior e retry ativado) — dá uma
+            // segunda chance aos mesmos servidores, mas sem enfileirar um
+            // atrás do outro. Teto de 25s no total, não por servidor.
             if (dnsVencedor == null) {
-                for (servidor in SERVERS) {
-                    val r = testarServidor(servidor, user, pass, clientLento)
-                    if (r != null) { dnsVencedor = r; break }
-                }
+                dnsVencedor = testarServidoresEmParalelo(SERVERS, user, pass, clientLento, 25_000L)
             }
 
             if (dnsVencedor != null) {
