@@ -9,9 +9,9 @@
     android:layout_marginBottom="4dp"
     android:focusable="true"
     android:clickable="true"
-    app:cardBackgroundColor="#14141C"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="8dp">
+    app:cardBackgroundColor="#111118"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="6dp">
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -31,9 +31,8 @@
             android:background="@drawable/gradient_card_bottom"/>
 
         <!-- Selo pequeno TOP 10 no canto — aparece quando esse mesmo item
-             também está no ranking, mesmo estando numa fileira diferente
-             (ex: "Filmes Para Você"). Independente da faixa de novidade
-             abaixo, os dois podem aparecer juntos. -->
+             tambem esta no ranking, mesmo estando numa fileira diferente
+             (ex: "Filmes Para Voce"). -->
         <LinearLayout
             android:id="@+id/tvBadgeTop10"
             android:layout_width="wrap_content"
@@ -69,9 +68,9 @@
 
         </LinearLayout>
 
-        <!-- Titulo e faixa de novidade empilhados no rodape do card,
-             igual a referencia (Netflix): titulo em cima, faixa colorida
-             (quando existe) ocupa a base inteira do card. -->
+        <!-- Titulo (texto ou logo) no rodape do card. O selo "Novidade",
+             quando existe, fica pequeno e discreto, alinhado a esquerda,
+             logo abaixo do titulo — nao ocupa mais a largura toda. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -102,9 +101,9 @@
                     android:shadowDx="0"
                     android:shadowDy="1"/>
 
-                <!-- Logo do título (quando disponível) por cima do texto —
+                <!-- Logo do titulo (quando disponivel) por cima do texto —
                      igual usado no banner principal. O tvTitle acima serve
-                     de reserva pra quando não tiver logo. -->
+                     de reserva pra quando nao tiver logo. -->
                 <ImageView
                     android:id="@+id/ivLogoTitle"
                     android:layout_width="match_parent"
@@ -118,15 +117,55 @@
 
             <TextView
                 android:id="@+id/tvBadgeNew"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
                 android:text="Novidade"
                 android:textColor="#0B0B0C"
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:textStyle="bold"
                 android:gravity="center"
-                android:paddingVertical="4dp"
-                android:background="#D9A24B"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:background="@drawable/bg_badge_new"
+                android:visibility="gone"/>
+
+            <!-- ✅ NOVO: mesmo estilo discreto do selo de Novidade, só que
+                 pra série existente que ganhou temporada/episódio novo. -->
+            <TextView
+                android:id="@+id/tvBadgeNovaTemporada"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Nova temporada"
+                android:textColor="#0B0B0C"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:background="@drawable/bg_badge_new"
+                android:visibility="gone"/>
+
+            <TextView
+                android:id="@+id/tvBadgeNovoEpisodio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Novo episódio"
+                android:textColor="#0B0B0C"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:background="@drawable/bg_badge_new"
                 android:visibility="gone"/>
 
         </LinearLayout>

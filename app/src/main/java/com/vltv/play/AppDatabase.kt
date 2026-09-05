@@ -58,13 +58,7 @@ data class VodEntity(
     val is_top10: Int = 0,
     val is_novidade: Int = 0,
     val tmdb_id: Int? = null,
-    val backdrop_path: String? = null,
-    // ── Selo "Novidade" baseado em quando o título ENTROU NO PAINEL ────────
-    // (independente do TMDB). Preenchido/preservado pelo PainelBadgeSync a
-    // cada sincronização — ver comentário completo em PainelBadgeSync.kt.
-    val first_seen_at: Long = 0L,
-    val badge_type: String = "",      // "" ou "novidade"
-    val badge_timestamp: Long = 0L
+    val backdrop_path: String? = null
 )
 
 @Entity(
@@ -79,6 +73,16 @@ data class VodEntity(
         Index(value = ["is_novidade"])
     ]
 )
+// ✅ NOVO: projeção leve (só os 4 campos necessários) pra checar o
+// progresso de temporada/episódio de cada série sem carregar a entidade
+// inteira — usado pela sincronização de nova temporada/novo episódio.
+data class SeriesTmdbProgresso(
+    val series_id: Int,
+    val tmdb_id: Int?,
+    val tmdb_ultima_temporada: Int,
+    val tmdb_ultimo_episodio: Int
+)
+
 data class SeriesEntity(
     @PrimaryKey val series_id: Int,
     val name: String,
@@ -93,20 +97,16 @@ data class SeriesEntity(
     val is_novidade: Int = 0,
     val tmdb_id: Int? = null,
     val backdrop_path: String? = null,
-    // ── Selos baseados em entrada/atualização NO PAINEL (não no TMDB) ──────
-    // first_seen_at: quando essa série apareceu pela 1ª vez no painel.
-    // season_count/episode_count: última contagem conhecida (via
-    // get_series_info), usada para detectar se a mudança foi temporada
-    // nova ou só episódio novo. badge_checked_last_modified guarda o
-    // "last_modified" da API que já foi processado, pra só chamar
-    // get_series_info de novo quando esse valor mudar de verdade.
-    // Ver PainelBadgeSync.kt para a lógica completa.
-    val first_seen_at: Long = 0L,
-    val season_count: Int = 0,
-    val episode_count: Int = 0,
-    val badge_type: String = "",      // "" | "novidade" | "novo_episodio" | "nova_temporada"
-    val badge_timestamp: Long = 0L,
-    val badge_checked_last_modified: Long = 0L
+    // ✅ NOVO: rastreamento de temporada/episódio pra detectar quando uma
+    // série existente ganha conteúdo novo (em vez de só "é novidade" pra
+    // séries que acabaram de entrar no catálogo). Guarda a temporada e o
+    // episódio do último episódio que já foi visto no TMDB da última vez
+    // que a sincronização rodou — comparando com o valor atual, dá pra
+    // saber se subiu temporada nova ou só mais um episódio.
+    val tmdb_ultima_temporada: Int = 0,
+    val tmdb_ultimo_episodio: Int = 0,
+    val is_nova_temporada: Int = 0,
+    val is_novo_episodio: Int = 0
 )
 
 @Entity(
@@ -331,6 +331,40 @@ interface StreamDao {
     @Query("UPDATE series_streams SET is_novidade = 0, tmdb_release_date = NULL")
     suspend fun clearSeriesNovidadeFlags()
 
+    // ✅ NOVO: Novidade baseada na data real de entrada no SEU servidor
+    // (campo "added"/"last_modified" que o próprio painel Xtream já manda
+    // pra cada item), em vez de casamento por título com lançamentos do
+    // TMDB. Antes, um filme de 2025 que já estava no servidor há meses
+    // continuava aparecendo como "Novidade" pra sempre, só por ter sido
+    // lançado recentemente no cinema — não por ter entrado recentemente no
+    // SEU catálogo. Agora só é novidade quem realmente acabou de ser
+    // adicionado, não importa o ano de lançamento.
+    @Query("UPDATE vod_streams SET is_novidade = CASE WHEN added >= :desde THEN 1 ELSE 0 END")
+    suspend fun atualizarNovidadeVodPorDataDeEntrada(desde: Long)
+
+    @Query("UPDATE series_streams SET is_novidade = CASE WHEN last_modified >= :desde THEN 1 ELSE 0 END")
+    suspend fun atualizarNovidadeSeriesPorDataDeEntrada(desde: Long)
+
+    // ✅ NOVO: nova temporada / novo episódio (independente de "novidade",
+    // que é só pra séries recém-adicionadas ao catálogo)
+    @Query("SELECT series_id, tmdb_id, tmdb_ultima_temporada, tmdb_ultimo_episodio FROM series_streams WHERE tmdb_id IS NOT NULL ORDER BY last_modified DESC LIMIT :limite")
+    suspend fun getSeriesComTmdbIdParaChecarEpisodios(limite: Int): List<SeriesTmdbProgresso>
+
+    @Query("UPDATE series_streams SET is_nova_temporada = 1, tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio WHERE series_id = :id")
+    suspend fun marcarNovaTemporada(id: Int, temporada: Int, episodio: Int)
+
+    @Query("UPDATE series_streams SET is_novo_episodio = 1, tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio WHERE series_id = :id")
+    suspend fun marcarNovoEpisodio(id: Int, temporada: Int, episodio: Int)
+
+    @Query("UPDATE series_streams SET tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio WHERE series_id = :id")
+    suspend fun atualizarProgressoSemAlerta(id: Int, temporada: Int, episodio: Int)
+
+    @Query("UPDATE series_streams SET is_nova_temporada = 0")
+    suspend fun clearSeriesNovaTemporadaFlags()
+
+    @Query("UPDATE series_streams SET is_novo_episodio = 0")
+    suspend fun clearSeriesNovoEpisodioFlags()
+
     // --- CATEGORIAS ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategories(categories: List<CategoryEntity>)
@@ -414,68 +448,12 @@ interface StreamDao {
 
     @Query("DELETE FROM downloads WHERE name = :seriesName AND type = 'series'")
     suspend fun deleteDownloadsBySeries(seriesName: String)
-
-    // ── SELOS DE PAINEL (Novidade / Novo Episódio / Nova Temporada) ────────
-    // Ver PainelBadgeSync.kt para a lógica completa de quando cada campo
-    // é atualizado.
-
-    @Query("SELECT stream_id, first_seen_at, badge_type, badge_timestamp FROM vod_streams")
-    suspend fun getVodBadgeStates(): List<VodBadgeState>
-
-    @Query(
-        "UPDATE vod_streams SET first_seen_at = :firstSeenAt, badge_type = :badgeType, " +
-        "badge_timestamp = :badgeTimestamp WHERE stream_id = :id"
-    )
-    suspend fun updateVodBadge(id: Int, firstSeenAt: Long, badgeType: String, badgeTimestamp: Long)
-
-    @Query(
-        "SELECT series_id, first_seen_at, season_count, episode_count, badge_type, " +
-        "badge_timestamp, badge_checked_last_modified FROM series_streams"
-    )
-    suspend fun getSeriesBadgeStates(): List<SeriesBadgeState>
-
-    @Query(
-        "UPDATE series_streams SET first_seen_at = :firstSeenAt, season_count = :seasonCount, " +
-        "episode_count = :episodeCount, badge_type = :badgeType, badge_timestamp = :badgeTimestamp, " +
-        "badge_checked_last_modified = :checkedLastModified WHERE series_id = :id"
-    )
-    suspend fun updateSeriesBadge(
-        id: Int,
-        firstSeenAt: Long,
-        seasonCount: Int,
-        episodeCount: Int,
-        badgeType: String,
-        badgeTimestamp: Long,
-        checkedLastModified: Long
-    )
 }
 
-// ── Projeções leves usadas só pelo PainelBadgeSync (evita carregar a
-// entidade inteira — nome/capa/etc. — quando só precisamos comparar o
-// estado do selo). ─────────────────────────────────────────────────────────
-data class VodBadgeState(
-    val stream_id: Int,
-    val first_seen_at: Long,
-    val badge_type: String,
-    val badge_timestamp: Long
-)
-
-data class SeriesBadgeState(
-    val series_id: Int,
-    val first_seen_at: Long,
-    val season_count: Int,
-    val episode_count: Int,
-    val badge_type: String,
-    val badge_timestamp: Long,
-    val badge_checked_last_modified: Long
-)
-
 // ==========================================
-// DATABASE — version 14 (novos campos de selo em vod_streams/series_streams:
-// first_seen_at, badge_type, badge_timestamp — e em series_streams também
-// season_count, episode_count, badge_checked_last_modified — para o sistema
-// de faixas "Novidade"/"Novo Episódio"/"Nova Temporada" baseado em quando o
-// conteúdo entra/muda NO PAINEL, ver PainelBadgeSync.kt)
+// DATABASE — version 13 (novos índices em downloads: android_download_id,
+// file_path, stream_id+type — antes só havia índice em status/
+// name+season/profile_name)
 // ==========================================
 
 @Database(
@@ -512,19 +490,13 @@ abstract class AppDatabase : RoomDatabase() {
                 "vltv_play_db"
             )
                 // ✅ fallbackToDestructiveMigration recria as tabelas automaticamente
-                // por causa das mudanças de versão 12→13 (novos índices em
-                // "downloads") e 13→14 (novos campos de selo em
-                // vod_streams/series_streams). Isso apaga downloads salvos
-                // localmente (o usuário vai precisar baixar de novo o que já
-                // tinha baixado) e o catálogo (vod_streams/series_streams,
-                // incluindo o histórico de "first_seen_at" dos selos), mas o
-                // catálogo resincroniza sozinho na próxima abertura do app —
-                // mesmo comportamento já aceito nas migrações anteriores
-                // (v9→v10, v10→v11, v11→v12, v12→v13). Efeito prático: logo
-                // após atualizar o app pra essa versão, todo o catálogo é
-                // tratado como "recém-visto" por um ciclo — é esperado que
-                // apareçam mais faixas "Novidade" que o normal nesse
-                // primeiro momento, e isso se normaliza sozinho depois.
+                // por causa da mudança de versão 12→13 (novos índices em
+                // "downloads"). Isso apaga downloads salvos localmente (o
+                // usuário vai precisar baixar de novo o que já tinha baixado)
+                // e o catálogo (vod_streams/series_streams), mas o catálogo
+                // resincroniza sozinho na próxima abertura do app — mesmo
+                // comportamento já aceito nas migrações anteriores (v9→v10,
+                // v10→v11, v11→v12).
                 .fallbackToDestructiveMigration()
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 // ✅ Esse queryExecutor é compartilhado por TODAS as queries

@@ -97,15 +97,53 @@
 
             <TextView
                 android:id="@+id/tvBadgeNew"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
                 android:text="Novidade"
                 android:textColor="#0B0B0C"
-                android:textSize="9sp"
+                android:textSize="8sp"
                 android:textStyle="bold"
                 android:gravity="center"
-                android:paddingVertical="3dp"
-                android:background="#D9A24B"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="2dp"
+                android:background="@drawable/bg_badge_new"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvBadgeNovaTemporada"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Nova temporada"
+                android:textColor="#0B0B0C"
+                android:textSize="8sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="2dp"
+                android:background="@drawable/bg_badge_new"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvBadgeNovoEpisodio"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="8dp"
+                android:text="Novo episódio"
+                android:textColor="#0B0B0C"
+                android:textSize="8sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="2dp"
+                android:background="@drawable/bg_badge_new"
                 android:visibility="gone" />
 
         </LinearLayout>
