@@ -73,16 +73,6 @@ data class VodEntity(
         Index(value = ["is_novidade"])
     ]
 )
-// ✅ NOVO: projeção leve (só os 4 campos necessários) pra checar o
-// progresso de temporada/episódio de cada série sem carregar a entidade
-// inteira — usado pela sincronização de nova temporada/novo episódio.
-data class SeriesTmdbProgresso(
-    val series_id: Int,
-    val tmdb_id: Int?,
-    val tmdb_ultima_temporada: Int,
-    val tmdb_ultimo_episodio: Int
-)
-
 data class SeriesEntity(
     @PrimaryKey val series_id: Int,
     val name: String,
@@ -107,6 +97,16 @@ data class SeriesEntity(
     val tmdb_ultimo_episodio: Int = 0,
     val is_nova_temporada: Int = 0,
     val is_novo_episodio: Int = 0
+)
+
+// ✅ NOVO: projeção leve (só os 4 campos necessários) pra checar o
+// progresso de temporada/episódio de cada série sem carregar a entidade
+// inteira — usado pela sincronização de nova temporada/novo episódio.
+data class SeriesTmdbProgresso(
+    val series_id: Int,
+    val tmdb_id: Int?,
+    val tmdb_ultima_temporada: Int,
+    val tmdb_ultimo_episodio: Int
 )
 
 @Entity(
