@@ -74,6 +74,14 @@ class LoginActivity : AppCompatActivity() {
     private var dotsJob: Runnable? = null
     private var dotsCount = 0
 
+    // ✅ NOVO (diagnóstico temporário): mostra na própria tela quanto tempo
+    // está passando e em qual fase (1 = rápida, 2 = fallback), reaproveitando
+    // o texto de "pontinhos" que já existe — não cria nenhuma view nova no
+    // layout. Serve pra descobrirmos, no próximo teste real, se a demora
+    // está na fase 1, na fase 2, ou em outro lugar (ex: troca de tela).
+    private var inicioLoginMs = 0L
+    private var faseAtualLogin = 1
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // ✅ REMOVIDO: installSplashScreen() saiu daqui. A LoginActivity não
         // é mais a porta de entrada do app — quem cobre esse papel agora é
@@ -196,7 +204,14 @@ class LoginActivity : AppCompatActivity() {
         dotsJob = object : Runnable {
             override fun run() {
                 dotsCount = (dotsCount + 1) % 4
-                try { binding.tvLoadingDots?.text = ".".repeat(dotsCount) } catch (e: Exception) {}
+                val prefixo = if (faseAtualLogin == 2) "Tentando novamente" else "Conectando"
+                val segundos = if (inicioLoginMs > 0) {
+                    ((System.currentTimeMillis() - inicioLoginMs) / 1000)
+                } else null
+                val sufixo = if (segundos != null) " (${segundos}s)" else ""
+                try {
+                    binding.tvLoadingDots?.text = "$prefixo${".".repeat(dotsCount)}$sufixo"
+                } catch (e: Exception) {}
                 dotsHandler.postDelayed(this, 400)
             }
         }
@@ -220,6 +235,8 @@ class LoginActivity : AppCompatActivity() {
 
     private fun esconderLoading() {
         pararAnimacaoPontinhos()
+        inicioLoginMs = 0L
+        faseAtualLogin = 1
         try { binding.layoutLoading?.visibility = View.GONE } catch (e: Exception) {
             binding.progressBar.visibility = View.GONE
         }
@@ -288,6 +305,8 @@ class LoginActivity : AppCompatActivity() {
 
     // ── Fluxo de login novo ───────────────────────────────────────────────────
     private fun iniciarLoginTurbo(user: String, pass: String) {
+        inicioLoginMs = System.currentTimeMillis()
+        faseAtualLogin = 1
         mostrarLoading()
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -299,6 +318,7 @@ class LoginActivity : AppCompatActivity() {
             // segunda chance aos mesmos servidores, mas sem enfileirar um
             // atrás do outro. Teto de 25s no total, não por servidor.
             if (dnsVencedor == null) {
+                faseAtualLogin = 2
                 dnsVencedor = testarServidoresEmParalelo(SERVERS, user, pass, clientLento, 25_000L)
             }
 
