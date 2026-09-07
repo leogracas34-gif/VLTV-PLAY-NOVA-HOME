@@ -114,7 +114,7 @@
             android:text="Ir para o próximo"
             android:textAllCaps="false"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#D32F2F"
+            android:backgroundTint="#D9A24B"
             android:focusable="true"
             android:focusableInTouchMode="true"
             style="@style/Widget.AppCompat.Button.Colored"/>

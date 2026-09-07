@@ -28,125 +28,50 @@
             android:layout_height="match_parent"
             android:background="@drawable/gradient_black_bottom" />
 
-        <LinearLayout
-            android:id="@+id/tvBadgeTop10"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="top|start"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/bg_top10_badge"
-            android:paddingHorizontal="5dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="3dp"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="TOP"
-                android:textColor="#0B0B0C"
-                android:textSize="6sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"/>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="10"
-                android:textColor="#0B0B0C"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-black"
-                android:includeFontPadding="false"/>
-
-        </LinearLayout>
-
-        <LinearLayout
+        <TextView
+            android:id="@+id/tvTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:orientation="vertical">
+            android:padding="8dp"
+            android:text="Título do Filme"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+        <!-- ✅ NOVO: mesmos dois selos do layout retrato (ver comentários
+             lá), só que compactos pro card menor (180x100dp). -->
+        <TextView
+            android:id="@+id/tvBadgeNew"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="4dp"
+            android:text="NOVIDADE"
+            android:textColor="@color/mocha_gold"
+            android:textSize="7sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="1dp"
+            android:background="@drawable/bg_badge_status"
+            android:visibility="gone" />
 
-                <TextView
-                    android:id="@+id/tvTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:padding="8dp"
-                    android:text="Título do Filme"
-                    android:textColor="#FFFFFF"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
-
-                <ImageView
-                    android:id="@+id/ivLogoTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="28dp"
-                    android:layout_margin="8dp"
-                    android:scaleType="fitStart"
-                    android:adjustViewBounds="true"
-                    android:visibility="gone"/>
-
-            </FrameLayout>
-
-            <TextView
-                android:id="@+id/tvBadgeNew"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start"
-                android:layout_marginStart="8dp"
-                android:layout_marginBottom="8dp"
-                android:text="Novidade"
-                android:textColor="#0B0B0C"
-                android:textSize="8sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:paddingHorizontal="7dp"
-                android:paddingVertical="2dp"
-                android:background="@drawable/bg_badge_new"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/tvBadgeNovaTemporada"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start"
-                android:layout_marginStart="8dp"
-                android:layout_marginBottom="8dp"
-                android:text="Nova temporada"
-                android:textColor="#0B0B0C"
-                android:textSize="8sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:paddingHorizontal="7dp"
-                android:paddingVertical="2dp"
-                android:background="@drawable/bg_badge_new"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/tvBadgeNovoEpisodio"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start"
-                android:layout_marginStart="8dp"
-                android:layout_marginBottom="8dp"
-                android:text="Novo episódio"
-                android:textColor="#0B0B0C"
-                android:textSize="8sp"
-                android:textStyle="bold"
-                android:gravity="center"
-                android:paddingHorizontal="7dp"
-                android:paddingVertical="2dp"
-                android:background="@drawable/bg_badge_new"
-                android:visibility="gone" />
-
-        </LinearLayout>
+        <TextView
+            android:id="@+id/tvBadgeTop10"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="4dp"
+            android:text="TOP 10"
+            android:textColor="@color/black"
+            android:textSize="7sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="1dp"
+            android:background="@drawable/bg_badge_top10"
+            android:visibility="gone" />
 
     </FrameLayout>
 </androidx.cardview.widget.CardView>
