@@ -30,6 +30,22 @@
             android:layout_gravity="bottom"
             android:background="@drawable/gradient_card_bottom"/>
 
+        <!-- ✅ NOVO: logo do título (clearlogo TMDB), estilo Netflix.
+             Some por padrão; o adapter mostra ela e esconde tvTitle
+             quando o item tem logoUrl salva. -->
+        <ImageView
+            android:id="@+id/ivLogo"
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:visibility="gone"
+            android:contentDescription="@null"/>
+
         <TextView
             android:id="@+id/tvTitle"
             android:layout_width="match_parent"
@@ -50,25 +66,51 @@
             android:shadowDx="0"
             android:shadowDy="1"/>
 
-        <TextView
-            android:id="@+id/tvBadgeNew"
-            android:layout_width="wrap_content"
+        <!-- ✅ Selo de status — barra sólida de largura total embaixo do
+             pôster, igual Netflix (degradê dourado da marca em vez de
+             vermelho). Linha 2 só aparece pro caso "Nova Temporada Em
+             Breve" (ex: "NOVA TEMPORADA" + "EM BREVE" empilhados). -->
+        <LinearLayout
+            android:id="@+id/llBadgeStatus"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|start"
-            android:layout_margin="6dp"
-            android:text="NOVIDADE"
-            android:textColor="@color/mocha_gold"
-            android:textSize="8sp"
-            android:textStyle="bold"
-            android:paddingHorizontal="5dp"
-            android:paddingVertical="2dp"
-            android:background="@drawable/bg_badge_status"
-            android:visibility="gone"/>
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        <!-- ✅ NOVO: selo compacto que aparece quando o item também está no
-             Top 10 mas está sendo exibido em OUTRA fileira (ex:
-             Novidades) — estilo Netflix. Canto oposto ao selo de status
-             pra não sobrepor quando os dois aparecem juntos. -->
+            <TextView
+                android:id="@+id/tvBadgeNew"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="NOVIDADE"
+                android:textColor="@color/white"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.03"
+                android:paddingVertical="3dp"
+                android:background="@drawable/bg_badge_status_bar"/>
+
+            <TextView
+                android:id="@+id/tvBadgeNewLine2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="EM BREVE"
+                android:textColor="@color/mocha_gold_darkest"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.03"
+                android:paddingVertical="3dp"
+                android:background="@color/white"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+        <!-- ✅ Selo TOP 10 — canto oposto ao de status pra não sobrepor
+             quando os dois aparecem juntos. -->
         <TextView
             android:id="@+id/tvBadgeTop10"
             android:layout_width="wrap_content"
@@ -79,6 +121,8 @@
             android:textColor="@color/black"
             android:textSize="8sp"
             android:textStyle="bold"
+            android:textAllCaps="true"
+            android:letterSpacing="0.02"
             android:paddingHorizontal="5dp"
             android:paddingVertical="2dp"
             android:background="@drawable/bg_badge_top10"
