@@ -75,46 +75,24 @@
             android:shadowColor="#CC000000"
             android:shadowRadius="4"/>
 
-        <!-- ✅ Selos também no card largo — barra sólida de largura total,
-             mesmo formato do card vertical. -->
-        <LinearLayout
-            android:id="@+id/llBadgeStatus"
-            android:layout_width="match_parent"
+        <!-- ✅ NOVO: selos também no card largo — Netflix mostra "NOVOS
+             EPISÓDIOS" etc. até em Continuar Assistindo. -->
+        <TextView
+            android:id="@+id/tvBadgeNew"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/tvBadgeNew"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="NOVIDADE"
-                android:textColor="@color/white"
-                android:textSize="9sp"
-                android:textStyle="bold"
-                android:textAllCaps="true"
-                android:letterSpacing="0.03"
-                android:paddingVertical="3dp"
-                android:background="@drawable/bg_badge_status_bar"/>
-
-            <TextView
-                android:id="@+id/tvBadgeNewLine2"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="EM BREVE"
-                android:textColor="@color/mocha_gold_darkest"
-                android:textSize="9sp"
-                android:textStyle="bold"
-                android:textAllCaps="true"
-                android:letterSpacing="0.03"
-                android:paddingVertical="3dp"
-                android:background="@color/white"
-                android:visibility="gone"/>
-
-        </LinearLayout>
+            android:layout_gravity="top|start"
+            android:layout_margin="6dp"
+            android:text="NOVIDADE"
+            android:textColor="@color/mocha_gold"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:letterSpacing="0.02"
+            android:paddingHorizontal="5dp"
+            android:paddingVertical="2dp"
+            android:background="@drawable/bg_badge_status"
+            android:visibility="gone"/>
 
         <TextView
             android:id="@+id/tvBadgeTop10"
