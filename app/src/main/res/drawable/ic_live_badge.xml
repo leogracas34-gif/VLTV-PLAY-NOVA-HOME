@@ -7,7 +7,7 @@
 
     <!-- Fundo vermelho com borda arredondada -->
     <path
-        android:fillColor="#E50914"
+        android:fillColor="#D9A24B"
         android:pathData="M4,0 L52,0 Q56,0 56,4 L56,24 Q56,28 52,28 L4,28 Q0,28 0,24 L0,4 Q0,0 4,0 Z"/>
 
     <!-- Círculo pulsante (indicador ao vivo) -->
