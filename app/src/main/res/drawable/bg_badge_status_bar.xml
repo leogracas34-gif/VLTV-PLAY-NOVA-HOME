@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ✅ Barra de selo de status (Novidade / Nova Temporada / Novo
+     Episódio / linha superior de "Nova Temporada Em Breve") — igual ao
+     formato da Netflix (barra sólida, largura total, embaixo do
+     pôster), mas em degradê dourado (paleta da marca) pra se destacar
+     do resto do card em vez do vermelho da Netflix. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="linear"
+        android:angle="0"
+        android:startColor="@color/mocha_gold"
+        android:endColor="@color/mocha_gold_darkest" />
+</shape>
