@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- ✅ NOVO: selo "TOP 10" que aparece em cima da capa quando um item que
-     também está no Top 10 aparece em OUTRA fileira (ex: Novidades) —
-     estilo Netflix. Fundo sólido dourado (mocha_gold), cantos levemente
-     arredondados. -->
+<!-- ✅ Selo "TOP 10" — formato ajustado pra ficar igual ao tamanho do
+     selo da Netflix (compacto, cantos quase retos). Fundo sólido
+     dourado (mocha_gold). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/mocha_gold" />
-    <corners android:radius="3dp" />
+    <corners android:radius="2dp" />
 </shape>

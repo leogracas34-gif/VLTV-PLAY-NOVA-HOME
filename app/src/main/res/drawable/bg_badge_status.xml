@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- ✅ NOVO: pílula de status no card (Novidade / Nova Temporada / Novo
-     Episódio / Em Breve) — estilo Netflix, mas na paleta mocha do app em
-     vez do vermelho. Fundo escuro translúcido + borda dourada fina, pra
-     não competir visualmente com o selo TOP 10 (que é sólido). -->
+<!-- ✅ Pílula de status no card (Novidade / Nova Temporada / Novo
+     Episódio / Em Breve) — proporção e cantos ajustados pra ficar igual
+     ao tamanho/formato do selo da Netflix (bem compacto, cantos quase
+     retos), mantendo a paleta mocha do app em vez do vermelho. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#CC0B0B0C" />
+    <solid android:color="#E60B0B0C" />
     <stroke android:width="1dp" android:color="@color/mocha_gold" />
-    <corners android:radius="3dp" />
+    <corners android:radius="2dp" />
 </shape>
