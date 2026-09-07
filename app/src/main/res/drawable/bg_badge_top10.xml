@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- ✅ Selo "TOP 10" — formato ajustado pra ficar igual ao tamanho do
-     selo da Netflix (compacto, cantos quase retos). Fundo sólido
-     dourado (mocha_gold). -->
+<!-- ✅ Selo "TOP 10" — encaixado no canto superior esquerdo do card,
+     sem margem. O canto superior esquerdo acompanha o raio do próprio
+     card (pra parecer que o selo faz parte da capa) e o canto inferior
+     direito tem um raio pequeno pra fechar o "flag" com uma quina
+     suave. Os outros dois cantos ficam retos porque tocam as bordas do
+     card. Fundo sólido dourado (mocha_gold). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/mocha_gold" />
-    <corners android:radius="2dp" />
+    <corners
+        android:topLeftRadius="10dp"
+        android:topRightRadius="0dp"
+        android:bottomLeftRadius="0dp"
+        android:bottomRightRadius="6dp" />
 </shape>
