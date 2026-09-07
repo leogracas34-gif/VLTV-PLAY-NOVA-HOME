@@ -1286,7 +1286,8 @@ class HomeActivity : AppCompatActivity() {
         streamIcon = stream_icon ?: "",
         isSerie = false,
         isTop10 = is_top10 == 1,
-        isNovidade = is_novidade == 1
+        isNovidade = is_novidade == 1,
+        logoUrl = logo_url
     )
 
     private fun SeriesEntity.paraItem(): VodItem {
@@ -1302,7 +1303,8 @@ class HomeActivity : AppCompatActivity() {
             isNovaTemporada = is_nova_temporada == 1 && dentroDaJanela,
             isNovoEpisodio = is_novo_episodio == 1 && dentroDaJanela,
             isNovaTemporadaEmBreve = !tmdb_proxima_temporada_data.isNullOrEmpty() &&
-                tmdb_proxima_temporada_data > hoje
+                tmdb_proxima_temporada_data > hoje,
+            logoUrl = logo_url
         )
     }
 
@@ -2434,6 +2436,13 @@ class HomeActivity : AppCompatActivity() {
                     var finalName = limparNomeExibicao(item.name)
                     var finalIcon = item.icon ?: ""
                     val isSeries = item.is_series
+                    var finalLogo: String? = null
+
+                    // ✅ NOVO: porcentagem assistida (0-100) pra desenhar a
+                    // barra de progresso no card largo, igual Netflix.
+                    val progresso = if (item.duration > 0) {
+                        ((item.last_position * 100) / item.duration).toInt().coerceIn(0, 100)
+                    } else -1
 
                     if (isSeries) {
                         try {
@@ -2456,12 +2465,28 @@ class HomeActivity : AppCompatActivity() {
                                 finalId = realSeriesId
                                 finalName = limparNomeExibicao(serieResolvida.name)
                                 finalIcon = serieResolvida.cover ?: ""
+                                finalLogo = serieResolvida.logo_url
                                 seriesJaAdicionadas.add(realSeriesId)
                             }
                         } catch (e: Exception) { e.printStackTrace() }
+                    } else {
+                        // ✅ NOVO: histórico não guarda logo do filme — busca
+                        // no vod_streams pra poder mostrar a logo no card.
+                        try {
+                            finalLogo = database.streamDao().getVodByStreamId(item.stream_id)?.logo_url
+                        } catch (e: Exception) { e.printStackTrace() }
                     }
 
-                    vodItems.add(VodItem(finalId, finalName, finalIcon))
+                    vodItems.add(
+                        VodItem(
+                            id = finalId,
+                            name = finalName,
+                            streamIcon = finalIcon,
+                            isSerie = isSeries,
+                            logoUrl = finalLogo,
+                            progressoAssistido = progresso
+                        )
+                    )
                     seriesMap[finalId] = isSeries
                 }
 
@@ -2472,7 +2497,7 @@ class HomeActivity : AppCompatActivity() {
                         binding.layoutContinueHeader?.visibility = View.VISIBLE
                         tvTitle?.visibility = View.VISIBLE
                         binding.rvContinueWatching.visibility = View.VISIBLE
-                        binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems) { selected ->
+                        binding.rvContinueWatching.adapter = HomeRowAdapter(vodItems, useWideLayout = true) { selected ->
                             val isSeries = seriesMap[selected.id] ?: false
                             val intent = if (isSeries) {
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply {

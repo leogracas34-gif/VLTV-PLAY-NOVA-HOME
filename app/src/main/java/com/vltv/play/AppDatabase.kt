@@ -250,6 +250,12 @@ interface StreamDao {
     @Query("SELECT * FROM vod_streams WHERE category_id = :categoryId ORDER BY added DESC")
     suspend fun getVodsByCategory(categoryId: String): List<VodEntity>
 
+    // ✅ NOVO: busca um único filme pelo stream_id — usado pra recuperar a
+    // logo (logo_url) na fileira "Continuar Assistindo", já que o
+    // histórico (WatchHistoryEntity) não guarda a logo.
+    @Query("SELECT * FROM vod_streams WHERE stream_id = :id LIMIT 1")
+    suspend fun getVodByStreamId(id: Int): VodEntity?
+
     @Transaction
     @Query("SELECT * FROM vod_streams ORDER BY added DESC LIMIT :limit")
     suspend fun getRecentVods(limit: Int): List<VodEntity>

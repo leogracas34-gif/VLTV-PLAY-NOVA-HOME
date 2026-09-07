@@ -15,5 +15,13 @@ data class VodItem(
     val isNovidade: Boolean = false,
     val isNovaTemporada: Boolean = false,
     val isNovoEpisodio: Boolean = false,
-    val isNovaTemporadaEmBreve: Boolean = false
+    val isNovaTemporadaEmBreve: Boolean = false,
+    // ✅ NOVO: logo (clearlogo) do título vinda do TMDB, já usada no banner
+    // de destaque — agora reaproveitada nos cards das fileiras pra
+    // substituir o nome em texto por baixo do pôster, igual Netflix.
+    // Quando nula/vazia, o card cai de volta pro nome em texto.
+    val logoUrl: String? = null,
+    // ✅ NOVO: progresso assistido em porcentagem (0-100), usado só no
+    // card largo de "Continuar Assistindo". -1 = sem barra de progresso.
+    val progressoAssistido: Int = -1
 )

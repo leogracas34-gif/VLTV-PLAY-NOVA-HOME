@@ -3,9 +3,7 @@ package com.vltv.play
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
@@ -24,14 +22,6 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 // (clearlogo vinda do TMDB, igual já aparece nas telas de detalhes) em
 // vez do nome em texto. Se o item não tiver logo salva, cai de volta pro
 // nome em texto — nunca fica sem identificação nenhuma.
-//
-// ✅ NOVO: o selo de status (Novidade / Nova Temporada / Novo Episódio /
-// Em Breve) deixou de ser um selinho no canto e virou uma barra sólida
-// de largura total embaixo do pôster, igual ao formato da Netflix —
-// inclusive com duas linhas empilhadas pro caso "Nova Temporada Em
-// Breve" (linha 1 "NOVA TEMPORADA" + linha 2 "EM BREVE"). Como essa
-// barra ocupa a base do card, a logo/nome do título é empurrada pra
-// cima na mesma proporção pra nunca ficar por baixo do selo.
 class HomeRowAdapter(
     private var list: List<VodItem>,
     private val useWideLayout: Boolean = false,
@@ -42,9 +32,7 @@ class HomeRowAdapter(
         val ivPoster: ImageView = view.findViewById(R.id.ivPoster)
         val tvTitle: TextView = view.findViewById(R.id.tvTitle)
         val ivLogo: ImageView? = view.findViewById(R.id.ivLogo)
-        val llBadgeStatus: LinearLayout = view.findViewById(R.id.llBadgeStatus)
         val tvBadgeStatus: TextView = view.findViewById(R.id.tvBadgeNew)
-        val tvBadgeStatusLine2: TextView = view.findViewById(R.id.tvBadgeNewLine2)
         val tvBadgeTop10: TextView = view.findViewById(R.id.tvBadgeTop10)
         val pbProgress: ProgressBar? = view.findViewById(R.id.pbProgress)
     }
@@ -70,7 +58,6 @@ class HomeRowAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = list[position]
-        val context = holder.itemView.context
         holder.tvTitle.text = item.name
 
         // ✅ NOVO: se existe logo do título, mostra ela por baixo do
@@ -80,7 +67,7 @@ class HomeRowAdapter(
             if (!item.logoUrl.isNullOrEmpty()) {
                 holder.tvTitle.visibility = View.INVISIBLE
                 holder.ivLogo.visibility = View.VISIBLE
-                Glide.with(context)
+                Glide.with(holder.itemView.context)
                     .load(item.logoUrl)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .dontAnimate()
@@ -92,50 +79,25 @@ class HomeRowAdapter(
         }
 
         // Selo de status — só um por vez, ordem de prioridade:
-        // Nova Temporada > Novo Episódio > Em Breve > Novidade. O caso
-        // "Em Breve" usa as duas linhas (NOVA TEMPORADA + EM BREVE); os
-        // outros usam só a linha 1.
-        val linhasBadge: Int
-        when {
-            item.isNovaTemporada -> {
-                holder.tvBadgeStatus.text = "NOVA TEMPORADA"
-                holder.tvBadgeStatusLine2.visibility = View.GONE
-                holder.llBadgeStatus.visibility = View.VISIBLE
-                linhasBadge = 1
-            }
-            item.isNovoEpisodio -> {
-                holder.tvBadgeStatus.text = "NOVO EPISÓDIO"
-                holder.tvBadgeStatusLine2.visibility = View.GONE
-                holder.llBadgeStatus.visibility = View.VISIBLE
-                linhasBadge = 1
-            }
-            item.isNovaTemporadaEmBreve -> {
-                holder.tvBadgeStatus.text = "NOVA TEMPORADA"
-                holder.tvBadgeStatusLine2.visibility = View.VISIBLE
-                holder.llBadgeStatus.visibility = View.VISIBLE
-                linhasBadge = 2
-            }
-            item.isNovidade -> {
-                holder.tvBadgeStatus.text = "NOVIDADE"
-                holder.tvBadgeStatusLine2.visibility = View.GONE
-                holder.llBadgeStatus.visibility = View.VISIBLE
-                linhasBadge = 1
-            }
-            else -> {
-                holder.llBadgeStatus.visibility = View.GONE
-                linhasBadge = 0
-            }
+        // Nova Temporada > Novo Episódio > Em Breve > Novidade.
+        val textoStatus = when {
+            item.isNovaTemporada -> "NOVA TEMPORADA"
+            item.isNovoEpisodio -> "NOVO EPISÓDIO"
+            item.isNovaTemporadaEmBreve -> "EM BREVE"
+            item.isNovidade -> "NOVIDADE"
+            else -> null
         }
-
-        // ✅ NOVO: já que o selo agora é uma barra na base do card, a
-        // logo/nome do título precisa subir pra não ficar embaixo dela.
-        ajustarMargemInferior(context, holder.ivLogo, linhasBadge)
-        ajustarMargemInferior(context, holder.tvTitle, linhasBadge)
+        if (textoStatus != null) {
+            holder.tvBadgeStatus.text = textoStatus
+            holder.tvBadgeStatus.visibility = View.VISIBLE
+        } else {
+            holder.tvBadgeStatus.visibility = View.GONE
+        }
 
         // Selo TOP 10 — independente do status acima.
         holder.tvBadgeTop10.visibility = if (item.isTop10) View.VISIBLE else View.GONE
 
-        // Barra de progresso (só existe no card largo).
+        // ✅ NOVO: barra de progresso (só existe no card largo).
         if (holder.pbProgress != null) {
             if (item.progressoAssistido in 0..100) {
                 holder.pbProgress.progress = item.progressoAssistido
@@ -148,7 +110,7 @@ class HomeRowAdapter(
         val larguraPoster = if (useWideLayout) 320 else 180
         val alturaPoster = if (useWideLayout) 180 else 270
 
-        Glide.with(context)
+        Glide.with(holder.itemView.context)
             .asBitmap()
             .load(item.streamIcon)
             .format(DecodeFormat.PREFER_RGB_565)
@@ -165,21 +127,6 @@ class HomeRowAdapter(
             v.scaleY = if (hasFocus) 1.1f else 1.0f
             v.elevation = if (hasFocus) 10f else 0f
         }
-    }
-
-    // ✅ NOVO: eleva a logo/nome do título pra cima do selo de status,
-    // já que ambos moram no mesmo FrameLayout ancorados embaixo. Sem
-    // selo, usa a margem original de cada layout; com 1 ou 2 linhas de
-    // selo, soma a altura aproximada da(s) barra(s).
-    private fun ajustarMargemInferior(context: android.content.Context, view: View?, linhasBadge: Int) {
-        if (view == null) return
-        val params = view.layoutParams as? FrameLayout.LayoutParams ?: return
-        val density = context.resources.displayMetrics.density
-        val margemBaseDp = if (useWideLayout) 10f else 8f
-        val alturaLinhaDp = if (useWideLayout) 18f else 16f
-        val novaMargemDp = margemBaseDp + (linhasBadge * alturaLinhaDp)
-        params.bottomMargin = (novaMargemDp * density).toInt()
-        view.layoutParams = params
     }
 
     override fun getItemCount() = list.size
