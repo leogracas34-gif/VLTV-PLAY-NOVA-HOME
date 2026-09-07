@@ -57,44 +57,22 @@
 
         <!-- ✅ Selo de status — mesmo do layout retrato, compacto pro card
              menor (180x100dp). -->
-        <LinearLayout
-            android:id="@+id/llBadgeStatus"
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/tvBadgeNew"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/tvBadgeNew"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="NOVIDADE"
-                android:textColor="@color/white"
-                android:textSize="8sp"
-                android:textStyle="bold"
-                android:textAllCaps="true"
-                android:letterSpacing="0.02"
-                android:paddingVertical="2dp"
-                android:background="@drawable/bg_badge_status_bar"/>
-
-            <TextView
-                android:id="@+id/tvBadgeNewLine2"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="EM BREVE"
-                android:textColor="@color/mocha_gold_darkest"
-                android:textSize="8sp"
-                android:textStyle="bold"
-                android:textAllCaps="true"
-                android:letterSpacing="0.02"
-                android:paddingVertical="2dp"
-                android:background="@color/white"
-                android:visibility="gone"/>
-
-        </LinearLayout>
+            android:layout_gravity="top|start"
+            android:layout_margin="4dp"
+            android:text="NOVIDADE"
+            android:textColor="@color/mocha_gold"
+            android:textSize="7sp"
+            android:textStyle="bold"
+            android:textAllCaps="true"
+            android:letterSpacing="0.02"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="1dp"
+            android:background="@drawable/bg_badge_status"
+            android:visibility="gone"/>
 
         <!-- ✅ Selo TOP 10 — canto oposto ao de status pra não sobrepor
              quando os dois aparecem juntos. -->
