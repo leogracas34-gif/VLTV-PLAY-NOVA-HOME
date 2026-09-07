@@ -2,9 +2,9 @@
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/cardPoster"
-    android:layout_width="180dp"
-    android:layout_height="100dp"
+    android:id="@+id/cardWide"
+    android:layout_width="280dp"
+    android:layout_height="160dp"
     android:layout_margin="6dp"
     android:focusable="true"
     android:clickable="true"
@@ -28,15 +28,28 @@
             android:layout_height="match_parent"
             android:background="@drawable/gradient_black_bottom"/>
 
+        <ProgressBar
+            android:id="@+id/pbProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="30dp"
+            android:layout_marginHorizontal="10dp"
+            android:progress="40"
+            android:progressTint="#D9A24B"
+            android:progressBackgroundTint="#44FFFFFF"
+            android:visibility="gone"/>
+
         <!-- ✅ NOVO: logo do título (clearlogo TMDB), estilo Netflix. -->
         <ImageView
             android:id="@+id/ivLogo"
             android:layout_width="match_parent"
-            android:layout_height="24dp"
+            android:layout_height="32dp"
             android:layout_gravity="bottom"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:layout_marginBottom="6dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="12dp"
             android:adjustViewBounds="true"
             android:scaleType="fitCenter"
             android:visibility="gone"
@@ -47,16 +60,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:padding="8dp"
+            android:padding="10dp"
             android:text="Título do Filme"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:maxLines="1"
             android:ellipsize="end"/>
 
-        <!-- ✅ Selo de status — mesmo do layout retrato, compacto pro card
-             menor (180x100dp). -->
         <LinearLayout
             android:id="@+id/llBadgeStatus"
             android:layout_width="match_parent"
@@ -72,11 +83,11 @@
                 android:gravity="center"
                 android:text="NOVIDADE"
                 android:textColor="@color/white"
-                android:textSize="8sp"
+                android:textSize="9sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
                 android:letterSpacing="0.02"
-                android:paddingVertical="2dp"
+                android:paddingVertical="3dp"
                 android:background="@drawable/bg_badge_status_bar"/>
 
             <TextView
@@ -86,34 +97,41 @@
                 android:gravity="center"
                 android:text="EM BREVE"
                 android:textColor="@color/mocha_gold_darkest"
-                android:textSize="8sp"
+                android:textSize="9sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
                 android:letterSpacing="0.02"
-                android:paddingVertical="2dp"
+                android:paddingVertical="3dp"
                 android:background="@color/white"
                 android:visibility="gone"/>
 
         </LinearLayout>
 
-        <!-- ✅ Selo TOP 10 — canto oposto ao de status pra não sobrepor
-             quando os dois aparecem juntos. -->
         <TextView
             android:id="@+id/tvBadgeTop10"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|end"
-            android:layout_margin="4dp"
+            android:layout_margin="5dp"
             android:text="TOP 10"
             android:textColor="@color/black"
-            android:textSize="7sp"
+            android:textSize="8sp"
             android:textStyle="bold"
             android:textAllCaps="true"
             android:letterSpacing="0.02"
-            android:paddingHorizontal="4dp"
-            android:paddingVertical="1dp"
+            android:paddingHorizontal="5dp"
+            android:paddingVertical="2dp"
             android:background="@drawable/bg_badge_top10"
             android:visibility="gone"/>
+
+        <ImageView
+            android:id="@+id/ivPlayIcon"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_play_circle"
+            android:alpha="0"
+            android:contentDescription="Play"/>
 
     </FrameLayout>
 
