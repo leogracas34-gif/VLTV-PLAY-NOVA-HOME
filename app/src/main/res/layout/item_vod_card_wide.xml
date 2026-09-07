@@ -70,9 +70,10 @@
 
         <LinearLayout
             android:id="@+id/llBadgeStatus"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="8dp"
             android:orientation="vertical"
             android:visibility="gone">
 
@@ -87,6 +88,7 @@
                 android:textStyle="bold"
                 android:textAllCaps="true"
                 android:letterSpacing="0.02"
+                android:paddingHorizontal="16dp"
                 android:paddingVertical="3dp"
                 android:background="@drawable/bg_badge_status_bar"/>
 
@@ -97,30 +99,36 @@
                 android:gravity="center"
                 android:text="EM BREVE"
                 android:textColor="@color/mocha_gold_darkest"
-                android:textSize="9sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
                 android:letterSpacing="0.02"
+                android:paddingHorizontal="16dp"
                 android:paddingVertical="3dp"
                 android:background="@color/white"
                 android:visibility="gone"/>
 
         </LinearLayout>
 
+        <!-- ✅ Selo TOP 10 encaixado no canto superior esquerdo, sem
+             margem, como se fizesse parte da própria capa (canto
+             arredondado igual ao do card). -->
         <TextView
             android:id="@+id/tvBadgeTop10"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|end"
-            android:layout_margin="5dp"
+            android:layout_gravity="top|start"
+            android:layout_margin="0dp"
             android:text="TOP 10"
             android:textColor="@color/black"
             android:textSize="8sp"
             android:textStyle="bold"
             android:textAllCaps="true"
             android:letterSpacing="0.02"
-            android:paddingHorizontal="5dp"
-            android:paddingVertical="2dp"
+            android:paddingStart="9dp"
+            android:paddingEnd="6dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="2dp"
             android:background="@drawable/bg_badge_top10"
             android:visibility="gone"/>
 
