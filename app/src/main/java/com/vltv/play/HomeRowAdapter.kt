@@ -177,7 +177,12 @@ class HomeRowAdapter(
         val density = context.resources.displayMetrics.density
         val margemBaseDp = if (useWideLayout) 10f else 8f
         val alturaLinhaDp = if (useWideLayout) 18f else 16f
-        val novaMargemDp = margemBaseDp + (linhasBadge * alturaLinhaDp)
+        // ✅ O selo de status agora fica centralizado e flutuando (com
+        // margem própria embaixo) em vez de colado na borda inferior —
+        // então quando ele está visível, soma essa folga extra pra logo/
+        // nome não ficar colado em cima dele.
+        val folgaBadgeFlutuanteDp = if (linhasBadge > 0) (if (useWideLayout) 10f else 8f) else 0f
+        val novaMargemDp = margemBaseDp + folgaBadgeFlutuanteDp + (linhasBadge * alturaLinhaDp)
         params.bottomMargin = (novaMargemDp * density).toInt()
         view.layoutParams = params
     }
