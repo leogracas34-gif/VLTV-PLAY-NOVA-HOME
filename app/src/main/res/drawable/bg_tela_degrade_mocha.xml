@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ✅ NOVO: fundo de tela com degradê sutil na mesma paleta "mocha" da
+     Home (era fundo sólido chapado antes: #060610, #0A0A14, #121212ou
+     @color/background_dark, cada tela com um tom ligeiramente diferente).
+     Mantém praticamente a mesma cor (mocha_bg #0B0B0C), só que com uma
+     leve variação pra mocha_card #17171A no topo — o mesmo tipo de
+     degradê sutil que já existe em outros elementos da Home (ex:
+     bg_header_gradient.xml), só que aplicado como fundo de tela inteira
+     em vez de um leve véu por trás de um cabeçalho. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="linear"
+        android:angle="90"
+        android:startColor="@color/mocha_card"
+        android:endColor="@color/mocha_bg" />
+</shape>
