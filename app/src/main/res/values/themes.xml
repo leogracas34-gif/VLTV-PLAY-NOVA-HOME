@@ -23,11 +23,11 @@
     </style>
 
     <style name="Theme.VLTVPlay" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/red_primary</item>
-        <item name="colorPrimaryVariant">@color/red_dark</item>
+        <item name="colorPrimary">@color/mocha_gold</item>
+        <item name="colorPrimaryVariant">@color/mocha_gold_dark</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/red_primary</item>
-        <item name="colorSecondaryVariant">@color/red_dark</item>
+        <item name="colorSecondary">@color/mocha_gold</item>
+        <item name="colorSecondaryVariant">@color/mocha_gold_dark</item>
         <item name="colorOnSecondary">@color/white</item>
         <item name="android:windowBackground">@color/background_dark</item>
         <item name="windowActionBar">false</item>
@@ -87,7 +87,7 @@
     </style>
 
     <style name="AlertButtonDestructive" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
-        <item name="android:textColor">#FF4444</item>
+        <item name="android:textColor">#D9A24B</item>
         <item name="android:textStyle">bold</item>
     </style>
 

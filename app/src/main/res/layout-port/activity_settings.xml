@@ -570,7 +570,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Sair da Conta"
-                        android:textColor="#FF5252"
+                        android:textColor="#D9A24B"
                         android:textSize="15sp"
                         android:textStyle="bold"/>
 
@@ -588,7 +588,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="›"
-                    android:textColor="#FF5252"
+                    android:textColor="#D9A24B"
                     android:textSize="22sp"/>
 
             </LinearLayout>

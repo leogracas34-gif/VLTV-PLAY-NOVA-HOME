@@ -61,7 +61,7 @@
                         android:layout_height="3dp"
                         android:layout_gravity="bottom"
                         android:progressBackgroundTint="#44FFFFFF"
-                        android:progressTint="#FF0000"
+                        android:progressTint="#D9A24B"
                         android:progress="0"
                         android:max="100"
                         android:indeterminate="false"

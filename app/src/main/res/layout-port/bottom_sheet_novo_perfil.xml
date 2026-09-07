@@ -212,7 +212,7 @@
             android:layout_weight="1"
             android:layout_marginStart="16dp"
             android:text="Cancelar"
-            android:textColor="#FF4444"
+            android:textColor="#D9A24B"
             android:textSize="15sp"
             android:fontFamily="sans-serif"/>
 
@@ -220,7 +220,7 @@
             android:layout_width="16dp"
             android:layout_height="16dp"
             android:src="@drawable/ic_chevron_right"
-            android:tint="#44FF4444"
+            android:tint="#44D9A24B"
             android:contentDescription=""/>
     </LinearLayout>
 

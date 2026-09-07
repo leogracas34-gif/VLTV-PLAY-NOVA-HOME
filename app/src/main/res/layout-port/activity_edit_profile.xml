@@ -94,7 +94,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="30dp"
         android:text="Eliminar Perfil"
-        android:textColor="#FF4B4B"
+        android:textColor="#D9A24B"
         android:textSize="16sp"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="parent"

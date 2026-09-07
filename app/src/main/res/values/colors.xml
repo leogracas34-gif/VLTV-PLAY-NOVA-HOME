@@ -2,14 +2,32 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="red_primary">#D9A24B</color>
-    <color name="red_dark">#B9812F</color>
-    <color name="background_dark">#121212</color>
+
+    <!-- ✅ Paleta "mocha" — a mesma cor/degradê já usados na Home,
+         aplicada agora em todo o app (era vermelho estilo Netflix antes).
+         mocha_gold é o acento principal (bordas, botões, destaques);
+         mocha_gold_mid e mocha_gold_dark são os dois tons mais escuros do
+         mesmo degradê (usados em bg_home_red.xml e onde antes havia
+         gradiente vermelho FF3D00→D50000→7F0000). mocha_bg/mocha_card são
+         os fundos quase-pretos da Home (#0B0B0C e #17171A) e
+         mocha_cream/mocha_muted são os tons de texto usados sobre eles. -->
+    <color name="mocha_gold">#D9A24B</color>
+    <color name="mocha_gold_mid">#B97328</color>
+    <color name="mocha_gold_dark">#B97328</color>
+    <color name="mocha_gold_darkest">#8A5A1E</color>
+    <color name="mocha_bg">#0B0B0C</color>
+    <color name="mocha_card">#17171A</color>
+    <color name="mocha_cream">#F5F3EF</color>
+    <color name="mocha_muted">#ADABA5</color>
+
+    <!-- ✅ Alinhado ao fundo da Home (era #121212, um cinza que não batia
+         com o #0B0B0C quase-preto usado na Home). -->
+    <color name="background_dark">#0B0B0C</color>
     <color name="gray_text">#B0B0B0</color>
-    
+
     <!-- Cores do Tema -->
-    <color name="colorPrimary">@color/red_primary</color>
-    <color name="colorPrimaryVariant">@color/red_dark</color>
+    <color name="colorPrimary">@color/mocha_gold</color>
+    <color name="colorPrimaryVariant">@color/mocha_gold_dark</color>
     <color name="colorOnPrimary">@color/white</color>
-    <color name="colorSecondary">@color/red_primary</color>
+    <color name="colorSecondary">@color/mocha_gold</color>
 </resources>

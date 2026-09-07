@@ -34,7 +34,7 @@
             android:id="@+id/tv_stacktrace"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FF6E6E"
+            android:textColor="#D9A24B"
             android:textIsSelectable="true"
             android:fontFamily="monospace"
             android:textSize="12sp" />

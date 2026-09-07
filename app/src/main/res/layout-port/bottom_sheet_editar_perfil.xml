@@ -95,7 +95,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:text="Excluir perfil"
-        android:textColor="#E53935"
+        android:textColor="#D9A24B"
         android:textSize="14sp"
         android:padding="8dp"
         android:clickable="true"
