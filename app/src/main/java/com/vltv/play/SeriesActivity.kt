@@ -304,14 +304,25 @@ class SeriesActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ "Vassoura" — remove tarjas comuns de qualidade/idioma/formato do
+    // nome (LEGENDADO, DUBLADO, 4K, CINEMA, CAM etc.) antes de buscar a
+    // logo no TMDB. Antes usava replace() de substring solta (ex: "LEG"),
+    // que também apagava pedaços de nomes normais (ex: "Legado"). Agora
+    // usa regex com \b (limite de palavra), então só remove a tarja
+    // quando ela aparece sozinha como palavra.
+    private val REGEX_TARJAS_LOGO_SERIES = Regex(
+        "(?i)\\b(4K|8K|FULL[\\s.-]?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|LEG|DUB|DUAL|AUDIO|LATINO|" +
+        "NACIONAL|PT[-.]?BR|PTBR|WEB[-.]?DL|WEBRIP|BLU-?RAY|REMUX|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|" +
+        "HEVC|X264|X265|WEB|HDR|UHD|FHD|CAM|HDCAM|TS|TC|R5|SCREENER|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO|" +
+        "COMPLETO|COMPLETE|S\\d{1,2}|E\\d{1,3}|EP\\d{1,3}|TEMPORADA|SEASON)\\b"
+    )
+
     private suspend fun searchTmdbLogoSeries(rawName: String): String? {
         val apiKey = TmdbConfig.API_KEY
         var cleanName = rawName
             .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
             .replace(Regex("\\b\\d{4}\\b"), "").trim()
-            .replace(Regex("\\s+"), " ")
-        val sujeiras = listOf("FHD","HD","SD","4K","8K","H265","LEG","DUB","MKV","MP4","COMPLETE","S01","S02","E01")
-        sujeiras.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
+            .replace(REGEX_TARJAS_LOGO_SERIES, "")
         cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
         return try {
             val query = URLEncoder.encode(cleanName, "UTF-8")
