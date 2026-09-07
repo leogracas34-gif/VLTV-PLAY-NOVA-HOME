@@ -2,10 +2,14 @@ package com.vltv.play
 
 import androidx.room.withTransaction
 import com.vltv.play.data.AppDatabase
+import com.vltv.play.data.SeriesTmdbProgresso
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * TmdbSyncHelper
@@ -52,6 +56,9 @@ object TmdbSyncHelper {
 
     private const val TMDB_KEY = "9b73f5dd15b8165b1b57419be2f29128"
     private const val NOVIDADE_ANO_MIN = 2025
+    // ✅ Limite de séries checadas por ciclo (evita sobrecarregar a API do
+    // TMDB com uma chamada de detalhes por série a cada sincronização).
+    private const val LIMITE_SERIES_TEMPORADA_EPISODIO = 40
 
     suspend fun sincronizar(db: AppDatabase) = withContext(Dispatchers.IO) {
         try { sincronizarTop10(db) } catch (e: Exception) { e.printStackTrace() }
@@ -96,95 +103,113 @@ object TmdbSyncHelper {
 
     // ─────────────────────────────────────────────────────────────────────────
     // NOVIDADES
-    //
-    // ✅ DESATIVADO: essa marcação por casamento de título com os
-    // "lançamentos" do TMDB foi substituída pela marcação por data real de
-    // entrada no servidor (ver SyncManager.atualizarNovidadeVodPorDataDeEntrada
-    // / atualizarNovidadeSeriesPorDataDeEntrada). O problema do jeito antigo:
-    // um filme de 2025 que já estava no catálogo há meses continuava
-    // aparecendo como "Novidade" pra sempre, só por ter sido lançado
-    // recentemente nos cinemas — não por ter entrado recentemente no SEU
-    // servidor, que é o que realmente importa pro selo fazer sentido.
     // ─────────────────────────────────────────────────────────────────────────
     private suspend fun sincronizarNovidades(db: AppDatabase) {
-        // Mantido vazio de propósito — a função existe só pra não quebrar a
-        // chamada em sincronizar() caso seja reativada no futuro (ex: pra
-        // guardar tmdb_release_date pra exibição, sem mexer em is_novidade).
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // NOVA TEMPORADA / NOVO EPISÓDIO
-    //
-    // Diferente de "Novidade" (que é sobre título recém-adicionado ao
-    // catálogo), isso detecta quando uma série que JÁ estava no catálogo
-    // ganha conteúdo novo — uma temporada inteira nova, ou só mais um
-    // episódio da temporada atual (ex: séries que lançam 1 episódio por
-    // semana, tipo "Reacher").
-    //
-    // Limitado às últimas LIMITE_SERIES_TEMPORADAS_EPISODIOS séries
-    // modificadas mais recentemente, e só entre as que já têm um tmdb_id
-    // resolvido (guardado quando a logo/backdrop do banner é resolvida) —
-    // evita fazer uma chamada de rede por série pra TODO o catálogo a cada
-    // sincronização.
-    //
-    // Na primeira vez que uma série é checada (nunca teve temporada/
-    // episódio salvos), só grava o valor atual como referência — sem
-    // disparar selo, senão TODA série apareceria "nova" de uma vez só
-    // assim que essa sincronização for ativada.
-    // ─────────────────────────────────────────────────────────────────────────
-    private const val LIMITE_SERIES_TEMPORADAS_EPISODIOS = 40
-
-    private suspend fun sincronizarTemporadasEpisodios(db: AppDatabase) {
-        val candidatas = db.streamDao().getSeriesComTmdbIdParaChecarEpisodios(LIMITE_SERIES_TEMPORADAS_EPISODIOS)
-        if (candidatas.isEmpty()) return
-
-        data class Progresso(val temporada: Int, val episodio: Int)
-        val progressoAtual = mutableMapOf<Int, Progresso>()
-
-        for (serie in candidatas) {
-            val tmdbId = serie.tmdb_id ?: continue
-            val encontrado = buscarUltimoEpisodioTmdb(tmdbId) ?: continue
-            progressoAtual[serie.series_id] = Progresso(encontrado.first, encontrado.second)
-        }
-        if (progressoAtual.isEmpty()) return
+        // Idem: rede primeiro, fora da transação.
+        val filmesNovos = buscarLancamentosTmdb("movie", paginas = 3)
+        val seriesNovas = buscarLancamentosTmdb("tv",    paginas = 3)
 
         db.withTransaction {
-            db.streamDao().clearSeriesNovaTemporadaFlags()
-            db.streamDao().clearSeriesNovoEpisodioFlags()
+            db.streamDao().clearVodNovidadeFlags()
+            db.streamDao().clearSeriesNovidadeFlags()
 
-            for (anterior in candidatas) {
-                val atual = progressoAtual[anterior.series_id] ?: continue
-                val semReferenciaAinda = anterior.tmdb_ultima_temporada == 0 && anterior.tmdb_ultimo_episodio == 0
+            for (item in filmesNovos) {
+                val ano = item.releaseDate.take(4).toIntOrNull() ?: 0
+                if (ano < NOVIDADE_ANO_MIN) continue
+                val id = encontrarVod(db, item, emptySet())
+                if (id != null) db.streamDao().updateVodNovidade(id, item.releaseDate)
+            }
 
-                when {
-                    semReferenciaAinda ->
-                        db.streamDao().atualizarProgressoSemAlerta(anterior.series_id, atual.temporada, atual.episodio)
-
-                    atual.temporada > anterior.tmdb_ultima_temporada ->
-                        db.streamDao().marcarNovaTemporada(anterior.series_id, atual.temporada, atual.episodio)
-
-                    atual.temporada == anterior.tmdb_ultima_temporada && atual.episodio > anterior.tmdb_ultimo_episodio ->
-                        db.streamDao().marcarNovoEpisodio(anterior.series_id, atual.temporada, atual.episodio)
-
-                    // sem mudança — nao faz nada
-                }
+            for (item in seriesNovas) {
+                val ano = item.releaseDate.take(4).toIntOrNull() ?: 0
+                if (ano < NOVIDADE_ANO_MIN) continue
+                val id = encontrarSerie(db, item, emptySet())
+                if (id != null) db.streamDao().updateSeriesNovidade(id, item.releaseDate)
             }
         }
     }
 
-    // Retorna (temporada, episodio) do ultimo episodio ja exibido pra essa
-    // serie no TMDB, ou null se nao conseguir determinar.
-    private fun buscarUltimoEpisodioTmdb(tmdbId: Int): Pair<Int, Int>? {
+    // ─────────────────────────────────────────────────────────────────────────
+    // NOVA TEMPORADA / NOVO EPISÓDIO / EM BREVE
+    // ─────────────────────────────────────────────────────────────────────────
+    // Diferente do Top10/Novidades (que batem uma lista do TMDB contra o
+    // catálogo por título), aqui já se sabe o tmdb_id de cada série — então
+    // é uma consulta de DETALHES por série (GET /tv/{id}), uma a uma.
+    // last_episode_to_air = episódio mais recente já ao ar; comparando com
+    // o que estava salvo da última vez, dá pra saber se subiu temporada
+    // nova ou só mais um episódio. next_episode_to_air = próximo episódio
+    // anunciado mas ainda não exibido — vira o selo "Em breve" quando a
+    // data dele ainda está no futuro.
+    private suspend fun sincronizarTemporadasEpisodios(db: AppDatabase) {
+        val candidatas = db.streamDao()
+            .getSeriesComTmdbIdParaChecarEpisodios(LIMITE_SERIES_TEMPORADA_EPISODIO)
+            .filter { it.tmdb_id != null }
+        if (candidatas.isEmpty()) return
+
+        // Busca todos os detalhes na rede ANTES de abrir a transação — mesma
+        // regra do resto do arquivo: transação só com operações de banco.
+        val resultados = mutableListOf<Pair<SeriesTmdbProgresso, DetalhesSerieTmdb>>()
+        for (c in candidatas) {
+            val detalhes = buscarDetalhesSerieTmdb(c.tmdb_id!!) ?: continue
+            resultados.add(c to detalhes)
+        }
+        if (resultados.isEmpty()) return
+
+        val agora = System.currentTimeMillis()
+        val hoje  = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+        db.withTransaction {
+            for ((progresso, detalhes) in resultados) {
+                when {
+                    // Baseline nunca gravada (0,0) — primeira vez que essa
+                    // série é checada. Só salva o estado atual, sem marcar
+                    // como "novidade" (senão TODA série marcaria selo na
+                    // primeira sincronização depois de instalar o app).
+                    progresso.tmdb_ultima_temporada == 0 && progresso.tmdb_ultimo_episodio == 0 ->
+                        db.streamDao().atualizarProgressoSemAlerta(
+                            progresso.series_id, detalhes.temporadaAtual, detalhes.episodioAtual
+                        )
+
+                    detalhes.temporadaAtual > progresso.tmdb_ultima_temporada ->
+                        db.streamDao().marcarNovaTemporada(
+                            progresso.series_id, detalhes.temporadaAtual, detalhes.episodioAtual, agora
+                        )
+
+                    detalhes.temporadaAtual == progresso.tmdb_ultima_temporada &&
+                        detalhes.episodioAtual > progresso.tmdb_ultimo_episodio ->
+                        db.streamDao().marcarNovoEpisodio(
+                            progresso.series_id, detalhes.temporadaAtual, detalhes.episodioAtual, agora
+                        )
+                }
+
+                val emBreve = detalhes.proximaData != null && detalhes.proximaData > hoje
+                db.streamDao().atualizarProximaTemporada(
+                    progresso.series_id, if (emBreve) detalhes.proximaData else null
+                )
+            }
+        }
+    }
+
+    private data class DetalhesSerieTmdb(
+        val temporadaAtual: Int,
+        val episodioAtual: Int,
+        val proximaData: String?
+    )
+
+    private fun buscarDetalhesSerieTmdb(tmdbId: Int): DetalhesSerieTmdb? {
         return try {
             val url = "https://api.themoviedb.org/3/tv/$tmdbId?api_key=$TMDB_KEY&language=pt-BR"
             val json = JSONObject(URL(url).readText())
-            val ultimoEpisodio = json.optJSONObject("last_episode_to_air") ?: return null
-            val temporada = ultimoEpisodio.optInt("season_number", 0)
-            val episodio  = ultimoEpisodio.optInt("episode_number", 0)
-            if (temporada == 0 && episodio == 0) null else Pair(temporada, episodio)
-        } catch (e: Exception) {
-            null
-        }
+
+            val ultimo = json.optJSONObject("last_episode_to_air") ?: return null
+            val temporadaAtual = ultimo.optInt("season_number", 0)
+            val episodioAtual  = ultimo.optInt("episode_number", 0)
+
+            val proximo = json.optJSONObject("next_episode_to_air")
+            val proximaData = proximo?.optString("air_date", "")?.takeIf { it.isNotEmpty() }
+
+            DetalhesSerieTmdb(temporadaAtual, episodioAtual, proximaData)
+        } catch (e: Exception) { null }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

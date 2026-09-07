@@ -19,11 +19,8 @@ class HomeRowAdapter(
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val ivPoster: ImageView = view.findViewById(R.id.ivPoster)
         val tvTitle: TextView = view.findViewById(R.id.tvTitle)
-        val ivLogoTitle: ImageView = view.findViewById(R.id.ivLogoTitle)
-        val tvBadgeNew: TextView = view.findViewById(R.id.tvBadgeNew)
-        val tvBadgeTop10: View = view.findViewById(R.id.tvBadgeTop10)
-        val tvBadgeNovaTemporada: TextView = view.findViewById(R.id.tvBadgeNovaTemporada)
-        val tvBadgeNovoEpisodio: TextView = view.findViewById(R.id.tvBadgeNovoEpisodio)
+        val tvBadgeStatus: TextView = view.findViewById(R.id.tvBadgeNew)
+        val tvBadgeTop10: TextView = view.findViewById(R.id.tvBadgeTop10)
     }
 
     fun updateList(newList: List<VodItem>) {
@@ -48,35 +45,30 @@ class HomeRowAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = list[position]
         holder.tvTitle.text = item.name
-        holder.tvBadgeTop10.visibility = if (item.isTop10) View.VISIBLE else View.GONE
 
-        // ✅ Só um selo de "novidade" por vez, na ordem de prioridade:
-        // nova temporada > novo episódio > novidade (título recém-chegado
-        // ao catálogo). Evita dois selos empilhados ao mesmo tempo.
-        holder.tvBadgeNovaTemporada.visibility = View.GONE
-        holder.tvBadgeNovoEpisodio.visibility = View.GONE
-        holder.tvBadgeNew.visibility = View.GONE
-        when {
-            item.isNovaTemporada -> holder.tvBadgeNovaTemporada.visibility = View.VISIBLE
-            item.isNovoEpisodio -> holder.tvBadgeNovoEpisodio.visibility = View.VISIBLE
-            item.isNovidade -> holder.tvBadgeNew.visibility = View.VISIBLE
+        // ✅ NOVO: selo de status — só um por vez, ordem de prioridade:
+        // Nova Temporada > Novo Episódio > Em Breve > Novidade. Um item
+        // pode ter mais de uma flag verdadeira ao mesmo tempo (ex: acabou
+        // de ganhar episódio novo E ainda está marcado como "novidade" de
+        // catálogo) — mostra só a informação mais específica.
+        val textoStatus = when {
+            item.isNovaTemporada -> "NOVA TEMPORADA"
+            item.isNovoEpisodio -> "NOVO EPISÓDIO"
+            item.isNovaTemporadaEmBreve -> "EM BREVE"
+            item.isNovidade -> "NOVIDADE"
+            else -> null
         }
-
-        // ✅ NOVO: se o título/série tem uma logo (a mesma já usada no
-        // banner principal), mostra ela no lugar do texto — visual mais
-        // parecido com o pôster de verdade. Se não tiver logo, mantém o
-        // texto simples (reserva), pra sempre ter algo legível ali.
-        if (!item.logoUrl.isNullOrEmpty()) {
-            holder.tvTitle.visibility = View.INVISIBLE
-            holder.ivLogoTitle.visibility = View.VISIBLE
-            Glide.with(holder.itemView.context)
-                .load(item.logoUrl)
-                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                .into(holder.ivLogoTitle)
+        if (textoStatus != null) {
+            holder.tvBadgeStatus.text = textoStatus
+            holder.tvBadgeStatus.visibility = View.VISIBLE
         } else {
-            holder.tvTitle.visibility = View.VISIBLE
-            holder.ivLogoTitle.visibility = View.GONE
+            holder.tvBadgeStatus.visibility = View.GONE
         }
+
+        // ✅ NOVO: selo TOP 10 — independente do status acima. Mostra
+        // sempre que o item está no Top 10, mesmo aparecendo numa fileira
+        // que não é a de Top 10 (ex: dentro de "Novidades").
+        holder.tvBadgeTop10.visibility = if (item.isTop10) View.VISIBLE else View.GONE
 
         Glide.with(holder.itemView.context)
             .asBitmap()

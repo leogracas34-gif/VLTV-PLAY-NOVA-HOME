@@ -88,15 +88,24 @@ data class SeriesEntity(
     val tmdb_id: Int? = null,
     val backdrop_path: String? = null,
     // ✅ NOVO: rastreamento de temporada/episódio pra detectar quando uma
-    // série existente ganha conteúdo novo (em vez de só "é novidade" pra
-    // séries que acabaram de entrar no catálogo). Guarda a temporada e o
-    // episódio do último episódio que já foi visto no TMDB da última vez
-    // que a sincronização rodou — comparando com o valor atual, dá pra
-    // saber se subiu temporada nova ou só mais um episódio.
+    // série existente ganha conteúdo novo. Guarda a última temporada/
+    // episódio já vistos no TMDB (last_episode_to_air) da última vez que
+    // a sincronização rodou — comparando com o valor atual, dá pra saber
+    // se subiu temporada nova ou só mais um episódio.
     val tmdb_ultima_temporada: Int = 0,
     val tmdb_ultimo_episodio: Int = 0,
     val is_nova_temporada: Int = 0,
-    val is_novo_episodio: Int = 0
+    val is_novo_episodio: Int = 0,
+    // ✅ Timestamp (millis) de quando is_nova_temporada/is_novo_episodio
+    // foram marcados — usado pra "expirar" o selo depois de alguns dias
+    // (ver JANELA_NOVIDADE_MS em HomeActivity), já que esses dois campos
+    // não são limpos a cada sincronização (senão nunca dariam tempo de
+    // aparecer pro usuário entre um ciclo e outro).
+    val tmdb_flag_marcado_em: Long = 0,
+    // ✅ Data (ISO yyyy-MM-dd) do próximo episódio/temporada ainda não
+    // exibido no TMDB (next_episode_to_air) — usada pro selo "Em breve".
+    // Null quando não há nada agendado.
+    val tmdb_proxima_temporada_data: String? = null
 )
 
 // ✅ NOVO: projeção leve (só os 4 campos necessários) pra checar o
@@ -331,39 +340,22 @@ interface StreamDao {
     @Query("UPDATE series_streams SET is_novidade = 0, tmdb_release_date = NULL")
     suspend fun clearSeriesNovidadeFlags()
 
-    // ✅ NOVO: Novidade baseada na data real de entrada no SEU servidor
-    // (campo "added"/"last_modified" que o próprio painel Xtream já manda
-    // pra cada item), em vez de casamento por título com lançamentos do
-    // TMDB. Antes, um filme de 2025 que já estava no servidor há meses
-    // continuava aparecendo como "Novidade" pra sempre, só por ter sido
-    // lançado recentemente no cinema — não por ter entrado recentemente no
-    // SEU catálogo. Agora só é novidade quem realmente acabou de ser
-    // adicionado, não importa o ano de lançamento.
-    @Query("UPDATE vod_streams SET is_novidade = CASE WHEN added >= :desde THEN 1 ELSE 0 END")
-    suspend fun atualizarNovidadeVodPorDataDeEntrada(desde: Long)
-
-    @Query("UPDATE series_streams SET is_novidade = CASE WHEN last_modified >= :desde THEN 1 ELSE 0 END")
-    suspend fun atualizarNovidadeSeriesPorDataDeEntrada(desde: Long)
-
     // ✅ NOVO: nova temporada / novo episódio (independente de "novidade",
     // que é só pra séries recém-adicionadas ao catálogo)
     @Query("SELECT series_id, tmdb_id, tmdb_ultima_temporada, tmdb_ultimo_episodio FROM series_streams WHERE tmdb_id IS NOT NULL ORDER BY last_modified DESC LIMIT :limite")
     suspend fun getSeriesComTmdbIdParaChecarEpisodios(limite: Int): List<SeriesTmdbProgresso>
 
-    @Query("UPDATE series_streams SET is_nova_temporada = 1, tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio WHERE series_id = :id")
-    suspend fun marcarNovaTemporada(id: Int, temporada: Int, episodio: Int)
+    @Query("UPDATE series_streams SET is_nova_temporada = 1, tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio, tmdb_flag_marcado_em = :agora WHERE series_id = :id")
+    suspend fun marcarNovaTemporada(id: Int, temporada: Int, episodio: Int, agora: Long)
 
-    @Query("UPDATE series_streams SET is_novo_episodio = 1, tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio WHERE series_id = :id")
-    suspend fun marcarNovoEpisodio(id: Int, temporada: Int, episodio: Int)
+    @Query("UPDATE series_streams SET is_novo_episodio = 1, tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio, tmdb_flag_marcado_em = :agora WHERE series_id = :id")
+    suspend fun marcarNovoEpisodio(id: Int, temporada: Int, episodio: Int, agora: Long)
 
     @Query("UPDATE series_streams SET tmdb_ultima_temporada = :temporada, tmdb_ultimo_episodio = :episodio WHERE series_id = :id")
     suspend fun atualizarProgressoSemAlerta(id: Int, temporada: Int, episodio: Int)
 
-    @Query("UPDATE series_streams SET is_nova_temporada = 0")
-    suspend fun clearSeriesNovaTemporadaFlags()
-
-    @Query("UPDATE series_streams SET is_novo_episodio = 0")
-    suspend fun clearSeriesNovoEpisodioFlags()
+    @Query("UPDATE series_streams SET tmdb_proxima_temporada_data = :data WHERE series_id = :id")
+    suspend fun atualizarProximaTemporada(id: Int, data: String?)
 
     // --- CATEGORIAS ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -451,14 +443,9 @@ interface StreamDao {
 }
 
 // ==========================================
-// DATABASE — version 15 (correção do erro
-// "Room cannot verify the data integrity": a versão estava em 14 mas o
-// schema realmente aplicado no dispositivo tinha um hash diferente do
-// esperado — algumas instalações ficaram com a versão do banco igual à
-// declarada no código, porém com uma estrutura de tabelas antiga. Como o
-// Room só aciona fallbackToDestructiveMigration() quando a versão do
-// banco muda, bastava subir a versão pra forçar a recriação das tabelas
-// e resolver a inconsistência.)
+// DATABASE — version 14 (novas colunas em series_streams: rastreamento
+// de nova temporada/novo episódio via TMDB e data da próxima temporada
+// "em breve" — usadas pelos selos da tela Home)
 // ==========================================
 
 @Database(
@@ -472,7 +459,7 @@ interface StreamDao {
         DownloadEntity::class,
         ProfileEntity::class
     ],
-    version = 15,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -495,8 +482,9 @@ abstract class AppDatabase : RoomDatabase() {
                 "vltv_play_db"
             )
                 // ✅ fallbackToDestructiveMigration recria as tabelas automaticamente
-                // por causa da mudança de versão 14→15 (correção do erro de
-                // identidade do schema). Isso apaga downloads salvos localmente (o
+                // por causa da mudança de versão 13→14 (novas colunas em
+                // "series_streams" para os selos de Nova Temporada/Novo
+                // Episódio/Em Breve). Isso apaga downloads salvos localmente (o
                 // usuário vai precisar baixar de novo o que já tinha baixado)
                 // e o catálogo (vod_streams/series_streams), mas o catálogo
                 // resincroniza sozinho na próxima abertura do app — mesmo

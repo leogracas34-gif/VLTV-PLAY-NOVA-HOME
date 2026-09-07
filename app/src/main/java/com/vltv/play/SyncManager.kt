@@ -224,12 +224,6 @@ object SyncManager {
             }
             if (vodBatch.isNotEmpty()) db.streamDao().insertVodStreams(vodBatch)
 
-            // ✅ NOVO: marca "Novidade" só pra quem realmente entrou no
-            // servidor nos últimos 30 dias (campo "added" do próprio
-            // Xtream) — não pelo ano de lançamento do filme.
-            val trintaDiasAtrasEmSegundos = (System.currentTimeMillis() / 1000) - (30L * 24 * 60 * 60)
-            db.streamDao().atualizarNovidadeVodPorDataDeEntrada(trintaDiasAtrasEmSegundos)
-
             val vodsAtualizados = db.streamDao().getRecentVods(200)
             ContentRepository.atualizarVods(vodsAtualizados)
 
@@ -256,11 +250,6 @@ object SyncManager {
                 }
             }
             if (seriesBatch.isNotEmpty()) db.streamDao().insertSeriesStreams(seriesBatch)
-
-            // ✅ NOVO: mesma lógica do VOD acima, usando o "last_modified"
-            // que o Xtream já manda pra cada série.
-            val trintaDiasAtrasEmSegundosSeries = (System.currentTimeMillis() / 1000) - (30L * 24 * 60 * 60)
-            db.streamDao().atualizarNovidadeSeriesPorDataDeEntrada(trintaDiasAtrasEmSegundosSeries)
 
             val seriesAtualizadas = db.streamDao().getRecentSeries(200)
             ContentRepository.atualizarSeries(seriesAtualizadas)

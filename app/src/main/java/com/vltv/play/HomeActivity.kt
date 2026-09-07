@@ -28,6 +28,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
@@ -78,7 +81,6 @@ class HomeActivity : AppCompatActivity() {
 
     private val bannerFila = mutableListOf<Any>()
     private var bannerFilaIndex = 0
-    private var wordmarkView: TextView? = null
     private var bannerCarregado = false
     private var bannerItemAtual: Any? = null
     private var bannerBuscaJob: kotlinx.coroutines.Job? = null
@@ -190,6 +192,11 @@ class HomeActivity : AppCompatActivity() {
         private val REGEX_TMDB_SPACES = Regex("\\s+")
 
         private const val WORDMARK_TAG = "vltv_home_wordmark"
+
+        // ✅ NOVO: por quanto tempo os selos "Nova Temporada"/"Novo
+        // Episódio" continuam aparecendo depois de detectados, antes de
+        // "expirar" sozinhos (ver SeriesEntity.paraItem()).
+        private const val JANELA_NOVIDADE_MS = 7L * 24 * 60 * 60 * 1000
 
         @Volatile private var ultimoFetchRemoteConfigMs = 0L
         private const val INTERVALO_MINIMO_FETCH_MS = 30_000L
@@ -314,10 +321,7 @@ class HomeActivity : AppCompatActivity() {
 
     private fun adicionarWordmarkVLTV() {
         val contentRoot = window.decorView.findViewById<ViewGroup>(android.R.id.content)
-        contentRoot.findViewWithTag<View>(WORDMARK_TAG)?.let {
-            wordmarkView = it as? TextView
-            return
-        }
+        if (contentRoot.findViewWithTag<View>(WORDMARK_TAG) != null) return
 
         val statusBarHeightPx = run {
             val id = resources.getIdentifier("status_bar_height", "dimen", "android")
@@ -346,24 +350,6 @@ class HomeActivity : AppCompatActivity() {
         }
 
         contentRoot.addView(wordmark, params)
-        wordmarkView = wordmark
-        configurarSumicoDaWordmarkAoRolar()
-    }
-
-    // ✅ NOVO: a wordmark "VLTV" fica fixa na tela (não faz parte do que rola
-    // dentro do NestedScrollView), então antes ela ficava sobrepondo os
-    // cards conforme o usuário descia a tela. Agora ela desaparece suave
-    // (fade) assim que a rolagem começa, e volta a aparecer se o usuário
-    // sobe de novo até o topo.
-    private fun configurarSumicoDaWordmarkAoRolar() {
-        val distanciaFadePx = 90.dp.toFloat()
-        binding.nestedScrollView.setOnScrollChangeListener(
-            androidx.core.widget.NestedScrollView.OnScrollChangeListener { _, _, scrollY, _, _ ->
-                val alvo = wordmarkView ?: return@OnScrollChangeListener
-                val progresso = (scrollY / distanciaFadePx).coerceIn(0f, 1f)
-                alvo.alpha = 1f - progresso
-            }
-        )
     }
 
     private fun iniciarCarrosselBanner() {
@@ -446,10 +432,10 @@ class HomeActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.Default) {
             val movieItems = localMovies.map {
-                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url)
+                it.paraItem()
             }
             val seriesItems = localSeries.map {
-                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url, isNovaTemporada = it.is_nova_temporada == 1, isNovoEpisodio = it.is_novo_episodio == 1)
+                it.paraItem()
             }
 
             withContext(Dispatchers.Main) {
@@ -493,7 +479,7 @@ class HomeActivity : AppCompatActivity() {
                     .thenByDescending { it.tmdb_release_date ?: "" }
                     .thenByDescending { it.added }
             ).take(20).map {
-                VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "")
+                it.paraItem()
             }
         } else emptyList()
 
@@ -503,7 +489,7 @@ class HomeActivity : AppCompatActivity() {
                     .thenByDescending { it.tmdb_release_date ?: "" }
                     .thenByDescending { it.last_modified }
             ).take(20).map {
-                VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "")
+                it.paraItem()
             }
         } else emptyList()
 
@@ -552,7 +538,7 @@ class HomeActivity : AppCompatActivity() {
                     }
                 }
                 val top10Items = top10DbVods.map {
-                    VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "")
+                    it.paraItem()
                 }
                 val top10Final = if (top10Items.isNotEmpty()) top10Items else filmesOrdenadosItems.take(10)
                 withContext(Dispatchers.Main) {
@@ -588,7 +574,7 @@ class HomeActivity : AppCompatActivity() {
                     }
                 }
                 val top10Items = top10DbSeries.map {
-                    VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "")
+                    it.paraItem()
                 }
                 val top10Final = if (top10Items.isNotEmpty()) top10Items else seriesOrdenadasItems.take(10)
                 withContext(Dispatchers.Main) {
@@ -617,10 +603,10 @@ class HomeActivity : AppCompatActivity() {
                 val seriesIds: Set<String>
                 if (novidadesDbFilmes.isNotEmpty() || novidadesDbSeries.isNotEmpty()) {
                     val filmeItems = novidadesDbFilmes.map {
-                        VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "")
+                        it.paraItem()
                     }
                     val serieItems = novidadesDbSeries.map {
-                        VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "")
+                        it.paraItem()
                     }
                     novidades = (filmeItems + serieItems).take(20)
                     seriesIds = novidadesDbSeries.map { it.series_id.toString() }.toSet()
@@ -1238,9 +1224,9 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val localMovies = database.streamDao().getRecentVods(60)
-                val movieItems = localMovies.map { VodItem(it.stream_id.toString(), limparNomeExibicao(it.name), it.stream_icon ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url) }
+                val movieItems = localMovies.map { it.paraItem() }
                 val localSeries = database.streamDao().getRecentSeries(60)
-                val seriesItems = localSeries.map { VodItem(it.series_id.toString(), limparNomeExibicao(it.name), it.cover ?: "", isNovidade = it.is_novidade == 1, isTop10 = it.is_top10 == 1, logoUrl = it.logo_url, isNovaTemporada = it.is_nova_temporada == 1, isNovoEpisodio = it.is_novo_episodio == 1) }
+                val seriesItems = localSeries.map { it.paraItem() }
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
                     agendarPopularSections(movieItems, seriesItems, localMovies, localSeries)
@@ -1280,6 +1266,44 @@ class HomeActivity : AppCompatActivity() {
             .replace(REGEX_EXIBICAO_SPACES, " ")
             .replace(REGEX_EXIBICAO_TRAILING, "")
             .trim()
+    }
+
+    // ✅ NOVO: converte VodEntity/SeriesEntity pro modelo de exibição
+    // (VodItem) já com os selos calculados (Top 10, Novidade, Nova
+    // Temporada, Novo Episódio, Em Breve). Centralizado aqui em vez de
+    // repetir "VodItem(it.stream_id.toString(), ...)" em cada lugar que
+    // monta uma lista pra Home — assim os selos aparecem em TODAS as
+    // fileiras (Novidades, Séries Para Você etc.) e não só numa.
+    //
+    // is_nova_temporada/is_novo_episodio não são limpos a cada
+    // sincronização (ver TmdbSyncHelper), então "expiram" sozinhos aqui:
+    // só valem enquanto estiverem dentro de JANELA_NOVIDADE_MS a partir de
+    // tmdb_flag_marcado_em. Depois disso, o selo simplesmente para de
+    // aparecer — sem precisar de nenhum job de limpeza.
+    private fun VodEntity.paraItem(): VodItem = VodItem(
+        id = stream_id.toString(),
+        name = limparNomeExibicao(name),
+        streamIcon = stream_icon ?: "",
+        isSerie = false,
+        isTop10 = is_top10 == 1,
+        isNovidade = is_novidade == 1
+    )
+
+    private fun SeriesEntity.paraItem(): VodItem {
+        val dentroDaJanela = (System.currentTimeMillis() - tmdb_flag_marcado_em) < JANELA_NOVIDADE_MS
+        val hoje = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return VodItem(
+            id = series_id.toString(),
+            name = limparNomeExibicao(name),
+            streamIcon = cover ?: "",
+            isSerie = true,
+            isTop10 = is_top10 == 1,
+            isNovidade = is_novidade == 1,
+            isNovaTemporada = is_nova_temporada == 1 && dentroDaJanela,
+            isNovoEpisodio = is_novo_episodio == 1 && dentroDaJanela,
+            isNovaTemporadaEmBreve = !tmdb_proxima_temporada_data.isNullOrEmpty() &&
+                tmdb_proxima_temporada_data > hoje
+        )
     }
 
     private fun limparNomeParaTMDB(nome: String): String {

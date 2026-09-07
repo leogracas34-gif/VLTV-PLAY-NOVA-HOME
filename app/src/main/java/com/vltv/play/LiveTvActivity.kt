@@ -1014,7 +1014,11 @@ class LiveTvActivity : AppCompatActivity() {
                     holder.viewIndicator?.setBackgroundResource(R.drawable.bg_indicator_bar)
                 }
                 else -> {
-                    holder.tvName.setTextColor(0x88FFFFFF.toInt())
+                    // ✅ Era branco semi-transparente (0x88FFFFFF) — trocado
+                    // pro dourado suave da Home (mocha_gold com alpha
+                    // reduzido), pra ficar consistente com a cor padrão do
+                    // app em vez de um cinza-esbranquiçado neutro.
+                    holder.tvName.setTextColor(0x99D9A24B.toInt())
                     holder.tvName.textSize = 12f
                     holder.itemView.setBackgroundColor(0x00000000)
                     holder.itemView.animate().scaleX(1.0f).scaleY(1.0f).setDuration(150).start()
