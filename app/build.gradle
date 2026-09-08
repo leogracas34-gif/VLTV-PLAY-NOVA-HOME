@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
     id("kotlin-kapt")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -103,6 +104,11 @@ android {
     }
 }
 
+// ✅ NOVO: Room migrado de kapt para KSP (kotlin-kapt tinha um bug/comportamento
+// errático nessa combinação de versões, gerando o stub SeriesStream.java de forma
+// inconsistente). KSP processa o Kotlin diretamente, sem passar pela geração de
+// stubs Java problemática. O Glide continua no kapt normalmente logo abaixo,
+// já que ele ainda não tem suporte oficial a KSP.
 kapt {
     correctErrorTypes = true
     javacOptions {
@@ -131,10 +137,11 @@ dependencies {
     implementation("androidx.cardview:cardview:1.0.0")
 
     // ROOM DATABASE
+    // ✅ NOVO: room-compiler agora roda via KSP (ksp(...)) em vez de kapt(...)
     def room_version = "2.8.4"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
-    kapt("androidx.room:room-compiler:$room_version")
+    ksp("androidx.room:room-compiler:$room_version")
 
     // FIREBASE
     // ⚠️ A partir do BoM 34.0.0 as bibliotecas -ktx foram descontinuadas e
@@ -194,5 +201,6 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("com.google.android.flexbox:flexbox:3.0.0")
 
+    // Glide continua no kapt (sem suporte oficial a KSP ainda)
     kapt("com.github.bumptech.glide:compiler:5.0.5")
 }
