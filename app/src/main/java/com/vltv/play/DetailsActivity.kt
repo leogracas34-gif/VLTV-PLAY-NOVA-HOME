@@ -574,11 +574,6 @@ class DetailsActivity : AppCompatActivity() {
     // ─────────────────────────────────────────────────────────────
 
     private fun carregarConteudo() {
-        // Define o título inicial com o nome vindo da Intent para garantir que a tela nunca fique sem nome
-        if (name.isNotEmpty()) {
-            tvTitle.text = name
-            tvDetailFullTitle?.text = name
-        }
         tvRating.text = "⭐ $rating"
         tvPlot.text   = "Buscando detalhes..."
         tvGenre.text  = "Gênero: ..."
@@ -603,18 +598,21 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun tentarCarregarTextoCache() {
         val p = getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE)
-        p.getString("title_$streamId", null)?.let { 
-            if (it.isNotEmpty()) {
-                tvTitle.text = it
-                tvDetailFullTitle?.text = it
-            }
-        }
+        p.getString("title_$streamId", null)?.let { tvTitle.text = it }
         p.getString("plot_$streamId", null)?.let  { tvPlot.text = it }
         p.getString("cast_$streamId", null)?.let  { tvCast.text = it }
         p.getString("genre_$streamId", null)?.let { tvGenre.text = it }
         p.getString("year_$streamId", null)?.let  { tvYear?.text = it }
     }
 
+    // ⚠️ Antes, ao achar um "path" de logo, o código já escondia o
+    // tvTitle e mandava o Glide carregar a imagem, mas sem nenhum
+    // listener de erro. Se essa URL específica falhasse (link quebrado,
+    // 404, timeout etc.), o ImageView ficava vazio E o texto continuava
+    // escondido — a tela de detalhes ficava sem nome nenhum (nem logo,
+    // nem texto), que foi o bug relatado no filme "Ídolos". Agora, se o
+    // Glide não conseguir carregar a logo, o nome em texto volta a
+    // aparecer automaticamente.
     private fun carregarLogoComFallbackParaTexto(url: String) {
         tvTitle.visibility      = View.GONE
         imgTitleLogo.visibility = View.VISIBLE
@@ -677,12 +675,10 @@ class DetailsActivity : AppCompatActivity() {
                             val tOficial = if (type == "movie") sel.optString("title") else sel.optString("name")
                             val sinopse  = sel.optString("overview")
                             val date     = if (isSeries) sel.optString("first_air_date") else sel.optString("release_date")
-                            if (tOficial.isNotEmpty()) {
-                                tvTitle.text = tOficial
-                                tvDetailFullTitle?.text = tOficial
-                            }
+                            tvTitle.text = tOficial
                             if (sinopse.isNotEmpty()) tvPlot.text = sinopse
                             if (date.length >= 4) tvYear?.text = date.substring(0, 4)
+                            tvDetailFullTitle?.text   = tOficial
                             tvDetailFullPlot?.text    = sinopse
                             tvDetailReleaseDate?.text = date
                             getSharedPreferences("vltv_text_cache", Context.MODE_PRIVATE).edit()
@@ -728,6 +724,8 @@ class DetailsActivity : AppCompatActivity() {
                             runOnUiThread { tvTitle.visibility = View.VISIBLE; imgTitleLogo.visibility = View.GONE }
                             return
                         }
+                        // ✅ Imagem servida via VPS (VpsConfig) em vez de
+                        // bater direto em image.tmdb.org.
                         val finalUrl = VpsConfig.tmdbImage(path, "w500")
                         getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE).edit()
                             .putString("movie_logo_$streamId", finalUrl).apply()
@@ -960,6 +958,14 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ CORRIGIDO (bug da "seta que gira e volta sozinha"): antes, esse
+    // loop desistia na PRIMEIRA leitura em que o download não era
+    // encontrado no banco ("dl == null"), voltando o estado pra BAIXAR e
+    // cancelando o monitoramento de vez — mesmo que o download estivesse
+    // rodando normalmente por trás. Agora ele tolera algumas leituras
+    // nulas seguidas (o Room pode levar uma fração de segundo pra
+    // "assentar" o insert) antes de considerar que realmente não existe
+    // download em andamento.
     private fun iniciarMonitoramentoUI() {
         if (uiMonitorJob?.isActive == true) return
         uiMonitorJob = lifecycleScope.launch(Dispatchers.Main) {
@@ -991,6 +997,11 @@ class DetailsActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ CORRIGIDO: antes chamava iniciarMonitoramentoUI() via
+    // Handler().postDelayed(500ms), "adivinhando" que o insert no Room já
+    // tinha terminado. Agora usa o callback "aoIniciar" do DownloadHelper,
+    // que só dispara quando a linha já está garantida no banco — sem
+    // corrida, sem chute de tempo.
     private fun iniciarDownload() {
         downloadState = DownloadState.NA_FILA
         atualizarUI_download()
@@ -1003,6 +1014,9 @@ class DetailsActivity : AppCompatActivity() {
             isSeries = isSeries,
             season = 0,
             extensaoContainer = streamExt,
+            // ✅ NOVO: grava qual perfil (adulto ou Kids) iniciou esse
+            // download — é isso que DownloadsActivity/KidsDownloadsActivity
+            // usam pra filtrar cada um mostrar só o que é seu.
             profileName = currentProfile,
             aoIniciar = {
                 iniciarMonitoramentoUI()
@@ -1177,6 +1191,9 @@ class DetailsActivity : AppCompatActivity() {
             .replace(Regex("(?i)\\b(FHD|HD|4K|H265|LEG|DUBLADO|BR:|SP:|UHD|HDR)\\b"), "")
             .replace(Regex("\\s+"), " ").trim()
 
+    // Detecção de TV centralizada em DeviceUtils.kt (isTelevisionDevice()),
+    // usada em todo o app — não reimplementar localmente aqui.
+
     // ─────────────────────────────────────────────────────────────
     // RESOLUÇÃO DE ID REAL NO CATÁLOGO (Sugestões do TMDB)
     // ─────────────────────────────────────────────────────────────
@@ -1268,6 +1285,7 @@ class DetailsActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items[position]; val path = item.optString("poster_path")
             val tituloTmdb = item.optString("title")
+            // ✅ Imagem servida via VPS (VpsConfig)
             val posterUrl = VpsConfig.tmdbImage(path, "w342")
             Glide.with(holder.itemView.context).load(posterUrl).into(holder.img)
             holder.tv.text = tituloTmdb
