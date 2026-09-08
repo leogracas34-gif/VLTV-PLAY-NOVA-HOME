@@ -22,19 +22,6 @@ jobs:
       uses: gradle/actions/setup-gradle@v6
       with:
         gradle-version: '9.5.1'
-        # ⚠️ TEMPORÁRIO: build vinha travando com "duplicate class:
-        # com.vltv.play.SeriesStream" mesmo depois de apagar os caches
-        # manualmente pela aba Actions > Caches do GitHub. O código-fonte
-        # foi conferido (inclusive pela busca de código do próprio
-        # GitHub) e NÃO tem nenhuma classe duplicada — então o problema
-        # só pode ser algum estado de cache/incremental que essa action
-        # ainda estava restaurando sozinha. "cache-disabled: true" faz
-        # essa action não salvar nem restaurar cache nenhum (nem
-        # dependências, nem cache de build), garantindo uma build 100%
-        # do zero. Depois que confirmar que voltou a funcionar, pode
-        # remover essa linha pra build voltar a ficar mais rápida — se
-        # o erro não voltar, foi isso mesmo.
-        cache-disabled: true
 
     # ✅ ATUALIZADO: agora recria a keystore de RELEASE (release.keystore)
     # a partir do Secret RELEASE_KEYSTORE_BASE64, em vez da de debug.
@@ -64,34 +51,7 @@ jobs:
       env:
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-      run: gradle clean assembleRelease --no-build-cache --rerun-tasks --stacktrace
-
-    # 🔎 DIAGNÓSTICO TEMPORÁRIO — só roda se o passo acima falhar.
-    # Vasculha TODO o projeto (não só o esperado) atrás de qualquer
-    # arquivo chamado "SeriesStream" (fonte .kt ou stub .java gerado),
-    # mostrando caminho completo, data/hora de modificação e o conteúdo
-    # de cada um. Isso mostra, com prova, onde está o segundo arquivo
-    # que está colidindo com com.vltv.play.SeriesStream — mesmo que ele
-    # não apareça na busca de código do site do GitHub (por exemplo, se
-    # for gerado em tempo de build, ou vier de algum outro diretório).
-    - name: "🔎 Diagnóstico: localizar todo arquivo SeriesStream"
-      if: failure()
-      run: |
-        echo "===== Buscando qualquer arquivo chamado SeriesStream em todo o projeto ====="
-        find . -iname "*SeriesStream*" -not -path "*/.git/*" -print 2>/dev/null | while read -r f; do
-          echo ""
-          echo "----- ARQUIVO: $f -----"
-          ls -la "$f"
-          echo "--- conteúdo ---"
-          cat "$f"
-          echo "--- fim do conteúdo ---"
-        done
-        echo ""
-        echo "===== Todos os .java stub gerados pelo kapt sob esse nome ====="
-        find app/build/tmp/kapt3 -iname "SeriesStream*.java" -print 2>/dev/null
-        echo ""
-        echo "===== Todo arquivo-fonte .kt que contém a palavra SeriesStream ====="
-        grep -rl "SeriesStream" --include="*.kt" app/src 2>/dev/null
+      run: gradle clean assembleRelease --stacktrace
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
