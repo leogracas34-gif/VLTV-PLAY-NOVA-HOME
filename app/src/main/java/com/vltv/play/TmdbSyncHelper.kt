@@ -60,6 +60,8 @@ object TmdbSyncHelper {
 
     private const val TMDB_KEY = "9b73f5dd15b8165b1b57419be2f29128"
     private const val NOVIDADE_ANO_MIN = 2025
+    private const val TOP10_ANO_MIN = 2026
+    private const val TOP10_ANO_MAX = 2026
     // ✅ Limite de séries checadas por ciclo (evita sobrecarregar a API do
     // TMDB com uma chamada de detalhes por série a cada sincronização).
     private const val LIMITE_SERIES_TEMPORADA_EPISODIO = 40
@@ -85,9 +87,11 @@ object TmdbSyncHelper {
             val idsVodUsados = mutableSetOf<Int>()
             val idsSeriesUsados = mutableSetOf<Int>()
 
-            // Mantém o rank REAL da Netflix. Se um título não existir no
-            // catálogo, o próximo título continua com sua posição original.
+            // Somente títulos de 2026 entram no Top 10 do aplicativo.
+            // Títulos antigos do ranking oficial da Netflix são ignorados e
+            // não são usados para preencher posições vazias.
             for (item in ranking.filmes) {
+                if (!ehTop10Recente(item.item)) continue
                 val id = encontrarVod(db, item.item, idsVodUsados)
                 if (id != null) {
                     idsVodUsados.add(id)
@@ -96,6 +100,7 @@ object TmdbSyncHelper {
             }
 
             for (item in ranking.series) {
+                if (!ehTop10Recente(item.item)) continue
                 val id = encontrarSerie(db, item.item, idsSeriesUsados)
                 if (id != null) {
                     idsSeriesUsados.add(id)
@@ -353,6 +358,11 @@ object TmdbSyncHelper {
         }
         cursor.close()
         return resultado
+    }
+
+    private fun ehTop10Recente(item: TmdbItem): Boolean {
+        val ano = item.releaseDate.take(4).toIntOrNull() ?: return false
+        return ano in TOP10_ANO_MIN..TOP10_ANO_MAX
     }
 
     // ─────────────────────────────────────────────────────────────────────────
