@@ -156,6 +156,17 @@ class HomeActivity : AppCompatActivity() {
     private var popularSectionsJob: kotlinx.coroutines.Job? = null
     private var popularSectionsPendente: Triple<List<VodItem>, List<VodEntity>, List<SeriesEntity>>? = null
 
+    // ✅ NOVO: cache de sessão do Top 10 vindo do TMDB (usado só quando o
+    // banco local ainda não tem 10 itens classificados como is_top10).
+    // Evita repetir a busca pesada (chamada de rede + matching no banco)
+    // toda vez que popularSections() roda de novo na mesma sessão da
+    // Home — isso podia acontecer DUAS vezes seguidas na mesma abertura
+    // de tela (uma com dado local imediato, outra quando o
+    // ContentRepository fica pronto), multiplicando o atraso e causando
+    // o "pisca" entre um resultado antigo e o atualizado.
+    private var top10FilmesTmdbCache: List<VodEntity>? = null
+    private var top10SeriesTmdbCache: List<SeriesEntity>? = null
+
     // ✅ NOVO: guarda a instância atual dos adapters do Top 10 pra poder
     // atualizar a lista existente via DiffUtil (Top10Adapter.updateList)
     // em vez de trocar o RecyclerView.adapter inteiro toda vez — evita o
@@ -456,9 +467,9 @@ class HomeActivity : AppCompatActivity() {
     ) {
         // ✅ NOVO: essas listas ordenadas (novidade > data de lançamento >
         // adicionado) são calculadas UMA vez aqui e reaproveitadas tanto
-        // na linha "Filmes/Séries Para Você". O Top 10 não usa mais essa
-        // ordenação como fallback, porque precisa respeitar o ranking oficial
-        // sincronizado da Netflix. Antes, o fallback do Top 10 usava
+        // na linha "Filmes/Séries Para Você" quanto como fallback do Top
+        // 10 (quando a busca no TMDB falha ou o banco ainda não tem 10
+        // itens classificados). Antes, o fallback do Top 10 usava
         // movieItems.take(10)/seriesItems.take(10) — a ordem "crua" de
         // inserção no banco, que podia mostrar filmes antigos (ex: 007,
         // 1917) no lugar de conteúdo relevante.
@@ -512,37 +523,75 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
-        // O Top 10 exibido na Home vem EXCLUSIVAMENTE dos itens marcados
-        // pelo TmdbSyncHelper. O sincronizador agora usa o Top 10 semanal da
-        // Netflix Brasil como fonte, e grava a posição real em tmdb_rank.
-        // Não usamos mais TMDB Trending nem "filmes recentes" como substituto
-        // silencioso: se a sincronização encontrou apenas 6 títulos do Top 10
-        // da Netflix no catálogo, mostramos exatamente esses 6.
         top10FilmesJob?.cancel()
         top10FilmesJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val top10DbVods = database.streamDao().getTop10Vods()
-                val top10Items = top10DbVods.take(10).map { it.paraItem() }
+                var top10DbVods = database.streamDao().getTop10Vods()
+                if (top10DbVods.size < 10) {
+                    val cache = top10FilmesTmdbCache
+                    top10DbVods = if (cache != null) {
+                        cache
+                    } else {
+                        val resultado = buscarTop10FilmesAgora()
+                        if (resultado.isNotEmpty()) top10FilmesTmdbCache = resultado
+                        resultado
+                    }
+                }
+                val top10Items = top10DbVods.map {
+                    it.paraItem()
+                }
+                val top10Final = if (top10Items.isNotEmpty()) top10Items else filmesOrdenadosItems.take(10)
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
-                    aplicarTop10Filmes(top10Items)
+                    if (top10Final.isNotEmpty()) {
+                        aplicarTop10Filmes(top10Final)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    if (isFinishing || isDestroyed) return@withContext
+                    val fallback = filmesOrdenadosItems.take(10)
+                    if (fallback.isNotEmpty()) {
+                        aplicarTop10Filmes(fallback)
+                    }
+                }
             }
         }
 
         top10SeriesJob?.cancel()
         top10SeriesJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val top10DbSeries = database.streamDao().getTop10Series()
-                val top10Items = top10DbSeries.take(10).map { it.paraItem() }
+                var top10DbSeries = database.streamDao().getTop10Series()
+                if (top10DbSeries.size < 10) {
+                    val cache = top10SeriesTmdbCache
+                    top10DbSeries = if (cache != null) {
+                        cache
+                    } else {
+                        val resultado = buscarTop10SeriesAgora()
+                        if (resultado.isNotEmpty()) top10SeriesTmdbCache = resultado
+                        resultado
+                    }
+                }
+                val top10Items = top10DbSeries.map {
+                    it.paraItem()
+                }
+                val top10Final = if (top10Items.isNotEmpty()) top10Items else seriesOrdenadasItems.take(10)
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
-                    aplicarTop10Series(top10Items)
+                    if (top10Final.isNotEmpty()) {
+                        aplicarTop10Series(top10Final)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    if (isFinishing || isDestroyed) return@withContext
+                    val fallback = seriesOrdenadasItems.take(10)
+                    if (fallback.isNotEmpty()) {
+                        aplicarTop10Series(fallback)
+                    }
+                }
             }
         }
 
@@ -640,10 +689,90 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // O Top 10 não é mais buscado diretamente nesta Activity.
-    // A sincronização é centralizada em TmdbSyncHelper e o resultado é lido
-    // do banco por getTop10Vods()/getTop10Series(). Isso evita que a Home use
-    // TMDB Trending como uma segunda fonte diferente do ranking oficial.
+    // ✅ OTIMIZADO: busca o Top 10 de filmes da semana no TMDB e casa cada
+    // título com o banco local. Antes, cada um dos até 20 títulos era
+    // processado em SEQUÊNCIA (esperando a cadeia de até 6 consultas ao
+    // banco do anterior terminar antes de começar a do próximo), o que
+    // multiplicava o tempo total pelo número de títulos. Agora o matching
+    // roda em PARALELO (mesmo padrão já usado pra buscar escudos de times
+    // no banner de jogos), e a chamada de rede usa timeout explícito
+    // (TMDB_TIMEOUT_MS) em vez de ficar sem limite. Como o matching
+    // paralelo não pode compartilhar um "set de IDs já usados" entre
+    // tarefas concorrentes (isso exigiria sequência), a deduplicação é
+    // feita DEPOIS que todos os resultados chegam, mantendo a primeira
+    // ocorrência (preserva a ordem de popularidade do TMDB) e limitando a 10.
+    private suspend fun buscarTop10FilmesAgora(): List<VodEntity> {
+        return try {
+            val tmdbUrl = "https://api.themoviedb.org/3/trending/movie/week?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
+            val tmdbResults = JSONObject(fetchUrlComTimeout(tmdbUrl)).getJSONArray("results")
+            val limite = minOf(tmdbResults.length(), 20)
+            val candidatos = (0 until limite).map { tmdbResults.getJSONObject(it) }
+
+            val vodsEncontrados = coroutineScope {
+                candidatos.map { obj ->
+                    async {
+                        val tituloPt   = obj.optString("title", "")
+                        val tituloOrig = obj.optString("original_title", "")
+                        val vazio = emptySet<Int>()
+                        queryVodEntityExato(tituloOrig, vazio)
+                            ?: queryVodEntityExato(tituloPt, vazio)
+                            ?: queryVodEntity(likeExato(tituloOrig), vazio)
+                            ?: queryVodEntity(likeExato(tituloPt), vazio)
+                            ?: palavraMaisLonga(tituloOrig)?.let { queryVodEntity("%$it%", vazio) }
+                            ?: palavraMaisLonga(tituloPt)?.let { queryVodEntity("%$it%", vazio) }
+                    }
+                }.awaitAll()
+            }
+
+            val idsVistos = mutableSetOf<Int>()
+            val resultado = mutableListOf<VodEntity>()
+            for (vod in vodsEncontrados) {
+                if (vod == null) continue
+                if (idsVistos.add(vod.stream_id)) {
+                    resultado.add(vod)
+                    if (resultado.size >= 10) break
+                }
+            }
+            resultado
+        } catch (e: Exception) { emptyList() }
+    }
+
+    // ✅ OTIMIZADO: mesma lógica de buscarTop10FilmesAgora(), pra séries.
+    private suspend fun buscarTop10SeriesAgora(): List<SeriesEntity> {
+        return try {
+            val tmdbUrl = "https://api.themoviedb.org/3/trending/tv/week?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
+            val tmdbResults = JSONObject(fetchUrlComTimeout(tmdbUrl)).getJSONArray("results")
+            val limite = minOf(tmdbResults.length(), 20)
+            val candidatos = (0 until limite).map { tmdbResults.getJSONObject(it) }
+
+            val seriesEncontradas = coroutineScope {
+                candidatos.map { obj ->
+                    async {
+                        val tituloPt   = obj.optString("name", "")
+                        val tituloOrig = obj.optString("original_name", "")
+                        val vazio = emptySet<Int>()
+                        querySerieEntityExato(tituloOrig, vazio)
+                            ?: querySerieEntityExato(tituloPt, vazio)
+                            ?: querySerieEntity(likeExato(tituloOrig), vazio)
+                            ?: querySerieEntity(likeExato(tituloPt), vazio)
+                            ?: palavraMaisLonga(tituloOrig)?.let { querySerieEntity("%$it%", vazio) }
+                            ?: palavraMaisLonga(tituloPt)?.let { querySerieEntity("%$it%", vazio) }
+                    }
+                }.awaitAll()
+            }
+
+            val idsVistos = mutableSetOf<Int>()
+            val resultado = mutableListOf<SeriesEntity>()
+            for (serie in seriesEncontradas) {
+                if (serie == null) continue
+                if (idsVistos.add(serie.series_id)) {
+                    resultado.add(serie)
+                    if (resultado.size >= 10) break
+                }
+            }
+            resultado
+        } catch (e: Exception) { emptyList() }
+    }
 
     private fun normalizarTituloParaMatch(titulo: String): String {
         return titulo
