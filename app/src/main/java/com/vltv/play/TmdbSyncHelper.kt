@@ -501,7 +501,7 @@ object TmdbSyncHelper {
             .replace(Regex("[ç]"), "c")
             .replace(Regex("[ñ]"), "n")
             .replace(Regex("[^a-z0-9 ]"), "")
-            .replace(Regex("\s+"), " ")
+            .replace(Regex("""\s+"""), " ")
             .trim()
     }
 
