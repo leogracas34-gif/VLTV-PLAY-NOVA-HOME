@@ -22,6 +22,19 @@ jobs:
       uses: gradle/actions/setup-gradle@v6
       with:
         gradle-version: '9.5.1'
+        # ⚠️ TEMPORÁRIO: build vinha travando com "duplicate class:
+        # com.vltv.play.SeriesStream" mesmo depois de apagar os caches
+        # manualmente pela aba Actions > Caches do GitHub. O código-fonte
+        # foi conferido (inclusive pela busca de código do próprio
+        # GitHub) e NÃO tem nenhuma classe duplicada — então o problema
+        # só pode ser algum estado de cache/incremental que essa action
+        # ainda estava restaurando sozinha. "cache-disabled: true" faz
+        # essa action não salvar nem restaurar cache nenhum (nem
+        # dependências, nem cache de build), garantindo uma build 100%
+        # do zero. Depois que confirmar que voltou a funcionar, pode
+        # remover essa linha pra build voltar a ficar mais rápida — se
+        # o erro não voltar, foi isso mesmo.
+        cache-disabled: true
 
     # ✅ ATUALIZADO: agora recria a keystore de RELEASE (release.keystore)
     # a partir do Secret RELEASE_KEYSTORE_BASE64, em vez da de debug.
@@ -51,7 +64,7 @@ jobs:
       env:
         RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-      run: gradle clean assembleRelease --stacktrace
+      run: gradle clean assembleRelease --no-build-cache --rerun-tasks --stacktrace
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
