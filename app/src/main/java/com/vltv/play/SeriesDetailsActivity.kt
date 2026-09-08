@@ -38,7 +38,11 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import retrofit2.Call
 import retrofit2.Callback
@@ -771,6 +775,43 @@ class SeriesDetailsActivity : AppCompatActivity() {
         })
     }
 
+    // ⚠️ Mesmo bug do DetailsActivity.kt: sem listener de erro, se a URL
+    // da logo falhasse, o ImageView ficava vazio E o texto continuava
+    // escondido — a tela de detalhes ficava sem nome nenhum. Agora, se o
+    // Glide não conseguir carregar a logo, o nome em texto (fallbackText)
+    // volta a aparecer automaticamente.
+    private fun carregarLogoComFallbackParaTexto(url: String, fallbackText: String) {
+        tvTitle.visibility      = View.GONE
+        imgTitleLogo.visibility = View.VISIBLE
+        Glide.with(this)
+            .load(url)
+            .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .listener(object : RequestListener<android.graphics.drawable.Drawable> {
+                override fun onLoadFailed(
+                    e: GlideException?,
+                    model: Any?,
+                    target: Target<android.graphics.drawable.Drawable>?,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    runOnUiThread {
+                        tvTitle.visibility      = View.VISIBLE
+                        tvTitle.text            = fallbackText
+                        imgTitleLogo.visibility = View.GONE
+                    }
+                    return false
+                }
+
+                override fun onResourceReady(
+                    resource: android.graphics.drawable.Drawable?,
+                    model: Any?,
+                    target: Target<android.graphics.drawable.Drawable>?,
+                    dataSource: DataSource?,
+                    isFirstResource: Boolean
+                ): Boolean = false
+            })
+            .into(imgTitleLogo)
+    }
+
     private fun buscarLogoSerieTraduzida(id: Int, key: String, nomeLimpo: String) {
         val imagesUrl = "https://api.themoviedb.org/3/tv/$id/images?api_key=$key&include_image_language=pt,null"
         client.newCall(Request.Builder().url(imagesUrl).build()).enqueue(object : okhttp3.Callback {
@@ -794,10 +835,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
                                 getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE).edit()
                                     .putString("series_logo_$seriesId", finalUrl).apply()
                                 runOnUiThread {
-                                    tvTitle.visibility      = View.GONE
-                                    imgTitleLogo.visibility = View.VISIBLE
-                                    Glide.with(this@SeriesDetailsActivity).load(finalUrl)
-                                        .diskCacheStrategy(DiskCacheStrategy.ALL).into(imgTitleLogo)
+                                    carregarLogoComFallbackParaTexto(finalUrl, nomeLimpo)
                                 }
                             } else {
                                 runOnUiThread { imgTitleLogo.visibility = View.GONE; tvTitle.visibility = View.VISIBLE; tvTitle.text = nomeLimpo }
@@ -852,9 +890,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
         val cachedUrl = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
             .getString("series_logo_$seriesId", null)
         if (cachedUrl != null) {
-            tvTitle.visibility      = View.GONE
-            imgTitleLogo.visibility = View.VISIBLE
-            Glide.with(this).load(cachedUrl).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgTitleLogo)
+            carregarLogoComFallbackParaTexto(cachedUrl, seriesName)
         }
     }
 
