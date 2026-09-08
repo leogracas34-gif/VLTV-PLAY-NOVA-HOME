@@ -218,9 +218,8 @@ class VodActivity : AppCompatActivity() {
                 categoriaAtualId = catId
                 if (ultimaCategoriaNome != null) tvCategoryTitle.text = ultimaCategoriaNome
                 filmesEmMemoria.take(30).forEach { vod ->
-                    val nomeChave = vod.name.ifEmpty { vod.title ?: "" }
-                    val cached = gridCachePrefs.getString("logo_$nomeChave", null)
-                    if (cached != null) logoMemoryCache[nomeChave] = cached
+                    val cached = gridCachePrefs.getString("logo_${vod.name}", null)
+                    if (cached != null) logoMemoryCache[vod.name] = cached
                 }
                 val items = filmesEmMemoria.map {
                     VodStream(it.stream_id, it.name, it.title, it.stream_icon, it.container_extension, it.rating)
@@ -535,9 +534,8 @@ class VodActivity : AppCompatActivity() {
         val emRepositorio = ContentRepository.getVodsByCategory(categoria.id)
         if (emRepositorio.isNotEmpty()) {
             emRepositorio.take(30).forEach { vod ->
-                val nomeChave = vod.name.ifEmpty { vod.title ?: "" }
-                val cached = gridCachePrefs.getString("logo_$nomeChave", null)
-                if (cached != null) logoMemoryCache[nomeChave] = cached
+                val cached = gridCachePrefs.getString("logo_${vod.name}", null)
+                if (cached != null) logoMemoryCache[vod.name] = cached
             }
             val items = emRepositorio.map {
                 VodStream(it.stream_id, it.name, it.title, it.stream_icon, it.container_extension, it.rating)
@@ -626,15 +624,9 @@ class VodActivity : AppCompatActivity() {
     }
 
     private fun abrirDetalhes(filme: VodStream) {
-        val nomeValido = when {
-            !filme.name.isNullOrBlank() -> filme.name
-            !filme.title.isNullOrBlank() -> filme.title
-            else -> "Sem Título"
-        }
         startActivity(Intent(this, DetailsActivity::class.java).apply {
             putExtra("stream_id", filme.id)
-            putExtra("name", nomeValido)
-            putExtra("title", nomeValido)
+            putExtra("name", filme.name)
             putExtra("icon", filme.icon)
             putExtra("rating", filme.rating ?: "0.0")
             putExtra("PROFILE_NAME", currentProfile)
@@ -652,10 +644,8 @@ class VodActivity : AppCompatActivity() {
         val popup = PopupMenu(this, findViewById(android.R.id.content))
         menuInflater.inflate(R.menu.menu_download, popup.menu)
         popup.setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_download) {
-                val nomeFilme = filme.name.ifEmpty { filme.title ?: "" }
-                Toast.makeText(this, "Baixando: $nomeFilme", Toast.LENGTH_LONG).show()
-            }
+            if (item.itemId == R.id.action_download)
+                Toast.makeText(this, "Baixando: ${filme.name}", Toast.LENGTH_LONG).show()
             true
         }
         popup.show()
@@ -741,7 +731,7 @@ class VodActivity : AppCompatActivity() {
         // no topo — corrige tanto a ordem por ano quanto o bug de abrir a tela
         // no meio/final da lista.
         fun submitList(newList: List<VodStream>) {
-            val listaOrdenada = newList.sortedByDescending { extrairAnoFilme(it.name.ifEmpty { it.title ?: "" }) }
+            val listaOrdenada = newList.sortedByDescending { extrairAnoFilme(it.name) }
             val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
                 override fun getOldListSize() = items.size
                 override fun getNewListSize() = listaOrdenada.size
@@ -769,13 +759,7 @@ class VodActivity : AppCompatActivity() {
             h.job?.cancel()
             val item = items[p]
 
-            val nomeExibicao = when {
-                !item.name.isNullOrBlank() -> item.name
-                !item.title.isNullOrBlank() -> item.title
-                else -> "Sem Título"
-            }
-
-            h.tvName.text = nomeExibicao
+            h.tvName.text = item.name
             h.tvName.visibility  = View.VISIBLE
             h.imgLogo.setImageDrawable(null)
             h.imgLogo.visibility = View.INVISIBLE
@@ -789,16 +773,16 @@ class VodActivity : AppCompatActivity() {
                 .centerCrop()
                 .into(h.imgPoster)
 
-            val memCached = logoMemoryCache[nomeExibicao]
+            val memCached = logoMemoryCache[item.name]
             if (memCached != null) {
                 h.tvName.visibility  = View.GONE
                 h.imgLogo.visibility = View.VISIBLE
                 Glide.with(h.itemView.context).load(memCached)
                     .diskCacheStrategy(DiskCacheStrategy.ALL).dontAnimate().into(h.imgLogo)
             } else {
-                val diskCached = gridCachePrefs.getString("logo_${nomeExibicao}", null)
+                val diskCached = gridCachePrefs.getString("logo_${item.name}", null)
                 if (diskCached != null) {
-                    logoMemoryCache[nomeExibicao] = diskCached
+                    logoMemoryCache[item.name] = diskCached
                     h.tvName.visibility  = View.GONE
                     h.imgLogo.visibility = View.VISIBLE
                     Glide.with(h.itemView.context).load(diskCached)
@@ -808,10 +792,10 @@ class VodActivity : AppCompatActivity() {
                     // solta. Isso cancela automaticamente a busca de logo se a Activity
                     // for destruída, evitando o crash "destroyed activity" no Glide.with().
                     h.job = lifecycleScope.launch(Dispatchers.IO) {
-                        val url = searchTmdbLogoVod(nomeExibicao)
+                        val url = searchTmdbLogoVod(item.name)
                         if (url != null) {
-                            logoMemoryCache[nomeExibicao] = url
-                            gridCachePrefs.edit().putString("logo_${nomeExibicao}", url).apply()
+                            logoMemoryCache[item.name] = url
+                            gridCachePrefs.edit().putString("logo_${item.name}", url).apply()
                             withContext(Dispatchers.Main) {
                                 // ✅ Guard extra: nunca chama Glide se a Activity já
                                 // estiver finalizando/destruída (ex: usuário saiu da tela
