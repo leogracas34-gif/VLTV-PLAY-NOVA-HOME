@@ -332,3 +332,4 @@ class HomeRowAdapter(
 
     override fun getItemCount() = list.size
 }
+
