@@ -1,101 +1,133 @@
 package com.vltv.play
 
-import android.Manifest
-import android.animation.ObjectAnimator
-import android.app.Dialog
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.SharedPreferences
+import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.text.Editable
-import android.text.TextWatcher
+import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
-import android.view.animation.LinearInterpolator
-import android.view.inputmethod.EditorInfo
-import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.Priority
+import com.bumptech.glide.load.DecodeFormat
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import kotlinx.coroutines.*
-import kotlin.coroutines.CoroutineContext
-
-// IMPORTAÇÃO DA DATABASE E ENTIDADES
+import org.json.JSONObject
+import java.net.URL
+import java.net.URLEncoder
+import okhttp3.ResponseBody
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.vltv.play.data.AppDatabase
-import com.vltv.play.data.VodEntity
+import com.vltv.play.data.CategoryEntity
 import com.vltv.play.data.SeriesEntity
-import com.vltv.play.data.LiveStreamEntity
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 
-class SearchActivity : AppCompatActivity(), CoroutineScope {
+class SeriesActivity : AppCompatActivity() {
 
-    private lateinit var etQuery: EditText
-    private lateinit var btnDoSearch: ImageButton
-    private lateinit var btnVoiceSearch: ImageButton
-    private lateinit var rvResults: RecyclerView
-    private lateinit var adapter: SearchResultAdapter
-    private lateinit var progressBar: ProgressBar
-    private lateinit var tvEmpty: TextView
-
-    // DATABASE INICIALIZADA VIA LAZY
-    private val database by lazy { AppDatabase.getDatabase(this) }
-
-    // Variáveis da Busca Otimizada
-    private val supervisor = SupervisorJob()
-    override val coroutineContext: CoroutineContext
-        get() = Dispatchers.Main + supervisor
-
-    // LISTA MESTRA: Guarda tudo na memória para busca instantânea
-    private var catalogoCompleto: List<SearchResultItem> = emptyList()
-    private var isCarregandoDados = false
-    private var jobBuscaInstantanea: Job? = null
-
-    // ✅ CORREÇÃO: Guarda a última query digitada para reaplicar após o carregamento
-    private var ultimaQueryDigitada: String = ""
-
-    // Guarda de onde o usuário veio ("filmes", "series" ou "tudo")
-    private var tipoPesquisa: String = "tudo"
-
-    // --- BUSCA POR VOZ ---
-    private var speechRecognizer: SpeechRecognizer? = null
-    private var voiceDialog: Dialog? = null
-    private var pulseAnimator: ObjectAnimator? = null
-
-    // Rodapé de navegação (pill) — mesmo padrão das outras telas de phone
-    private var currentProfile: String = "Padrao"
-    private var currentProfileIcon: String? = null
+    private lateinit var rvCategories: RecyclerView
+    private lateinit var rvSeries: RecyclerView
+    private lateinit var progressBar: View
+    private lateinit var tvCategoryTitle: TextView
     private var bottomNavigation: BottomNavigationView? = null
 
-    private val micPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            iniciarBuscaPorVoz()
-        } else {
-            Toast.makeText(this, "Permissão de microfone necessária para busca por voz", Toast.LENGTH_SHORT).show()
-        }
-    }
+    private var username = ""
+    private var password = ""
+    private lateinit var seriesCachePrefs: SharedPreferences
+
+    // ✅ NOVO: controle de "última sincronização" por categoria, salvo em
+    // SharedPreferences (sobrevive entre aberturas da Activity/app, ao
+    // contrário do seriesCache que é só em memória). Usado para não bater
+    // no servidor de novo toda vez que a tela de Séries é reaberta — ver
+    // categoriaEstaFresca() / marcarCategoriaSincronizada() mais abaixo.
+    // Mesma correção aplicada no VodActivity.
+    private lateinit var syncPrefs: SharedPreferences
+    private val SYNC_STALE_MS = 6 * 60 * 60 * 1000L // 6 horas
+
+    private val seriesCache = mutableMapOf<String, List<SeriesStream>>()
+    private val logoMemoryCache = mutableMapOf<String, String>()
+
+    private var categoryAdapter: SeriesCategoryAdapter? = null
+
+    // Adapter único — nunca recriado, atualizado via DiffUtil
+    private var seriesAdapter: SeriesAdapter? = null
+
+    private var currentProfile: String = "Padrao"
+    private var currentProfileIcon: String? = null
+    private var ultimaCategoriaId: String? = null
+    private var ultimaCategoriaNome: String? = null
+
+    // Guard de race condition
+    private var categoriaAtualId: String? = null
+
+    private val database by lazy { AppDatabase.getDatabase(this) }
 
     // Detecção de TV centralizada em DeviceUtils.kt (context.isTelevisionDevice()),
     // usada em todo o app — não reimplementar localmente aqui.
 
+    // ✅ Filtro central de conteúdo adulto para SÉRIES — chamado em TODO ponto
+    // onde uma lista vai pro adapter, não importa de onde os dados vieram
+    // (cache em memória, ContentRepository, banco Room, rede ou favoritos).
+    private fun filtrarSeriesAdultas(lista: List<SeriesStream>): List<SeriesStream> {
+        return if (ParentalControlManager.isEnabled(this))
+            lista.filterNot { ParentalControlManager.isAdultName(it.name) }
+        else lista
+    }
+
+    // ✅ Filtro central de conteúdo adulto para CATEGORIAS
+    private fun filtrarCategoriasAdultas(lista: List<LiveCategory>): List<LiveCategory> {
+        return if (ParentalControlManager.isEnabled(this))
+            lista.filterNot { ParentalControlManager.isAdultName(it.name) }
+        else lista
+    }
+
+    // ✅ NOVO: extrai o ano (19xx ou 20xx) embutido no nome da série, ex:
+    // "Nome da Série (2026)" → 2026. Usado para ordenar sempre da mais
+    // recente pra mais antiga. Séries sem ano detectável vão pro final.
+    // ⚠️ Aceita String? porque o servidor Xtream às vezes manda "name"
+    // nulo/ausente pra alguma série — o Gson ignora o tipo não-nulo do
+    // Kotlin nesse caso, e o app crashava (NullPointerException) ao tentar
+    // ordenar a lista com um nome nulo no meio (mesmo bug corrigido em
+    // VodActivity.kt/extrairAnoFilme).
+    private fun extrairAnoSerie(nome: String?): Int {
+        if (nome.isNullOrEmpty()) return 0
+        return Regex("\\b(19|20)\\d{2}\\b").find(nome)?.value?.toIntOrNull() ?: 0
+    }
+
+    // ✅ NOVO: verdadeiro se essa categoria já foi sincronizada com o
+    // servidor há menos de SYNC_STALE_MS. Enquanto estiver "fresca", o app
+    // confia 100% no que já está salvo no Room/ContentRepository e NÃO
+    // busca de novo na rede — é isso que elimina o "re-sync" toda vez que
+    // a tela de Séries é reaberta.
+    private fun categoriaEstaFresca(categoriaId: String): Boolean {
+        val ultimaSync = syncPrefs.getLong("sync_$categoriaId", 0L)
+        return (System.currentTimeMillis() - ultimaSync) < SYNC_STALE_MS
+    }
+
+    private fun marcarCategoriaSincronizada(categoriaId: String) {
+        syncPrefs.edit().putLong("sync_$categoriaId", System.currentTimeMillis()).apply()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_search)
+        setContentView(R.layout.activity_vod)
 
         val vltvPrefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         currentProfile = intent.getStringExtra("PROFILE_NAME")
@@ -105,60 +137,141 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
             ?.takeIf { it.isNotEmpty() }
             ?: vltvPrefs.getString("last_profile_icon", null)?.takeIf { it.isNotEmpty() }
 
-        // Configuração de Tela Cheia / Barras
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-
+        windowInsetsController?.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         if (this.isTelevisionDevice()) {
             windowInsetsController?.hide(WindowInsetsCompat.Type.systemBars())
         } else {
             windowInsetsController?.show(WindowInsetsCompat.Type.systemBars())
         }
 
-        // Captura a etiqueta enviada pela tela anterior (Padrão é "tudo")
-        tipoPesquisa = intent.getStringExtra("tipo_pesquisa") ?: "tudo"
-
-        initViews()
-        setupBottomNavigation()
-        setupRecyclerView()
-        setupSearchLogic()
-        setupVoiceSearch()
-
-        // Carregamento Híbrido: Primeiro Database, depois API
-        carregarDadosIniciais()
-    }
-
-    private fun initViews() {
-        etQuery = findViewById(R.id.etQuery)
-        btnDoSearch = findViewById(R.id.btnDoSearch)
-        btnVoiceSearch = findViewById(R.id.btnVoiceSearch)
-        rvResults = findViewById(R.id.rvResults)
-        progressBar = findViewById(R.id.progressBar)
-        tvEmpty = findViewById(R.id.tvEmpty)
+        rvCategories    = findViewById(R.id.rvCategories)
+        rvSeries        = findViewById(R.id.rvChannels)
+        progressBar     = findViewById(R.id.progressBar)
+        tvCategoryTitle = findViewById(R.id.tvCategoryTitle)
         bottomNavigation = findViewById(R.id.bottomNavigation)
+        seriesCachePrefs = getSharedPreferences("vltv_series_cache", Context.MODE_PRIVATE)
+        syncPrefs         = getSharedPreferences("vltv_series_sync", Context.MODE_PRIVATE)
 
-        // Ajuste para o teclado não cobrir a tela
-        etQuery.imeOptions = EditorInfo.IME_ACTION_SEARCH or EditorInfo.IME_FLAG_NO_EXTRACT_UI
+        setupBottomNavigation()
+        BottomNavProfileHelper.aplicarPerfilNoRodape(this, bottomNavigation, currentProfile, currentProfileIcon)
+
+        findViewById<View>(R.id.etSearchContent)?.apply {
+            isFocusableInTouchMode = false
+            setOnClickListener {
+                startActivity(Intent(this@SeriesActivity, SearchActivity::class.java).apply {
+                    putExtra("initial_query", "")
+                    putExtra("PROFILE_NAME", currentProfile)
+                    putExtra("tipo_pesquisa", "series")
+                })
+            }
+        }
+
+        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        username = prefs.getString("username", "") ?: ""
+        password = prefs.getString("password", "") ?: ""
+
+        if (this.isTelevisionDevice()) {
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+            rvSeries.layoutManager = GridLayoutManager(this, 5)
+            bottomNavigation?.visibility = View.GONE
+        } else {
+            rvCategories.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false)
+            rvSeries.layoutManager = GridLayoutManager(this, 3)
+            bottomNavigation?.visibility = View.VISIBLE
+        }
+
+        rvCategories.setHasFixedSize(true)
+        rvCategories.setItemViewCacheSize(60)
+        rvCategories.overScrollMode = View.OVER_SCROLL_NEVER
+
+        if (this.isTelevisionDevice()) {
+            rvCategories.isFocusable = true
+            rvCategories.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            rvSeries.isFocusable = true
+            rvSeries.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        } else {
+            rvCategories.isFocusable = false
+            rvCategories.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+            rvSeries.isFocusable = false
+            rvSeries.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        }
+
+        rvSeries.setHasFixedSize(true)
+        rvSeries.setItemViewCacheSize(100)
+
+        // Adapter criado UMA vez — nunca recriado
+        seriesAdapter = SeriesAdapter { abrirDetalhesSerie(it) }
+        rvSeries.adapter = seriesAdapter
+
+        // Última categoria salva
+        val catPrefs = getSharedPreferences("vltv_series_prefs", Context.MODE_PRIVATE)
+        ultimaCategoriaId   = catPrefs.getString("ultima_cat_id", null)
+        ultimaCategoriaNome = catPrefs.getString("ultima_cat_nome", null)
+
+        // ── CARREGAMENTO INSTANTÂNEO DE SÉRIES ───────────────────────────────
+        val catId = ultimaCategoriaId
+        if (catId != null) {
+            val seriesEmMemoria = ContentRepository.getSeriesByCategory(catId)
+            if (seriesEmMemoria.isNotEmpty()) {
+                categoriaAtualId = catId
+                if (ultimaCategoriaNome != null) tvCategoryTitle.text = ultimaCategoriaNome
+                seriesEmMemoria.take(30).forEach { s ->
+                    val cached = seriesCachePrefs.getString("logo_${s.name}", null)
+                    if (cached != null) logoMemoryCache[s.name] = cached
+                }
+                val items = seriesEmMemoria.map { SeriesStream(it.series_id, it.name, it.cover, it.rating) }
+                // ✅ Filtro aplicado também no carregamento instantâneo
+                val itemsFiltrados = filtrarSeriesAdultas(items)
+                seriesAdapter?.submitList(itemsFiltrados)
+                preLoadImages(itemsFiltrados)
+            }
+        }
+
+        // ── CARREGAMENTO INSTANTÂNEO DE CATEGORIAS ───────────────────────────
+        // Lê do banco Room (thread IO, ~2ms) → mostra imediatamente.
+        // A rede atualiza em background e só reaplica se ainda não havia categorias.
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val categoriasSalvas = database.streamDao().getCategoriesByType("series")
+                if (categoriasSalvas.isNotEmpty()) {
+                    val cats = mutableListOf<LiveCategory>()
+                    cats.add(LiveCategory(category_id = "FAV_SERIES", category_name = "FAVORITOS"))
+                    cats.addAll(categoriasSalvas.map {
+                        LiveCategory(category_id = it.category_id, category_name = it.category_name)
+                    })
+                    withContext(Dispatchers.Main) {
+                        if (!isFinishing && !isDestroyed) aplicarCategorias(cats)
+                    }
+                }
+                // Sempre busca da rede em background
+                withContext(Dispatchers.Main) {
+                    if (!isFinishing && !isDestroyed) carregarCategoriasRede()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    if (!isFinishing && !isDestroyed) carregarCategoriasRede()
+                }
+            }
+        }
     }
 
-    // Pill de navegação é só pra layout de telefone — na TV essa tela usa
-    // D-pad/foco normal e não precisa da barra flutuante.
     private fun setupBottomNavigation() {
-        if (this.isTelevisionDevice()) {
-            bottomNavigation?.visibility = View.GONE
-            return
-        }
-        BottomNavProfileHelper.aplicarPerfilNoRodape(this, bottomNavigation, currentProfile, currentProfileIcon)
         bottomNavigation?.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_home      -> { finish(); true }
-                R.id.nav_search    -> true // já está aqui
+                R.id.nav_home -> { finish(); true }
+                R.id.nav_search -> {
+                    startActivity(Intent(this, SearchActivity::class.java).apply {
+                        putExtra("PROFILE_NAME", currentProfile)
+                    }); true
+                }
                 R.id.nav_novidades -> {
                     startActivity(Intent(this, NovidadesActivity::class.java).apply {
                         putExtra("PROFILE_NAME", currentProfile)
                     }); true
                 }
-                R.id.nav_profile   -> {
+                R.id.nav_profile -> {
                     startActivity(Intent(this, SettingsActivity::class.java).apply {
                         putExtra("PROFILE_NAME", currentProfile)
                     }); true
@@ -174,382 +287,523 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
         currentProfile = vltvPrefs.getString("last_profile_name", currentProfile) ?: currentProfile
         currentProfileIcon = vltvPrefs.getString("last_profile_icon", currentProfileIcon)
             ?.takeIf { it.isNotEmpty() } ?: currentProfileIcon
-        if (!this.isTelevisionDevice()) {
-            BottomNavProfileHelper.aplicarPerfilNoRodape(this, bottomNavigation, currentProfile, currentProfileIcon)
-        }
+        BottomNavProfileHelper.aplicarPerfilNoRodape(this, bottomNavigation, currentProfile, currentProfileIcon)
     }
 
-    private fun setupRecyclerView() {
-        adapter = SearchResultAdapter { item ->
-            abrirDetalhes(item)
-        }
-
-        // 5 colunas se for TV, 3 colunas se for Celular
-        val spanCount = if (this.isTelevisionDevice()) 5 else 3
-
-        rvResults.layoutManager = GridLayoutManager(this, spanCount)
-        rvResults.adapter = adapter
-        rvResults.isFocusable = true
-        rvResults.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-    }
-
-    private fun setupSearchLogic() {
-        // TextWatcher: Detecta cada letra digitada
-        etQuery.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                val texto = s.toString().trim()
-
-                // ✅ CORREÇÃO: Salva a query SEMPRE, mesmo durante o carregamento
-                ultimaQueryDigitada = texto
-
-                // Se ainda está carregando, apenas salva e aguarda o finalizarUI()
-                if (isCarregandoDados) return
-
-                jobBuscaInstantanea?.cancel()
-                jobBuscaInstantanea = launch {
-                    // ✅ CORREÇÃO: 150ms para acomodar digitação rápida sem cancelamentos prematuros
-                    delay(150)
-                    filtrarNaMemoria(texto)
+    // ✅ Corrigido: usa lifecycleScope em vez de CoroutineScope(Dispatchers.IO)
+    // solta. Assim a coroutine é cancelada automaticamente quando a Activity é
+    // destruída, evitando "You cannot start a load for a destroyed activity".
+    private fun preLoadImages(series: List<SeriesStream>) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            series.take(30).forEach { s ->
+                val url = s.icon ?: return@forEach
+                withContext(Dispatchers.Main) {
+                    if (isFinishing || isDestroyed) return@withContext
+                    Glide.with(this@SeriesActivity)
+                        .asBitmap().load(url)
+                        .format(DecodeFormat.PREFER_ARGB_8888)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .priority(Priority.HIGH)
+                        .preload(240, 360)
                 }
             }
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
-
-        btnDoSearch.setOnClickListener {
-            filtrarNaMemoria(etQuery.text.toString().trim())
-        }
-
-        etQuery.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                filtrarNaMemoria(etQuery.text.toString().trim())
-                true
-            } else false
         }
     }
 
-    // --- BUSCA POR VOZ: SETUP ---
+    // ✅ "Vassoura" — remove tarjas comuns de qualidade/idioma/formato do
+    // nome (LEGENDADO, DUBLADO, 4K, CINEMA, CAM etc.) antes de buscar a
+    // logo no TMDB. Antes usava replace() de substring solta (ex: "LEG"),
+    // que também apagava pedaços de nomes normais (ex: "Legado"). Agora
+    // usa regex com \b (limite de palavra), então só remove a tarja
+    // quando ela aparece sozinha como palavra.
+    private val REGEX_TARJAS_LOGO_SERIES = Regex(
+        "(?i)\\b(4K|8K|FULL[\\s.-]?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|LEG|DUB|DUAL|AUDIO|LATINO|" +
+        "NACIONAL|PT[-.]?BR|PTBR|WEB[-.]?DL|WEBRIP|BLU-?RAY|REMUX|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|" +
+        "HEVC|X264|X265|WEB|HDR|UHD|FHD|CAM|HDCAM|TS|TC|R5|SCREENER|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO|" +
+        "COMPLETO|COMPLETE|S\\d{1,2}|E\\d{1,3}|EP\\d{1,3}|TEMPORADA|SEASON)\\b"
+    )
 
-    private fun setupVoiceSearch() {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            btnVoiceSearch.visibility = View.GONE
-            return
-        }
-
-        btnVoiceSearch.setOnClickListener {
-            val permissao = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            if (permissao == PackageManager.PERMISSION_GRANTED) {
-                iniciarBuscaPorVoz()
-            } else {
-                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    private suspend fun searchTmdbLogoSeries(rawName: String): String? {
+        val apiKey = TmdbConfig.API_KEY
+        var cleanName = rawName
+            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+            .replace(Regex("\\b\\d{4}\\b"), "").trim()
+            .replace(REGEX_TARJAS_LOGO_SERIES, "")
+        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+        return try {
+            val query = URLEncoder.encode(cleanName, "UTF-8")
+            val searchJson = URL(
+                "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$query&language=pt-BR&region=BR"
+            ).readText()
+            val results = JSONObject(searchJson).getJSONArray("results")
+            if (results.length() == 0) return null
+            var best = results.getJSONObject(0)
+            for (j in 0 until results.length()) {
+                val obj = results.getJSONObject(j)
+                if (obj.optString("name","").equals(cleanName, ignoreCase = true)) { best = obj; break }
             }
-        }
+            val id = best.getString("id")
+            val imagesJson = URL(
+                "https://api.themoviedb.org/3/tv/$id/images?api_key=$apiKey&include_image_language=pt,en,null"
+            ).readText()
+            val logos = JSONObject(imagesJson).getJSONArray("logos")
+            if (logos.length() == 0) return null
+            var path = ""
+            for (i in 0 until logos.length()) {
+                val lg = logos.getJSONObject(i)
+                if (lg.optString("iso_639_1") == "pt") { path = lg.getString("file_path"); break }
+            }
+            if (path.isEmpty()) path = logos.getJSONObject(0).getString("file_path")
+            "https://cdn.vltvplay.tech/t/p/w500$path"
+        } catch (e: Exception) { null }
     }
 
-    private fun iniciarBuscaPorVoz() {
-        mostrarDialogoVoz()
+    private fun salvarUltimaCategoria(categoria: LiveCategory) {
+        ultimaCategoriaId   = categoria.id
+        ultimaCategoriaNome = categoria.name
+        getSharedPreferences("vltv_series_prefs", Context.MODE_PRIVATE).edit()
+            .putString("ultima_cat_id", categoria.id)
+            .putString("ultima_cat_nome", categoria.name)
+            .apply()
+    }
 
-        speechRecognizer?.destroy()
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
-            setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {
-                    voiceDialog?.findViewById<TextView>(R.id.tvVoiceStatus)?.text = "Buscando..."
+    /**
+     * Busca categorias da REDE em background.
+     * Salva no banco para a próxima abertura ser instantânea.
+     * Só reaplica na tela se o adapter ainda não foi criado (banco estava vazio).
+     */
+    private fun carregarCategoriasRede() {
+        XtreamApi.service.getSeriesCategories(username, password)
+            .enqueue(object : Callback<ResponseBody> {
+                override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                    if (!response.isSuccessful || response.body() == null) return
+                    try {
+                        val rawJson = response.body()!!.string()
+                        val lista = mutableListOf<LiveCategory>()
+                        val gson = Gson()
+                        if (rawJson.trim().startsWith("[")) {
+                            val type = object : TypeToken<List<LiveCategory>>() {}.type
+                            lista.addAll(gson.fromJson(rawJson, type))
+                        } else if (rawJson.trim().startsWith("{")) {
+                            val obj = JSONObject(rawJson); val keys = obj.keys()
+                            while (keys.hasNext()) {
+                                lista.add(gson.fromJson(obj.getJSONObject(keys.next()).toString(), LiveCategory::class.java))
+                            }
+                        }
+
+                        // Salva no banco em background
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            try {
+                                val entities = lista.map {
+                                    CategoryEntity(it.category_id, it.category_name, "series")
+                                }
+                                database.streamDao().deleteCategoriesByType("series")
+                                database.streamDao().insertCategories(entities)
+                            } catch (e: Exception) { e.printStackTrace() }
+                        }
+
+                        // ✅ Lista crua aqui — o filtro é aplicado dentro de
+                        // aplicarCategorias(), centralizando a regra num único lugar.
+                        val cats = mutableListOf<LiveCategory>()
+                        cats.add(LiveCategory(category_id = "FAV_SERIES", category_name = "FAVORITOS"))
+                        cats.addAll(lista)
+
+                        // Só reaplica se o banco estava vazio (adapter ainda não criado)
+                        if (categoryAdapter == null) {
+                            aplicarCategorias(cats)
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
-
-                override fun onError(error: Int) {
-                    fecharDialogoVoz()
-                    val msg = when (error) {
-                        SpeechRecognizer.ERROR_NO_MATCH,
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Não entendi, tente novamente"
-                        SpeechRecognizer.ERROR_NETWORK,
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Sem conexão com a internet"
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Permissão de microfone negada"
-                        else -> null
-                    }
-                    if (msg != null) {
-                        Toast.makeText(this@SearchActivity, msg, Toast.LENGTH_SHORT).show()
-                    }
-                }
-
-                override fun onResults(results: Bundle?) {
-                    fecharDialogoVoz()
-                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    val texto = matches?.firstOrNull()
-                    if (!texto.isNullOrBlank()) {
-                        etQuery.setText(texto)
-                        etQuery.setSelection(texto.length)
-                        // O TextWatcher já dispara a busca automaticamente ao setar o texto
-                    }
-                }
-
-                override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
+                override fun onFailure(call: Call<ResponseBody>, t: Throwable) {}
             })
-        }
-
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-        }
-        speechRecognizer?.startListening(intent)
     }
 
-    private fun mostrarDialogoVoz() {
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        dialog.setContentView(R.layout.dialog_voice_search)
-        dialog.setCancelable(true)
-        dialog.setOnCancelListener {
-            speechRecognizer?.stopListening()
-            pulseAnimator?.cancel()
+    private fun aplicarCategorias(categoriasOriginais: List<LiveCategory>) {
+        if (isFinishing || isDestroyed) return
+
+        // ✅ Filtro central de conteúdo adulto. Roda sempre, não importa se a
+        // lista veio do banco Room (carregamento instantâneo) ou da rede.
+        val categorias = filtrarCategoriasAdultas(categoriasOriginais)
+        if (categorias.isEmpty()) return
+
+        val catSalvaId = ultimaCategoriaId
+        val indexInicial = if (catSalvaId != null) {
+            val idx = categorias.indexOfFirst { it.id == catSalvaId }
+            if (idx >= 0) idx else if (categorias.size > 1) 1 else 0
+        } else {
+            if (categorias.size > 1) 1 else 0
         }
-        dialog.show()
-        voiceDialog = dialog
 
-        val pulseView = dialog.findViewById<View>(R.id.viewPulse)
-        pulseAnimator = ObjectAnimator.ofFloat(pulseView, "scaleX", 1f, 1.4f, 1f).apply {
-            duration = 900
-            repeatCount = ObjectAnimator.INFINITE
-            interpolator = LinearInterpolator()
+        categoryAdapter = SeriesCategoryAdapter(categorias, indexInicial) { categoria ->
+            salvarUltimaCategoria(categoria)
+            if (categoria.id == "FAV_SERIES") carregarSeriesFavoritas()
+            else carregarSeries(categoria)
         }
-        val pulseAnimatorY = ObjectAnimator.ofFloat(pulseView, "scaleY", 1f, 1.4f, 1f).apply {
-            duration = 900
-            repeatCount = ObjectAnimator.INFINITE
-            interpolator = LinearInterpolator()
-        }
-        pulseAnimator?.start()
-        pulseAnimatorY.start()
-    }
+        rvCategories.adapter = categoryAdapter
 
-    private fun fecharDialogoVoz() {
-        pulseAnimator?.cancel()
-        voiceDialog?.dismiss()
-        voiceDialog = null
-    }
+        val categoriaAlvo = categorias.getOrNull(indexInicial)
+            ?.takeIf { it.id != "FAV_SERIES" }
+            ?: categorias.firstOrNull { it.id != "FAV_SERIES" }
 
-    private fun carregarDadosIniciais() {
-        isCarregandoDados = true
-        progressBar.visibility = View.VISIBLE
-        tvEmpty.text = "Carregando catálogo..."
-        tvEmpty.visibility = View.VISIBLE
-        etQuery.isEnabled = false
-
-        val prefs = getSharedPreferences("vltv_prefs", MODE_PRIVATE)
-        val username = prefs.getString("username", "") ?: ""
-        val password = prefs.getString("password", "") ?: ""
-
-        launch {
-            try {
-                val resultadosLocal = withContext(Dispatchers.IO) {
-                    val filmes = if (tipoPesquisa == "tudo" || tipoPesquisa == "filmes") {
-                        database.streamDao().getAllVods().map {
-                            SearchResultItem(
-                                id = it.stream_id,
-                                title = it.name ?: "Sem título",
-                                type = "movie",
-                                extraInfo = it.rating,
-                                iconUrl = it.stream_icon
-                            )
-                        }
-                    } else emptyList()
-
-                    val series = if (tipoPesquisa == "tudo" || tipoPesquisa == "series") {
-                        database.streamDao().getAllSeries().map {
-                            SearchResultItem(
-                                id = it.series_id,
-                                title = it.name ?: "Sem título",
-                                type = "series",
-                                extraInfo = it.rating,
-                                iconUrl = it.cover
-                            )
-                        }
-                    } else emptyList()
-
-                    filmes + series
-                }
-
-                if (resultadosLocal.isNotEmpty()) {
-                    catalogoCompleto = resultadosLocal
-                    finalizarUI()
-                }
-
-                val resultadosAPI = withContext(Dispatchers.IO) {
-                    val deferredFilmes = if (tipoPesquisa == "tudo" || tipoPesquisa == "filmes") async { buscarFilmes(username, password) } else null
-                    val deferredSeries = if (tipoPesquisa == "tudo" || tipoPesquisa == "series") async { buscarSeries(username, password) } else null
-                    val deferredCanais = if (tipoPesquisa == "tudo") async { buscarCanais(username, password) } else null
-
-                    val apiFilmes = deferredFilmes?.await() ?: emptyList()
-                    val apiSeries = deferredSeries?.await() ?: emptyList()
-                    val apiCanais = deferredCanais?.await() ?: emptyList()
-
-                    apiFilmes + apiSeries + apiCanais
-                }
-
-                if (resultadosAPI.isNotEmpty()) {
-                    catalogoCompleto = resultadosAPI
-                    finalizarUI()
-                }
-
-            } catch (e: Exception) {
-                isCarregandoDados = false
-                progressBar.visibility = View.GONE
-                tvEmpty.text = "Erro ao carregar dados."
-                tvEmpty.visibility = View.VISIBLE
-                etQuery.isEnabled = true
+        if (categoriaAlvo != null) {
+            tvCategoryTitle.text = categoriaAlvo.name
+            if (categoriaAlvo.id == categoriaAtualId) {
+                atualizarEmBackground(categoriaAlvo)
+            } else {
+                carregarSeries(categoriaAlvo)
             }
         }
     }
 
-    private fun finalizarUI() {
-        isCarregandoDados = false
-        progressBar.visibility = View.GONE
-        tvEmpty.visibility = View.GONE
-        etQuery.isEnabled = true
-        etQuery.requestFocus()
-
-        val initial = intent.getStringExtra("initial_query")
-        if (!initial.isNullOrBlank()) {
-            etQuery.setText(initial)
-            ultimaQueryDigitada = initial
-            filtrarNaMemoria(initial)
-        } else if (ultimaQueryDigitada.isNotEmpty()) {
-            filtrarNaMemoria(ultimaQueryDigitada)
-        } else {
-            tvEmpty.text = "Digite para buscar..."
-            tvEmpty.visibility = View.VISIBLE
-        }
+    // ✅ CORRIGIDO (bug do "re-sync" toda vez que reabre a tela de Séries):
+    // antes, esta função só evitava rebuscar na rede se seriesCache (memória
+    // da Activity) já tivesse a categoria — e como uma Activity NOVA é
+    // criada toda vez que você sai da tela de Séries e volta, esse cache
+    // sempre estava vazio, então o app batia no servidor de novo em TODA
+    // abertura, mesmo com os dados já salvos e corretos no Room/
+    // ContentRepository. Mesma causa do bug corrigido no VodActivity.
+    //
+    // Agora, além do cache de memória, checamos categoriaEstaFresca(): se
+    // essa categoria já foi sincronizada com o servidor há menos de
+    // SYNC_STALE_MS (6h), a função nem chega a fazer a chamada de rede —
+    // confia 100% no que já está salvo localmente.
+    private fun atualizarEmBackground(categoria: LiveCategory) {
+        if (seriesCache.containsKey(categoria.id)) return
+        if (categoriaEstaFresca(categoria.id)) return
+        XtreamApi.service.getSeries(username, password, categoryId = categoria.id)
+            .enqueue(object : Callback<List<SeriesStream>> {
+                override fun onResponse(call: Call<List<SeriesStream>>, response: Response<List<SeriesStream>>) {
+                    if (!response.isSuccessful || response.body() == null) return
+                    val series = response.body()!!
+                    // ✅ Cache guarda a lista crua — filtro aplicado só no submit
+                    seriesCache[categoria.id] = series
+                    if (categoriaAtualId == categoria.id) {
+                        seriesAdapter?.submitList(filtrarSeriesAdultas(series))
+                    }
+                    salvarNoBancoERepositorio(categoria.id, series)
+                    marcarCategoriaSincronizada(categoria.id)
+                }
+                override fun onFailure(call: Call<List<SeriesStream>>, t: Throwable) {}
+            })
     }
 
-    private fun filtrarNaMemoria(query: String) {
-        if (catalogoCompleto.isEmpty() && !isCarregandoDados) return
+    private fun carregarSeries(categoria: LiveCategory) {
+        tvCategoryTitle.text = categoria.name
+        categoriaAtualId = categoria.id
+        salvarUltimaCategoria(categoria)
 
-        if (query.length < 1) {
-            adapter.submitList(emptyList())
-            tvEmpty.text = "Digite para buscar..."
-            tvEmpty.visibility = View.VISIBLE
+        // 1. Cache de memória da API — instantâneo
+        seriesCache[categoria.id]?.let {
+            val filtrados = filtrarSeriesAdultas(it)
+            seriesAdapter?.submitList(filtrados); preLoadImages(filtrados); return
+        }
+
+        // 2. ContentRepository — O(1), instantâneo (quando já está pronto)
+        //
+        // ✅ CORREÇÃO (tela aparecia vazia por alguns segundos TODA vez que
+        // abria, mesma causa do bug corrigido no VodActivity): se o usuário
+        // chegasse nesta tela antes do ContentRepository terminar de carregar
+        // em background, getSeriesByCategory() retornava lista vazia mesmo
+        // com séries salvas localmente, e caía direto no item 3 (rede), bem
+        // mais lento. Agora espera o repositório terminar (leitura local do
+        // Room, geralmente bem menos de 1 segundo, sem rede) antes de decidir
+        // se precisa mesmo buscar da rede.
+        if (!ContentRepository.pronto) {
+            ContentRepository.aoFicarPronto {
+                if (isFinishing || isDestroyed) return@aoFicarPronto
+                if (categoriaAtualId == categoria.id) carregarSeries(categoria)
+            }
+            return
+        }
+        val emRepositorio = ContentRepository.getSeriesByCategory(categoria.id)
+        if (emRepositorio.isNotEmpty()) {
+            emRepositorio.take(30).forEach { s ->
+                val cached = seriesCachePrefs.getString("logo_${s.name}", null)
+                if (cached != null) logoMemoryCache[s.name] = cached
+            }
+            val items = emRepositorio.map { SeriesStream(it.series_id, it.name, it.cover, it.rating) }
+            val itemsFiltrados = filtrarSeriesAdultas(items)
+            seriesAdapter?.submitList(itemsFiltrados)
+            preLoadImages(itemsFiltrados)
+            // ✅ Só tenta atualizar em segundo plano se a categoria não
+            // estiver "fresca" (ver categoriaEstaFresca) — evita o re-sync
+            // repetido toda vez que essa categoria é reaberta.
+            atualizarEmBackground(categoria)
             return
         }
 
-        val qNorm = query.lowercase().trim()
+        // 3. Sem dados locais — primeira instalação
+        progressBar.visibility = View.VISIBLE
+        XtreamApi.service.getSeries(username, password, categoryId = categoria.id)
+            .enqueue(object : Callback<List<SeriesStream>> {
+                override fun onResponse(call: Call<List<SeriesStream>>, response: Response<List<SeriesStream>>) {
+                    progressBar.visibility = View.GONE
+                    if (!response.isSuccessful || response.body() == null) return
+                    val series = response.body()!!
+                    seriesCache[categoria.id] = series
+                    if (categoriaAtualId == categoria.id) {
+                        val filtrados = filtrarSeriesAdultas(series)
+                        seriesAdapter?.submitList(filtrados)
+                        preLoadImages(filtrados)
+                    }
+                    salvarNoBancoERepositorio(categoria.id, series)
+                    marcarCategoriaSincronizada(categoria.id)
+                }
+                override fun onFailure(call: Call<List<SeriesStream>>, t: Throwable) {
+                    progressBar.visibility = View.GONE
+                }
+            })
+    }
 
-        val resultadosFiltrados = catalogoCompleto.filter { item ->
-            val matchNome = item.title.lowercase().contains(qNorm)
-
-            val matchTipo = when (tipoPesquisa) {
-                "filmes" -> item.type == "movie"
-                "series" -> item.type == "series"
-                else -> true
-            }
-
-            matchNome && matchTipo
-        }.take(100)
-
-        adapter.submitList(resultadosFiltrados)
-
-        if (resultadosFiltrados.isEmpty()) {
-            tvEmpty.text = "Nenhum resultado encontrado."
-            tvEmpty.visibility = View.VISIBLE
-        } else {
-            tvEmpty.visibility = View.GONE
+    private fun salvarNoBancoERepositorio(categoryId: String, series: List<SeriesStream>) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val entities = series.map {
+                    SeriesEntity(it.series_id, it.name, it.cover, it.rating,
+                        categoryId, System.currentTimeMillis())
+                }
+                database.streamDao().insertSeriesStreams(entities)
+                ContentRepository.atualizarCategoriaSeries(categoryId, entities)
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
-    // --- FUNÇÕES DE API ---
-
-    private fun buscarFilmes(u: String, p: String): List<SearchResultItem> {
-        return try {
-            val response = XtreamApi.service.getAllVodStreams(user = u, pass = p).execute()
-            if (response.isSuccessful && response.body() != null) {
-                response.body()!!.map {
-                    SearchResultItem(
-                        id = it.id,
-                        title = it.name ?: "Sem Título",
-                        type = "movie",
-                        extraInfo = it.rating,
-                        iconUrl = it.icon
-                    )
+    private fun carregarSeriesFavoritas() {
+        categoriaAtualId = "FAV_SERIES"
+        tvCategoryTitle.text = "FAVORITOS"
+        val favIds = getFavSeries(this)
+        if (favIds.isEmpty()) { seriesAdapter?.submitList(emptyList()); return }
+        val listaNoCache = seriesCache.values.flatten().distinctBy { it.id }.filter { favIds.contains(it.id) }
+        if (listaNoCache.size >= favIds.size) {
+            seriesAdapter?.submitList(filtrarSeriesAdultas(listaNoCache)); return
+        }
+        progressBar.visibility = View.VISIBLE
+        XtreamApi.service.getSeries(username, password, categoryId = "0")
+            .enqueue(object : Callback<List<SeriesStream>> {
+                override fun onResponse(call: Call<List<SeriesStream>>, response: Response<List<SeriesStream>>) {
+                    progressBar.visibility = View.GONE
+                    if (!response.isSuccessful || response.body() == null) return
+                    val todas = response.body()!!
+                    seriesCache["ALL_FOR_FAV"] = todas
+                    val favs = todas.filter { favIds.contains(it.id) }
+                    if (categoriaAtualId == "FAV_SERIES") {
+                        val favsFiltradas = filtrarSeriesAdultas(favs)
+                        seriesAdapter?.submitList(favsFiltradas)
+                        preLoadImages(favsFiltradas)
+                    }
                 }
-            } else emptyList()
-        } catch (e: Exception) { emptyList() }
+                override fun onFailure(call: Call<List<SeriesStream>>, t: Throwable) {
+                    progressBar.visibility = View.GONE
+                    if (categoriaAtualId == "FAV_SERIES") seriesAdapter?.submitList(filtrarSeriesAdultas(listaNoCache))
+                }
+            })
     }
 
-    private fun buscarSeries(u: String, p: String): List<SearchResultItem> {
-        return try {
-            val response = XtreamApi.service.getAllSeries(user = u, pass = p).execute()
-            if (response.isSuccessful && response.body() != null) {
-                response.body()!!.map {
-                    SearchResultItem(
-                        id = it.id,
-                        title = it.name ?: "Sem Título",
-                        type = "series",
-                        extraInfo = it.rating,
-                        iconUrl = it.icon
-                    )
-                }
-            } else emptyList()
-        } catch (e: Exception) { emptyList() }
+    private fun abrirDetalhesSerie(serie: SeriesStream) {
+        startActivity(Intent(this, SeriesDetailsActivity::class.java).apply {
+            putExtra("series_id", serie.id)
+            putExtra("name", serie.name)
+            putExtra("icon", serie.icon)
+            putExtra("rating", serie.rating ?: "0.0")
+            putExtra("PROFILE_NAME", currentProfile)
+            putExtra("PROFILE_ICON", currentProfileIcon)
+        })
     }
 
-    private fun buscarCanais(u: String, p: String): List<SearchResultItem> {
-        return try {
-            val response = XtreamApi.service.getLiveStreams(user = u, pass = p, categoryId = "0").execute()
-            if (response.isSuccessful && response.body() != null) {
-                response.body()!!.map {
-                    SearchResultItem(
-                        id = it.id,
-                        title = it.name ?: "Sem Nome",
-                        type = "live",
-                        extraInfo = null,
-                        iconUrl = it.icon
-                    )
-                }
-            } else emptyList()
-        } catch (e: Exception) { emptyList() }
+    private fun getFavSeries(context: Context): MutableSet<Int> {
+        val p = context.getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
+        return (p.getStringSet("${currentProfile}_fav_series", emptySet()) ?: emptySet())
+            .mapNotNull { it.toIntOrNull() }.toMutableSet()
     }
 
-    private fun abrirDetalhes(item: SearchResultItem) {
-        val prefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
-        val profileName = prefs.getString("last_profile_name", "Padrao") ?: "Padrao"
+    // =========================================================================
+    // ADAPTER DE CATEGORIAS — chips estilo pill, com degradê vermelho quando
+    // selecionado e contorno sutil quando não selecionado. Foco de TV usa um
+    // contorno neon próprio (bg_chip_focused) e sempre restaura o estilo base
+    // correto (selecionado ou não) ao perder o foco.
+    // =========================================================================
+    inner class SeriesCategoryAdapter(
+        private val list: List<LiveCategory>,
+        private var selectedPos: Int = 0,
+        private val onClick: (LiveCategory) -> Unit
+    ) : RecyclerView.Adapter<SeriesCategoryAdapter.VH>() {
 
-        when (item.type) {
-            "movie" -> {
-                val i = Intent(this, DetailsActivity::class.java)
-                i.putExtra("stream_id", item.id)
-                i.putExtra("name", item.title)
-                i.putExtra("icon", item.iconUrl ?: "")
-                i.putExtra("rating", item.extraInfo ?: "0.0")
-                i.putExtra("PROFILE_NAME", profileName)
-                startActivity(i)
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val tvName: TextView = v.findViewById(R.id.tvName)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_category, parent, false))
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val item = list[position]
+            val chip = holder.tvName
+            chip.text = item.name
+            val isSel = selectedPos == position
+
+            fun aplicarEstiloBase() {
+                if (isSel) {
+                    chip.setBackgroundResource(R.drawable.bg_chip_selected)
+                    chip.setTextColor(Color.WHITE)
+                } else {
+                    chip.setBackgroundResource(R.drawable.bg_chip_unselected)
+                    chip.setTextColor(chip.context.getColor(R.color.gray_text))
+                }
             }
-            "series" -> {
-                val i = Intent(this, SeriesDetailsActivity::class.java)
-                i.putExtra("series_id", item.id)
-                i.putExtra("name", item.title)
-                i.putExtra("icon", item.iconUrl ?: "")
-                i.putExtra("rating", item.extraInfo ?: "0.0")
-                i.putExtra("PROFILE_NAME", profileName)
-                startActivity(i)
+            aplicarEstiloBase()
+
+            val isTV = this@SeriesActivity.isTelevisionDevice()
+            holder.itemView.isFocusable = isTV
+            holder.itemView.isClickable = true
+            if (isTV) {
+                holder.itemView.setOnFocusChangeListener { view, hasFocus ->
+                    if (hasFocus) {
+                        chip.setTextColor(Color.WHITE)
+                        chip.setBackgroundResource(R.drawable.bg_chip_focused)
+                        view.animate().scaleX(1.08f).scaleY(1.08f).setDuration(150).start()
+                    } else {
+                        view.animate().scaleX(1f).scaleY(1f).setDuration(150).start()
+                        aplicarEstiloBase()
+                    }
+                }
             }
-            "live" -> {
-                val i = Intent(this, PlayerActivity::class.java)
-                i.putExtra("stream_id", item.id)
-                i.putExtra("stream_type", "live")
-                i.putExtra("channel_name", item.title)
-                i.putExtra("PROFILE_NAME", profileName)
-                startActivity(i)
+            holder.itemView.setOnClickListener {
+                val oldPos = selectedPos
+                selectedPos = holder.adapterPosition
+                notifyItemChanged(oldPos)
+                notifyItemChanged(selectedPos)
+                onClick(item)
             }
         }
+
+        override fun getItemCount() = list.size
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        speechRecognizer?.destroy()
-        supervisor.cancel()
+    // =========================================================================
+    // ADAPTER DE SÉRIES — DiffUtil, sem placeholder, sem círculo
+    // =========================================================================
+    inner class SeriesAdapter(
+        private val onClick: (SeriesStream) -> Unit
+    ) : RecyclerView.Adapter<SeriesAdapter.VH>() {
+
+        private val items = mutableListOf<SeriesStream>()
+
+        // ✅ NOVO: toda lista enviada pro adapter é ordenada da série mais
+        // recente (ano maior) pra mais antiga, e o RecyclerView é reposicionado
+        // no topo — corrige tanto a ordem por ano quanto o bug de abrir a tela
+        // no meio/final da lista.
+        fun submitList(newList: List<SeriesStream>) {
+            val listaOrdenada = newList.sortedByDescending { extrairAnoSerie(it.name) }
+            val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+                override fun getOldListSize() = items.size
+                override fun getNewListSize() = listaOrdenada.size
+                override fun areItemsTheSame(o: Int, n: Int) = items[o].id == listaOrdenada[n].id
+                override fun areContentsTheSame(o: Int, n: Int) =
+                    items[o].name == listaOrdenada[n].name && items[o].icon == listaOrdenada[n].icon
+            })
+            items.clear()
+            items.addAll(listaOrdenada)
+            diff.dispatchUpdatesTo(this)
+            rvSeries.scrollToPosition(0)
+        }
+
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val tvName: TextView     = v.findViewById(R.id.tvName)
+            val imgPoster: ImageView = v.findViewById(R.id.imgPoster)
+            val imgLogo: ImageView   = v.findViewById(R.id.imgLogo)
+            var job: Job? = null
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_vod, parent, false))
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            holder.job?.cancel()
+            val item = items[position]
+
+            holder.tvName.text = item.name
+            holder.tvName.visibility = View.VISIBLE
+            holder.imgLogo.setImageDrawable(null)
+            holder.imgLogo.visibility = View.INVISIBLE
+            holder.itemView.findViewById<View?>(R.id.imgDownload)?.visibility = View.GONE
+
+            Glide.with(holder.itemView.context)
+                .load(item.icon)
+                .format(DecodeFormat.PREFER_ARGB_8888)
+                .override(240, 360)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .priority(Priority.HIGH)
+                .centerCrop()
+                .into(holder.imgPoster)
+
+            val memCached = logoMemoryCache[item.name]
+            if (memCached != null) {
+                holder.tvName.visibility = View.GONE
+                holder.imgLogo.visibility = View.VISIBLE
+                Glide.with(holder.itemView.context).load(memCached)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL).dontAnimate().into(holder.imgLogo)
+            } else {
+                val diskCached = seriesCachePrefs.getString("logo_${item.name}", null)
+                if (diskCached != null) {
+                    logoMemoryCache[item.name] = diskCached
+                    holder.tvName.visibility = View.GONE
+                    holder.imgLogo.visibility = View.VISIBLE
+                    Glide.with(holder.itemView.context).load(diskCached)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL).dontAnimate().into(holder.imgLogo)
+                } else {
+                    // ✅ Corrigido: lifecycleScope em vez de CoroutineScope(Dispatchers.IO)
+                    // solta. Isso cancela automaticamente a busca de logo se a Activity
+                    // for destruída, evitando o crash "destroyed activity" no Glide.with().
+                    holder.job = lifecycleScope.launch(Dispatchers.IO) {
+                        val url = searchTmdbLogoSeries(item.name)
+                        if (url != null) {
+                            logoMemoryCache[item.name] = url
+                            seriesCachePrefs.edit().putString("logo_${item.name}", url).apply()
+                            withContext(Dispatchers.Main) {
+                                // ✅ Guard extra: nunca chama Glide se a Activity já
+                                // estiver finalizando/destruída (ex: usuário saiu da tela
+                                // enquanto a busca TMDB ainda estava em andamento).
+                                if (isFinishing || isDestroyed) return@withContext
+                                if (holder.adapterPosition == position) {
+                                    holder.tvName.visibility = View.GONE
+                                    holder.imgLogo.visibility = View.VISIBLE
+                                    Glide.with(holder.itemView.context).load(url)
+                                        .override(200, 110)
+                                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                        .dontAnimate().into(holder.imgLogo)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            val isTV = holder.itemView.context.isTelevisionDevice()
+            holder.itemView.isFocusable = isTV
+            holder.itemView.isClickable = true
+            if (isTV) {
+                holder.itemView.setOnFocusChangeListener { view, hasFocus ->
+                    if (hasFocus) {
+                        holder.tvName.setTextColor(Color.YELLOW)
+                        view.animate().scaleX(1.10f).scaleY(1.10f).setDuration(160).start()
+                        view.elevation = 20f
+                        view.setBackgroundResource(R.drawable.bg_focus_neon)
+                    } else {
+                        holder.tvName.setTextColor(Color.WHITE)
+                        view.animate().scaleX(1f).scaleY(1f).setDuration(160).start()
+                        view.elevation = 4f
+                        view.setBackgroundResource(0)
+                    }
+                }
+            }
+            holder.itemView.setOnClickListener { onClick(item) }
+        }
+
+        override fun getItemCount() = items.size
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) { finish(); return true }
+        return super.onKeyDown(keyCode, event)
     }
 }
