@@ -4,13 +4,15 @@ import android.app.Application
 import androidx.media3.common.util.UnstableApi
 import com.bumptech.glide.Glide
 import com.bumptech.glide.GlideBuilder
-import com.bumptech.glide.annotation.GlideModule
+import com.bumptech.glide.integration.okhttp3.OkHttpUrlLoader
 import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.cache.InternalCacheDiskCacheFactory
 import com.bumptech.glide.load.engine.cache.LruResourceCache
+import com.bumptech.glide.load.model.GlideUrl
 import com.bumptech.glide.request.RequestOptions
 import com.vltv.play.download.VltvDownloadObserver
+import java.io.InputStream
 
 /**
  * Application customizado — ponto de entrada do app.
@@ -50,6 +52,19 @@ class VLTVApplication : Application() {
         // Cache de disco:   300 MB (padrão é 250 MB)
         // Formato:          PREFER_ARGB_8888 para qualidade
         // Estratégia:       ALL — salva original + transformada no disco
+        //
+        // ✅ NOVO: Glide.init() manual substitui de vez o @GlideModule
+        // processado via kapt (removido do projeto — era a causa do erro
+        // de build "duplicate class: com.vltv.play.SeriesStream", um bug
+        // do kapt gerando o stub de forma inconsistente nessa combinação
+        // de versões). Chamar Glide.init() na mão sempre pulou a descoberta
+        // via annotation processing — ou seja, o AppGlideModule gerado
+        // pelo kapt já não fazia efeito nenhum na prática. O que antes
+        // vivia em VltvGlideModule.registerComponents() (arquivo removido)
+        // agora é aplicado direto aqui, registrando o Registry logo após
+        // o Glide.init(), com o mesmo OkHttpClient compartilhado
+        // (SharedHttpClient) — timeout maior (15s) e retry automático,
+        // corrigindo capas que não carregavam em internet mais fraca.
         try {
             Glide.init(this, GlideBuilder()
                 .setMemoryCache(LruResourceCache(64L * 1024 * 1024))
@@ -59,6 +74,11 @@ class VLTVApplication : Application() {
                         .format(DecodeFormat.PREFER_ARGB_8888)
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
                 )
+            )
+            Glide.get(this).registry.replace(
+                GlideUrl::class.java,
+                InputStream::class.java,
+                OkHttpUrlLoader.Factory(SharedHttpClient.client)
             )
         } catch (e: Exception) {
             e.printStackTrace()
