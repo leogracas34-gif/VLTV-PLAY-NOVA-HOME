@@ -10,6 +10,10 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.net.URLEncoder
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 /**
  * TmdbSyncHelper
@@ -70,32 +74,32 @@ object TmdbSyncHelper {
     // TOP 10
     // ─────────────────────────────────────────────────────────────────────────
     private suspend fun sincronizarTop10(db: AppDatabase) {
-        // Busca na rede ANTES de abrir a transação — transação deve conter
-        // só operações de banco, nunca I/O de rede (evita segurar o lock
-        // de escrita esperando resposta HTTP).
-        val trendingFilmes = buscarTrendingTmdb("movie")
-        val trendingSeries = buscarTrendingTmdb("tv")
+        // Fonte oficial: Top 10 semanal da Netflix Brasil.
+        // A lista é publicada por país e contém o ranking real (1..10).
+        val ranking = buscarTop10NetflixBrasil()
 
         db.withTransaction {
             db.streamDao().clearVodTop10Flags()
             db.streamDao().clearSeriesTop10Flags()
 
-            val idsVodUsados    = mutableSetOf<Int>()
+            val idsVodUsados = mutableSetOf<Int>()
             val idsSeriesUsados = mutableSetOf<Int>()
 
-            for ((rank, item) in trendingFilmes.withIndex()) {
-                val id = encontrarVod(db, item, idsVodUsados)
+            // Mantém o rank REAL da Netflix. Se um título não existir no
+            // catálogo, o próximo título continua com sua posição original.
+            for (item in ranking.filmes) {
+                val id = encontrarVod(db, item.item, idsVodUsados)
                 if (id != null) {
                     idsVodUsados.add(id)
-                    db.streamDao().updateVodTop10(id, rank + 1)
+                    db.streamDao().updateVodTop10(id, item.rank)
                 }
             }
 
-            for ((rank, item) in trendingSeries.withIndex()) {
-                val id = encontrarSerie(db, item, idsSeriesUsados)
+            for (item in ranking.series) {
+                val id = encontrarSerie(db, item.item, idsSeriesUsados)
                 if (id != null) {
                     idsSeriesUsados.add(id)
-                    db.streamDao().updateSeriesTop10(id, rank + 1)
+                    db.streamDao().updateSeriesTop10(id, item.rank)
                 }
             }
         }
@@ -216,6 +220,11 @@ object TmdbSyncHelper {
     // MATCHING — 4 estratégias em cascata para VOD
     // ─────────────────────────────────────────────────────────────────────────
     private fun encontrarVod(db: AppDatabase, item: TmdbItem, excluir: Set<Int>): Int? {
+        // Primeiro tenta o TMDB ID, quando já existe no catálogo.
+        item.tmdbId?.let { tmdbId ->
+            queryVodByTmdbId(db, tmdbId, excluir)?.let { return it }
+        }
+
         // 1. Título original com delimitador de palavra (mais específico — evita colisão de traduções)
         if (item.tituloOrig.length >= 3) {
             val id = queryVodMultiPattern(db, wordBoundaryPatterns(item.tituloOrig), excluir)
@@ -243,6 +252,11 @@ object TmdbSyncHelper {
     // MATCHING — 4 estratégias em cascata para SÉRIE
     // ─────────────────────────────────────────────────────────────────────────
     private fun encontrarSerie(db: AppDatabase, item: TmdbItem, excluir: Set<Int>): Int? {
+        // Primeiro tenta o TMDB ID, quando já existe no catálogo.
+        item.tmdbId?.let { tmdbId ->
+            querySerieByTmdbId(db, tmdbId, excluir)?.let { return it }
+        }
+
         // 1. Título original com delimitador de palavra
         if (item.tituloOrig.length >= 3) {
             val id = querySerieMultiPattern(db, wordBoundaryPatterns(item.tituloOrig), excluir)
@@ -264,6 +278,34 @@ object TmdbSyncHelper {
             if (id != null) return id
         }
         return null
+    }
+
+    private fun queryVodByTmdbId(db: AppDatabase, tmdbId: Int, excluir: Set<Int>): Int? {
+        val cursor = db.openHelper.readableDatabase.query(
+            "SELECT stream_id FROM vod_streams WHERE tmdb_id = ? LIMIT 20",
+            arrayOf(tmdbId.toString())
+        )
+        var resultado: Int? = null
+        while (cursor.moveToNext()) {
+            val id = cursor.getInt(0)
+            if (!excluir.contains(id)) { resultado = id; break }
+        }
+        cursor.close()
+        return resultado
+    }
+
+    private fun querySerieByTmdbId(db: AppDatabase, tmdbId: Int, excluir: Set<Int>): Int? {
+        val cursor = db.openHelper.readableDatabase.query(
+            "SELECT series_id FROM series_streams WHERE tmdb_id = ? LIMIT 20",
+            arrayOf(tmdbId.toString())
+        )
+        var resultado: Int? = null
+        while (cursor.moveToNext()) {
+            val id = cursor.getInt(0)
+            if (!excluir.contains(id)) { resultado = id; break }
+        }
+        cursor.close()
+        return resultado
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -314,31 +356,177 @@ object TmdbSyncHelper {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Chamadas TMDB
+    // TOP 10 OFICIAL — NETFLIX BRASIL
     // ─────────────────────────────────────────────────────────────────────────
-    private fun buscarTrendingTmdb(tipo: String): List<TmdbItem> {
+    private data class NetflixRankedItem(val rank: Int, val item: TmdbItem)
+
+    private data class NetflixTop10Brasil(
+        val filmes: List<NetflixRankedItem>,
+        val series: List<NetflixRankedItem>
+    )
+
+    private suspend fun buscarTop10NetflixBrasil(): NetflixTop10Brasil {
         return try {
-            val url = "https://api.themoviedb.org/3/trending/$tipo/week?api_key=$TMDB_KEY&language=pt-BR&region=BR"
-            parseTmdbResults(JSONObject(URL(url).readText()), tipo)
-        } catch (e: Exception) { emptyList() }
+            val url = "https://www.netflix.com/tudum/top10/data/all-weeks-countries.tsv"
+            val connection = URL(url).openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 12000
+            connection.readTimeout = 20000
+            connection.requestMethod = "GET"
+
+            val linhas = mutableListOf<String>()
+            var ultimaSemana = ""
+
+            try {
+                connection.inputStream.bufferedReader(Charsets.UTF_8).useLines { sequence ->
+                    sequence.drop(1).forEach { line ->
+                        val cols = line.split('\t')
+                        if (cols.size < 8) return@forEach
+                        if (!cols[1].trim().equals("BR", ignoreCase = true)) return@forEach
+
+                        val week = cols[2].trim()
+                        when {
+                            week > ultimaSemana -> {
+                                ultimaSemana = week
+                                linhas.clear()
+                                linhas.add(line)
+                            }
+                            week == ultimaSemana -> linhas.add(line)
+                        }
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+
+            val filmes = mutableListOf<NetflixRankedItem>()
+            val series = mutableListOf<NetflixRankedItem>()
+
+            for (line in linhas) {
+                val cols = line.split('\t')
+                if (cols.size < 8) continue
+
+                val category = cols[3].trim()
+                val rank = cols[4].trim().toIntOrNull() ?: continue
+                val title = cols[5].trim()
+                if (title.isBlank() || rank !in 1..10) continue
+
+                val isSeries = category.equals("TV", ignoreCase = true)
+                val item = TmdbItem(
+                    tituloPt = title,
+                    tituloOrig = title,
+                    releaseDate = ""
+                )
+                val ranked = NetflixRankedItem(rank, item)
+                if (isSeries) series.add(ranked) else filmes.add(ranked)
+            }
+
+            NetflixTop10Brasil(
+                filmes = enriquecerComTmdb(filmes, "movie").sortedBy { it.rank }.take(10),
+                series = enriquecerComTmdb(series, "tv").sortedBy { it.rank }.take(10)
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            NetflixTop10Brasil(emptyList(), emptyList())
+        }
     }
 
+    private suspend fun enriquecerComTmdb(
+        itens: List<NetflixRankedItem>,
+        tipo: String
+    ): List<NetflixRankedItem> = coroutineScope {
+        itens.map { ranked ->
+            async {
+                val tmdb = buscarTituloNetflixNoTmdb(ranked.item.tituloPt, tipo)
+                ranked.copy(item = tmdb ?: ranked.item)
+            }
+        }.awaitAll()
+    }
+
+    private fun buscarTituloNetflixNoTmdb(tituloNetflix: String, tipo: String): TmdbItem? {
+        return try {
+            val query = URLEncoder.encode(tituloNetflix, "UTF-8")
+            val url = "https://api.themoviedb.org/3/search/$tipo" +
+                "?api_key=$TMDB_KEY&query=$query&language=pt-BR&region=BR&page=1"
+            val json = JSONObject(URL(url).readText())
+            val results = json.optJSONArray("results") ?: return null
+            if (results.length() == 0) return null
+
+            val alvo = normalizarTitulo(tituloNetflix)
+            var melhor: JSONObject? = null
+            var melhorPontuacao = 0
+
+            for (i in 0 until minOf(results.length(), 10)) {
+                val obj = results.getJSONObject(i)
+                val pt = if (tipo == "movie") obj.optString("title", "") else obj.optString("name", "")
+                val orig = if (tipo == "movie") obj.optString("original_title", "") else obj.optString("original_name", "")
+                val nPt = normalizarTitulo(pt)
+                val nOrig = normalizarTitulo(orig)
+                val score = when {
+                    alvo == nPt && alvo.isNotBlank() -> 100
+                    alvo == nOrig && alvo.isNotBlank() -> 95
+                    nPt.startsWith(alvo) || alvo.startsWith(nPt) -> 80
+                    nOrig.startsWith(alvo) || alvo.startsWith(nOrig) -> 75
+                    else -> 0
+                }
+                if (score > melhorPontuacao) {
+                    melhorPontuacao = score
+                    melhor = obj
+                }
+            }
+
+            val obj = melhor ?: return null
+            val pt = if (tipo == "movie") obj.optString("title", "") else obj.optString("name", "")
+            val orig = if (tipo == "movie") obj.optString("original_title", "") else obj.optString("original_name", "")
+            val tmdbId = obj.optInt("id", 0).takeIf { it > 0 }
+            if (pt.isBlank() && orig.isBlank()) return null
+
+            TmdbItem(
+                tituloPt = pt.ifBlank { tituloNetflix },
+                tituloOrig = orig.ifBlank { tituloNetflix },
+                releaseDate = if (tipo == "movie") obj.optString("release_date", "") else obj.optString("first_air_date", ""),
+                tmdbId = tmdbId
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun normalizarTitulo(titulo: String): String {
+        return titulo.lowercase(Locale.ROOT)
+            .replace(Regex("[àáâãäå]"), "a")
+            .replace(Regex("[èéêë]"), "e")
+            .replace(Regex("[ìíîï]"), "i")
+            .replace(Regex("[òóôõö]"), "o")
+            .replace(Regex("[ùúûü]"), "u")
+            .replace(Regex("[ç]"), "c")
+            .replace(Regex("[ñ]"), "n")
+            .replace(Regex("[^a-z0-9 ]"), "")
+            .replace(Regex("\s+"), " ")
+            .trim()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TMDB — usado pela seção de NOVIDADES.
+    // ─────────────────────────────────────────────────────────────────────────
     private fun buscarLancamentosTmdb(tipo: String, paginas: Int): List<TmdbItem> {
         val resultado = mutableListOf<TmdbItem>()
-        val dataMin   = "$NOVIDADE_ANO_MIN-01-01"
-        val campData  = if (tipo == "movie") "primary_release_date.gte" else "first_air_date.gte"
+        val dataMin = "$NOVIDADE_ANO_MIN-01-01"
+        val campData = if (tipo == "movie") "primary_release_date.gte" else "first_air_date.gte"
         for (page in 1..paginas) {
             val url = "https://api.themoviedb.org/3/discover/$tipo" +
-                    "?api_key=$TMDB_KEY&language=pt-BR&region=BR" +
-                    "&sort_by=popularity.desc&$campData=$dataMin&page=$page"
-            try { resultado.addAll(parseTmdbResults(JSONObject(URL(url).readText()), tipo)) }
-            catch (e: Exception) { break }
+                "?api_key=$TMDB_KEY&language=pt-BR&region=BR" +
+                "&sort_by=popularity.desc&$campData=$dataMin&page=$page"
+            try {
+                resultado.addAll(parseTmdbResults(JSONObject(URL(url).readText()), tipo))
+            } catch (e: Exception) {
+                break
+            }
         }
         return resultado
     }
 
     private fun parseTmdbResults(json: JSONObject, tipo: String): List<TmdbItem> {
-        val lista   = mutableListOf<TmdbItem>()
+        val lista = mutableListOf<TmdbItem>()
         val results = json.optJSONArray("results") ?: return lista
         for (i in 0 until results.length()) {
             val obj = results.getJSONObject(i)
@@ -346,16 +534,21 @@ object TmdbSyncHelper {
             val tituloOrig: String
             val releaseDate: String
             if (tipo == "movie") {
-                tituloPt    = obj.optString("title", "")
-                tituloOrig  = obj.optString("original_title", "")
+                tituloPt = obj.optString("title", "")
+                tituloOrig = obj.optString("original_title", "")
                 releaseDate = obj.optString("release_date", "")
             } else {
-                tituloPt    = obj.optString("name", "")
-                tituloOrig  = obj.optString("original_name", "")
+                tituloPt = obj.optString("name", "")
+                tituloOrig = obj.optString("original_name", "")
                 releaseDate = obj.optString("first_air_date", "")
             }
             if (tituloPt.isNotEmpty() || tituloOrig.isNotEmpty()) {
-                lista.add(TmdbItem(tituloPt, tituloOrig, releaseDate))
+                lista.add(TmdbItem(
+                    tituloPt = tituloPt,
+                    tituloOrig = tituloOrig,
+                    releaseDate = releaseDate,
+                    tmdbId = obj.optInt("id", 0).takeIf { it > 0 }
+                ))
             }
         }
         return lista
@@ -449,8 +642,9 @@ object TmdbSyncHelper {
     }
 
     private data class TmdbItem(
-        val tituloPt:    String,
-        val tituloOrig:  String,
-        val releaseDate: String
+        val tituloPt: String,
+        val tituloOrig: String,
+        val releaseDate: String,
+        val tmdbId: Int? = null
     )
 }
