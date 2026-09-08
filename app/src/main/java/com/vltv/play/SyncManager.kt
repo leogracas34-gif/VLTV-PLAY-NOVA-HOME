@@ -198,6 +198,24 @@ object SyncManager {
         val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
 
         try {
+            // ⚠️ CORREÇÃO (selos somem sozinhos / só aparecem depois de
+            // reinstalar): insertVodStreams/insertSeriesStreams usam
+            // OnConflictStrategy.REPLACE, que substitui a LINHA INTEIRA no
+            // banco — inclusive as colunas calculadas pelo TmdbSyncHelper
+            // (logo_url, is_top10, is_novidade, is_nova_temporada etc.).
+            // Como esta função roda a cada 10 minutos (sync periódica) E
+            // reconstruía cada item do zero só com os campos crus do
+            // Xtream (name, cover, rating...), toda sincronização apagava
+            // os selos — e eles só voltavam depois que o TmdbSyncHelper,
+            // mais lento, terminasse de recalcular tudo de novo (por isso
+            // "aparece de vez em quando": é uma corrida entre o apagão e o
+            // recálculo, repetida a cada ciclo). Agora, antes de montar a
+            // lista nova, carregamos o que já existe no banco e
+            // preservamos essas colunas calculadas — só os campos que
+            // realmente vêm do Xtream são atualizados.
+            val vodsExistentes = try { db.streamDao().getAllVods().associateBy { it.stream_id } } catch (e: Exception) { emptyMap() }
+            val seriesExistentes = try { db.streamDao().getAllSeries().associateBy { it.series_id } } catch (e: Exception) { emptyMap() }
+
             // ── VOD ────────────────────────────────────────────────────────
             val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
             val vodArray = JSONArray(URL(vodUrl).readText())
@@ -206,15 +224,26 @@ object SyncManager {
                 val obj = vodArray.getJSONObject(i)
                 val nome = obj.optString("name")
                 if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                    val streamId = obj.optInt("stream_id")
+                    val existente = vodsExistentes[streamId]
                     vodBatch.add(VodEntity(
-                        stream_id = obj.optInt("stream_id"),
+                        stream_id = streamId,
                         name = nome,
                         title = obj.optString("name"),
                         stream_icon = obj.optString("stream_icon"),
                         container_extension = obj.optString("container_extension"),
                         rating = obj.optString("rating"),
                         category_id = obj.optString("category_id"),
-                        added = obj.optLong("added")
+                        added = obj.optLong("added"),
+                        // ↓ preservados do que já existia (senão o TMDB
+                        // precisaria recalcular tudo de novo a cada sync)
+                        logo_url = existente?.logo_url,
+                        tmdb_rank = existente?.tmdb_rank ?: 0,
+                        tmdb_release_date = existente?.tmdb_release_date,
+                        is_top10 = existente?.is_top10 ?: 0,
+                        is_novidade = existente?.is_novidade ?: 0,
+                        tmdb_id = existente?.tmdb_id,
+                        backdrop_path = existente?.backdrop_path
                     ))
                 }
                 if (vodBatch.size >= 200) {
@@ -235,13 +264,29 @@ object SyncManager {
                 val obj = seriesArray.getJSONObject(i)
                 val nome = obj.optString("name")
                 if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                    val seriesId = obj.optInt("series_id")
+                    val existente = seriesExistentes[seriesId]
                     seriesBatch.add(SeriesEntity(
-                        series_id = obj.optInt("series_id"),
+                        series_id = seriesId,
                         name = nome,
                         cover = obj.optString("cover"),
                         rating = obj.optString("rating"),
                         category_id = obj.optString("category_id"),
-                        last_modified = obj.optLong("last_modified")
+                        last_modified = obj.optLong("last_modified"),
+                        // ↓ preservados do que já existia
+                        logo_url = existente?.logo_url,
+                        tmdb_rank = existente?.tmdb_rank ?: 0,
+                        tmdb_release_date = existente?.tmdb_release_date,
+                        is_top10 = existente?.is_top10 ?: 0,
+                        is_novidade = existente?.is_novidade ?: 0,
+                        tmdb_id = existente?.tmdb_id,
+                        backdrop_path = existente?.backdrop_path,
+                        tmdb_ultima_temporada = existente?.tmdb_ultima_temporada ?: 0,
+                        tmdb_ultimo_episodio = existente?.tmdb_ultimo_episodio ?: 0,
+                        is_nova_temporada = existente?.is_nova_temporada ?: 0,
+                        is_novo_episodio = existente?.is_novo_episodio ?: 0,
+                        tmdb_flag_marcado_em = existente?.tmdb_flag_marcado_em ?: 0,
+                        tmdb_proxima_temporada_data = existente?.tmdb_proxima_temporada_data
                     ))
                 }
                 if (seriesBatch.size >= 200) {
