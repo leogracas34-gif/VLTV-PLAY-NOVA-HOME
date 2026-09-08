@@ -25,7 +25,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -601,13 +605,50 @@ class DetailsActivity : AppCompatActivity() {
         p.getString("year_$streamId", null)?.let  { tvYear?.text = it }
     }
 
+    // ⚠️ Antes, ao achar um "path" de logo, o código já escondia o
+    // tvTitle e mandava o Glide carregar a imagem, mas sem nenhum
+    // listener de erro. Se essa URL específica falhasse (link quebrado,
+    // 404, timeout etc.), o ImageView ficava vazio E o texto continuava
+    // escondido — a tela de detalhes ficava sem nome nenhum (nem logo,
+    // nem texto), que foi o bug relatado no filme "Ídolos". Agora, se o
+    // Glide não conseguir carregar a logo, o nome em texto volta a
+    // aparecer automaticamente.
+    private fun carregarLogoComFallbackParaTexto(url: String) {
+        tvTitle.visibility      = View.GONE
+        imgTitleLogo.visibility = View.VISIBLE
+        Glide.with(this)
+            .load(url)
+            .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .listener(object : RequestListener<android.graphics.drawable.Drawable> {
+                override fun onLoadFailed(
+                    e: GlideException?,
+                    model: Any?,
+                    target: Target<android.graphics.drawable.Drawable>?,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    runOnUiThread {
+                        tvTitle.visibility      = View.VISIBLE
+                        imgTitleLogo.visibility = View.GONE
+                    }
+                    return false
+                }
+
+                override fun onResourceReady(
+                    resource: android.graphics.drawable.Drawable?,
+                    model: Any?,
+                    target: Target<android.graphics.drawable.Drawable>?,
+                    dataSource: DataSource?,
+                    isFirstResource: Boolean
+                ): Boolean = false
+            })
+            .into(imgTitleLogo)
+    }
+
     private fun tentarCarregarLogoCache() {
         val url = getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE)
             .getString("movie_logo_$streamId", null)
         if (url != null) {
-            tvTitle.visibility      = View.GONE
-            imgTitleLogo.visibility = View.VISIBLE
-            Glide.with(this).load(url).diskCacheStrategy(DiskCacheStrategy.ALL).into(imgTitleLogo)
+            carregarLogoComFallbackParaTexto(url)
         } else {
             tvTitle.visibility = View.VISIBLE
         }
@@ -689,9 +730,7 @@ class DetailsActivity : AppCompatActivity() {
                         getSharedPreferences("vltv_logos_cache", Context.MODE_PRIVATE).edit()
                             .putString("movie_logo_$streamId", finalUrl).apply()
                         runOnUiThread {
-                            tvTitle.visibility      = View.GONE
-                            imgTitleLogo.visibility = View.VISIBLE
-                            Glide.with(this@DetailsActivity).load(finalUrl).into(imgTitleLogo)
+                            carregarLogoComFallbackParaTexto(finalUrl)
                         }
                     } else {
                         runOnUiThread { tvTitle.visibility = View.VISIBLE; imgTitleLogo.visibility = View.GONE }
