@@ -99,7 +99,12 @@ class VodActivity : AppCompatActivity() {
     // ✅ NOVO: extrai o ano (19xx ou 20xx) embutido no nome do filme, ex:
     // "Nome do Filme (2026)" → 2026. Usado para ordenar sempre do mais
     // recente para o mais antigo. Filmes sem ano detectável vão pro final.
-    private fun extrairAnoFilme(nome: String): Int {
+    // ⚠️ Aceita String? porque o servidor Xtream às vezes manda "name"
+    // nulo/ausente pra algum stream — o Gson ignora o tipo não-nulo do
+    // Kotlin nesse caso, e o app crashava (NullPointerException) ao tentar
+    // ordenar a lista com um nome nulo no meio.
+    private fun extrairAnoFilme(nome: String?): Int {
+        if (nome.isNullOrEmpty()) return 0
         return Regex("\\b(19|20)\\d{2}\\b").find(nome)?.value?.toIntOrNull() ?: 0
     }
 
@@ -307,13 +312,33 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ "Vassoura" — remove tarjas comuns de qualidade/idioma/formato do
+    // nome (LEGENDADO, DUBLADO, 4K, CINEMA, CAM etc.) antes de buscar a
+    // logo no TMDB. Sem isso, um nome "sujo" tipo "Nome do Filme
+    // Legendado 4K" nunca casa com o título real no TMDB e a logo nunca
+    // aparece (mesma lógica já usada em SeriesActivity, agora também
+    // aqui em Filmes).
+    private val REGEX_TARJAS_LOGO = Regex(
+        "(?i)\\b(4K|8K|FULL[\\s.-]?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|LEG|DUB|DUAL|AUDIO|LATINO|" +
+        "NACIONAL|PT[-.]?BR|PTBR|WEB[-.]?DL|WEBRIP|BLU-?RAY|REMUX|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|" +
+        "HEVC|X264|X265|WEB|HDR|UHD|FHD|CAM|HDCAM|TS|TC|R5|SCREENER|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO|" +
+        "COMPLETO|COMPLETE)\\b"
+    )
+
+    private fun limparNomeParaBuscaLogo(rawName: String, yearRegex: Regex): String {
+        return rawName
+            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+            .replace(yearRegex, "")
+            .replace(REGEX_TARJAS_LOGO, "")
+            .replace(Regex("\\s{2,}"), " ")
+            .trim()
+    }
+
     private suspend fun searchTmdbLogoVod(rawName: String): String? {
         val apiKey = TmdbConfig.API_KEY
         val yearRegex = Regex("\\b(19|20)\\d{2}\\b")
         val year = yearRegex.find(rawName)?.value
-        val cleanName = rawName
-            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-            .replace(yearRegex, "").trim()
+        val cleanName = limparNomeParaBuscaLogo(rawName, yearRegex)
         return try {
             var url = "https://api.themoviedb.org/3/search/movie?api_key=$apiKey" +
                     "&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR&include_adult=false"
