@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
-    id("kotlin-kapt")
     id("com.google.devtools.ksp")
 }
 
@@ -104,19 +103,17 @@ android {
     }
 }
 
-// ✅ NOVO: Room migrado de kapt para KSP (kotlin-kapt tinha um bug/comportamento
-// errático nessa combinação de versões, gerando o stub SeriesStream.java de forma
-// inconsistente). KSP processa o Kotlin diretamente, sem passar pela geração de
-// stubs Java problemática. O Glide continua no kapt normalmente logo abaixo,
-// já que ele ainda não tem suporte oficial a KSP.
-kapt {
-    correctErrorTypes = true
-    javacOptions {
-        option("-source", "17")
-        option("-target", "17")
-    }
-}
-
+// ✅ NOVO: kotlin-kapt removido do projeto por completo. O Room já rodava
+// via KSP; o Glide era o único motivo do kapt continuar aplicado, e o
+// GeneratedAppGlideModule que ele gerava nem chegava a ser usado de
+// verdade (VLTVApplication já chama Glide.init() manualmente, o que
+// SEMPRE pula a descoberta via annotation processing). O registro do
+// carregador OkHttp que vivia em VltvGlideModule (arquivo removido) agora
+// é feito à mão, direto em VLTVApplication.onCreate(), logo após o
+// Glide.init(). Isso elimina de vez o bug "duplicate class:
+// com.vltv.play.SeriesStream" (era o kapt travando ao gerar o stub do
+// GeneratedAppGlideModule) — sem essa ferramenta no build, essa classe
+// inteira de erro deixa de existir.
 configurations.all {
     resolutionStrategy {
         force("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
@@ -137,7 +134,7 @@ dependencies {
     implementation("androidx.cardview:cardview:1.0.0")
 
     // ROOM DATABASE
-    // ✅ NOVO: room-compiler agora roda via KSP (ksp(...)) em vez de kapt(...)
+    // room-compiler roda via KSP (ksp(...))
     def room_version = "2.8.4"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
@@ -161,12 +158,10 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
     implementation("com.github.bumptech.glide:glide:5.0.5")
-    // ✅ NOVO: integração do Glide com OkHttp 3.x. Usada pelo
-    // VltvGlideModule.kt para trocar o carregador de rede padrao do Glide
-    // (timeout curto, ~2,5s) por um OkHttpClient com timeout maior e
-    // retry automatico, corrigindo capas que nao carregavam em aparelhos
-    // ou internet mais fracos. O "exclude" evita duplicar o OkHttp, ja
-    // que o projeto ja declara sua propria versao dele logo abaixo.
+    // ✅ ATUALIZADO: integração do Glide com OkHttp 3.x, agora registrada
+    // manualmente em VLTVApplication.onCreate() (sem @GlideModule/kapt).
+    // O "exclude" evita duplicar o OkHttp, já que o projeto já declara
+    // sua própria versão dele logo abaixo.
     implementation("com.github.bumptech.glide:okhttp3-integration:5.0.5") {
         exclude group: "com.squareup.okhttp3", module: "okhttp"
     }
@@ -200,7 +195,4 @@ dependencies {
 
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("com.google.android.flexbox:flexbox:3.0.0")
-
-    // Glide continua no kapt (sem suporte oficial a KSP ainda)
-    kapt("com.github.bumptech.glide:compiler:5.0.5")
 }
