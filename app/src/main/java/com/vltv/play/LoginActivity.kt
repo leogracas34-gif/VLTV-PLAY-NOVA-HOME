@@ -363,17 +363,30 @@ class LoginActivity : AppCompatActivity() {
                             try {
                                 val arr = JSONArray(json)
                                 val batch = mutableListOf<VodEntity>()
+                                // ⚠️ Mesma correção do SyncManager.kt: preserva
+                                // logo/selos já calculados em vez de zerá-los
+                                // a cada login.
+                                val existentes = try { db.streamDao().getAllVods().associateBy { it.stream_id } } catch (e: Exception) { emptyMap() }
                                 for (i in 0 until minOf(12, arr.length())) {
                                     val o = arr.getJSONObject(i)
+                                    val streamId = o.optInt("stream_id")
+                                    val ex = existentes[streamId]
                                     batch.add(VodEntity(
-                                        o.optInt("stream_id"),
-                                        o.optString("name"),
-                                        o.optString("name"),
-                                        o.optString("stream_icon"),
-                                        o.optString("container_extension"),
-                                        o.optString("rating"),
-                                        o.optString("category_id"),
-                                        o.optLong("added")
+                                        stream_id = streamId,
+                                        name = o.optString("name"),
+                                        title = o.optString("name"),
+                                        stream_icon = o.optString("stream_icon"),
+                                        container_extension = o.optString("container_extension"),
+                                        rating = o.optString("rating"),
+                                        category_id = o.optString("category_id"),
+                                        added = o.optLong("added"),
+                                        logo_url = ex?.logo_url,
+                                        tmdb_rank = ex?.tmdb_rank ?: 0,
+                                        tmdb_release_date = ex?.tmdb_release_date,
+                                        is_top10 = ex?.is_top10 ?: 0,
+                                        is_novidade = ex?.is_novidade ?: 0,
+                                        tmdb_id = ex?.tmdb_id,
+                                        backdrop_path = ex?.backdrop_path
                                     ))
                                 }
                                 if (batch.isNotEmpty()) {
@@ -394,15 +407,33 @@ class LoginActivity : AppCompatActivity() {
                             try {
                                 val arr = JSONArray(json)
                                 val batch = mutableListOf<SeriesEntity>()
+                                // ⚠️ Mesma correção: preserva os selos já
+                                // calculados em vez de zerá-los a cada login.
+                                val existentes = try { db.streamDao().getAllSeries().associateBy { it.series_id } } catch (e: Exception) { emptyMap() }
                                 for (i in 0 until minOf(12, arr.length())) {
                                     val o = arr.getJSONObject(i)
+                                    val seriesId = o.optInt("series_id")
+                                    val ex = existentes[seriesId]
                                     batch.add(SeriesEntity(
-                                        o.optInt("series_id"),
-                                        o.optString("name"),
-                                        o.optString("cover"),
-                                        o.optString("rating"),
-                                        o.optString("category_id"),
-                                        o.optLong("last_modified")
+                                        series_id = seriesId,
+                                        name = o.optString("name"),
+                                        cover = o.optString("cover"),
+                                        rating = o.optString("rating"),
+                                        category_id = o.optString("category_id"),
+                                        last_modified = o.optLong("last_modified"),
+                                        logo_url = ex?.logo_url,
+                                        tmdb_rank = ex?.tmdb_rank ?: 0,
+                                        tmdb_release_date = ex?.tmdb_release_date,
+                                        is_top10 = ex?.is_top10 ?: 0,
+                                        is_novidade = ex?.is_novidade ?: 0,
+                                        tmdb_id = ex?.tmdb_id,
+                                        backdrop_path = ex?.backdrop_path,
+                                        tmdb_ultima_temporada = ex?.tmdb_ultima_temporada ?: 0,
+                                        tmdb_ultimo_episodio = ex?.tmdb_ultimo_episodio ?: 0,
+                                        is_nova_temporada = ex?.is_nova_temporada ?: 0,
+                                        is_novo_episodio = ex?.is_novo_episodio ?: 0,
+                                        tmdb_flag_marcado_em = ex?.tmdb_flag_marcado_em ?: 0,
+                                        tmdb_proxima_temporada_data = ex?.tmdb_proxima_temporada_data
                                     ))
                                 }
                                 if (batch.isNotEmpty()) {
