@@ -115,32 +115,13 @@ class HomeActivity : AppCompatActivity() {
     private var gameRotationFetchJob: kotlinx.coroutines.Job? = null
     private val GAME_ROTATION_INTERVALO_MS = 6000L
 
-    // ✅ OTIMIZAÇÃO (banner de jogos / destaque):
-    // Antes, TODA vez que a Home passava por onResume() -> setupFirebaseRemoteConfig(),
-    // os escudos dos times e a imagem de fundo do confronto eram baixados/gerados de
-    // novo do zero, mesmo que os jogos do dia fossem exatamente os mesmos de antes.
-    // Isso competia por rede com o carregamento dos pôsteres de filmes/séries e fazia
-    // a Home "demorar pra popular" sempre que o banner de jogos estava ativo no
-    // Remote Config. Os campos abaixo guardam o que já foi resolvido nesta sessão
-    // pra pular esse trabalho quando os dados não mudaram.
     private val escudoBitmapCache = mutableMapOf<String, Bitmap?>()
     private val confrontoBitmapCache = mutableMapOf<String, Bitmap?>()
     private var ultimoGamesJsonAplicado: String? = null
     private var ultimoFeaturedTitleAplicado: String? = null
     private var featuredBannerEncontrado = false
 
-    // ✅ NOVO: cache do series_id/stream_id JÁ VALIDADO pro banner de
-    // destaque, indexado pelo título vindo do Remote Config. Ver
-    // comentário detalhado em buscarIdFeaturedBanner() sobre o motivo
-    // dessa validação existir.
     private val featuredResolvedIdCache = mutableMapOf<String, Int>()
-
-    // ✅ NOVO: quando o Remote Config traz um "featured_content_id" (o
-    // series_id/stream_id EXATO do seu catálogo, digitado manualmente por
-    // você ao configurar o destaque), não fazemos NENHUM matching por
-    // nome — o ID configurado é usado direto. Isso elimina de vez o bug
-    // de duplicata (mesmo nome, IDs diferentes, um deles com episódios
-    // errados) porque não existe mais "adivinhação" nenhuma envolvida.
 
     private data class BannerAssets(
         val backdropUrl: String?,
@@ -156,28 +137,12 @@ class HomeActivity : AppCompatActivity() {
     private var popularSectionsJob: kotlinx.coroutines.Job? = null
     private var popularSectionsPendente: Triple<List<VodItem>, List<VodEntity>, List<SeriesEntity>>? = null
 
-    // ✅ NOVO: cache de sessão do Top 10 vindo do TMDB (usado só quando o
-    // banco local ainda não tem 10 itens classificados como is_top10).
-    // Evita repetir a busca pesada (chamada de rede + matching no banco)
-    // toda vez que popularSections() roda de novo na mesma sessão da
-    // Home — isso podia acontecer DUAS vezes seguidas na mesma abertura
-    // de tela (uma com dado local imediato, outra quando o
-    // ContentRepository fica pronto), multiplicando o atraso e causando
-    // o "pisca" entre um resultado antigo e o atualizado.
     private var top10FilmesTmdbCache: List<VodEntity>? = null
     private var top10SeriesTmdbCache: List<SeriesEntity>? = null
 
-    // ✅ NOVO: guarda a instância atual dos adapters do Top 10 pra poder
-    // atualizar a lista existente via DiffUtil (Top10Adapter.updateList)
-    // em vez de trocar o RecyclerView.adapter inteiro toda vez — evita o
-    // "reset"/pisca visual quando o resultado do TMDB substitui o
-    // fallback local.
     private var top10MoviesAdapterRef: Top10Adapter? = null
     private var top10SeriesAdapterRef: Top10Adapter? = null
 
-    // ✅ NOVO: evita recarregar o avatar do perfil via Glide toda vez que
-    // a Home volta ao primeiro plano (onResume chama setupBottomNavigation
-    // inteiro) quando o ícone não mudou desde a última aplicação.
     private var ultimoIconeAplicadoNoNav: String? = null
 
     companion object {
@@ -193,44 +158,18 @@ class HomeActivity : AppCompatActivity() {
 
         private const val WORDMARK_TAG = "vltv_home_wordmark"
 
-        // ✅ NOVO: por quanto tempo os selos "Nova Temporada"/"Novo
-        // Episódio" continuam aparecendo depois de detectados, antes de
-        // "expirar" sozinhos (ver SeriesEntity.paraItem()).
         private const val JANELA_NOVIDADE_MS = 7L * 24 * 60 * 60 * 1000
 
         @Volatile private var ultimoFetchRemoteConfigMs = 0L
         private const val INTERVALO_MINIMO_FETCH_MS = 30_000L
 
-        // ✅ NOVO: timeout padrão pra qualquer chamada direta ao TMDB
-        // (fora do Retrofit/OkHttp usado no resto do app). Antes,
-        // URL(url).readText() não tinha NENHUM timeout configurado — numa
-        // rede ruim, a chamada podia ficar pendurada por muito mais tempo
-        // que o razoável, segurando a Home num estado "vazio" ou com dado
-        // desatualizado por bem mais que alguns segundos.
         private const val TMDB_TIMEOUT_MS = 8000
     }
 
-    /**
-     * ✅ CORREÇÃO DO AVATAR CINZA NO RODAPÉ:
-     * O BottomNavigationView aplica automaticamente um "itemIconTintList"
-     * em cima de TODOS os ícones do menu (inclusive os que a gente define
-     * programaticamente). Esse tint substitui as cores do bitmap por uma
-     * cor sólida (cinza no estado não-selecionado), usando apenas o canal
-     * alfa do drawable — por isso a foto do avatar vira só uma "silhueta"
-     * cinza, sem nenhum detalhe visível.
-     *
-     * Esse Drawable "à prova de tint" ignora qualquer chamada de
-     * setColorFilter/setTint (é assim que o BottomNavigationView aplica a
-     * cor por baixo dos panos), então o avatar continua sendo desenhado
-     * com as cores originais, enquanto os outros ícones do menu (home,
-     * busca, novidades) continuam sendo tingidos normalmente.
-     */
     private class UntintableDrawable(private val base: Drawable) : Drawable() {
         override fun draw(canvas: Canvas) = base.draw(canvas)
         override fun setAlpha(alpha: Int) { base.alpha = alpha }
         override fun setColorFilter(colorFilter: ColorFilter?) {
-            // Ignorado de propósito: bloqueia o tint que o
-            // BottomNavigationView tentaria aplicar sobre o avatar.
         }
         @Deprecated("Deprecated in Java")
         override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
@@ -242,8 +181,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVO: helper com timeout explícito pra qualquer chamada direta ao
-    // TMDB. Ver comentário de TMDB_TIMEOUT_MS acima.
     private fun fetchUrlComTimeout(urlStr: String, timeoutMs: Int = TMDB_TIMEOUT_MS): String {
         val connection = URL(urlStr).openConnection() as java.net.HttpURLConnection
         connection.connectTimeout = timeoutMs
@@ -298,16 +235,6 @@ class HomeActivity : AppCompatActivity() {
                 carregarDadosLocaisImediato()
             }
 
-            // 🔎 DIAGNÓSTICO TEMPORÁRIO — mostra num Toast, depois que uma
-            // sincronização de verdade terminar, quantos itens vieram
-            // "brutos" da Netflix/TMDB e quantos bateram com o catálogo em
-            // cada fase — pra ver exatamente onde a corrente quebra quando
-            // os selos não aparecem. Antes, esse Toast disparava na hora
-            // (onCreate), ou seja, ANTES da sincronização sequer começar —
-            // por isso sempre lia zero, mesmo com tudo funcionando. Agora
-            // só dispara quando o SyncManager avisa que uma sincronização
-            // terminou. Pode remover este bloco assim que os selos
-            // voltarem a funcionar de forma confiável.
             fun mostrarDiagnosticoSelos() {
                 lifecycleScope.launch(Dispatchers.IO) {
                     try {
@@ -328,18 +255,10 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
 
-            // ✅ CORREÇÃO: o listener é registrado ANTES de disparar o sync.
-            // Antes, sincronizarSeNecessario()/iniciarSyncPeriodica() eram chamados
-            // primeiro e só depois vinha registrarOuvinteNovidade() — se o sync
-            // terminasse rápido (ou o Mutex do SyncManager já barrasse por já ter
-            // rodado nesta sessão), a notificação de "dados prontos" podia disparar
-            // antes de existir alguém ouvindo, e se perdia — a Home ficava esperando
-            // um evento que já tinha passado, só se recuperando ao fechar e reabrir
-            // o app (quando o listener já estava registrado antes do sync rodar de novo).
             removerOuvinteSync = SyncManager.registrarOuvinteNovidade {
                 if (!isFinishing && !isDestroyed) {
                     popularTelaDoRepositorio()
-                    mostrarDiagnosticoSelos() // 🔎 TEMPORÁRIO
+                    mostrarDiagnosticoSelos()
                 }
             }
             SyncManager.sincronizarSeNecessario(applicationContext)
@@ -496,14 +415,6 @@ class HomeActivity : AppCompatActivity() {
         localMovies: List<VodEntity>,
         localSeries: List<SeriesEntity>
     ) {
-        // ✅ NOVO: essas listas ordenadas (novidade > data de lançamento >
-        // adicionado) são calculadas UMA vez aqui e reaproveitadas tanto
-        // na linha "Filmes/Séries Para Você" quanto como fallback do Top
-        // 10 (quando a busca no TMDB falha ou o banco ainda não tem 10
-        // itens classificados). Antes, o fallback do Top 10 usava
-        // movieItems.take(10)/seriesItems.take(10) — a ordem "crua" de
-        // inserção no banco, que podia mostrar filmes antigos (ex: 007,
-        // 1917) no lugar de conteúdo relevante.
         val filmesOrdenadosItems = if (localMovies.isNotEmpty()) {
             localMovies.sortedWith(
                 compareByDescending<VodEntity> { it.is_novidade }
@@ -514,9 +425,18 @@ class HomeActivity : AppCompatActivity() {
             }
         } else emptyList()
 
+        // ✅ CORRIGIDO: antes a ordenação só olhava pra is_novidade (que só
+        // vale pra lançamento com ano ≥ 2025) e datas — uma série antiga
+        // (ex: 2022) que ganhou temporada/episódio novo agora nunca subia
+        // ao topo, porque nada aqui checava os selos de atividade. Agora
+        // "tem Nova Temporada ou Novo Episódio ativo" vem ANTES de
+        // is_novidade — atividade real (algo saiu AGORA) pesa mais do que
+        // só a data de lançamento original do título.
         val seriesOrdenadasItems = if (localSeries.isNotEmpty()) {
             localSeries.sortedWith(
-                compareByDescending<SeriesEntity> { it.is_novidade }
+                compareByDescending<SeriesEntity> { it.is_nova_temporada == 1 || it.is_novo_episodio == 1 }
+                    .thenByDescending { it.is_novidade }
+                    .thenByDescending { it.tmdb_flag_marcado_em }
                     .thenByDescending { it.tmdb_release_date ?: "" }
                     .thenByDescending { it.last_modified }
             ).take(20).map {
@@ -558,7 +478,14 @@ class HomeActivity : AppCompatActivity() {
         top10FilmesJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 var top10DbVods = database.streamDao().getTop10Vods()
-                if (top10DbVods.size < 10) {
+                // ✅ CORRIGIDO: antes caía no fallback (TMDB trending, sem
+                // curadoria de atualidade) sempre que o banco tivesse MENOS
+                // DE 10 itens — descartando um Top 10 real parcial (ex: 6
+                // dos 10 títulos da Netflix bateram no catálogo) por um
+                // fallback pior. Agora só usa o fallback quando o banco não
+                // tem NENHUM item — confia no Top 10 real sempre que ele
+                // encontrar pelo menos um título.
+                if (top10DbVods.isEmpty()) {
                     val cache = top10FilmesTmdbCache
                     top10DbVods = if (cache != null) {
                         cache
@@ -594,7 +521,8 @@ class HomeActivity : AppCompatActivity() {
         top10SeriesJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 var top10DbSeries = database.streamDao().getTop10Series()
-                if (top10DbSeries.size < 10) {
+                // ✅ CORRIGIDO: mesma mudança acima, agora pras séries.
+                if (top10DbSeries.isEmpty()) {
                     val cache = top10SeriesTmdbCache
                     top10DbSeries = if (cache != null) {
                         cache
@@ -673,10 +601,6 @@ class HomeActivity : AppCompatActivity() {
         carregarContinuarAssistindoLocal()
     }
 
-    // ✅ NOVO: centraliza a aplicação do resultado do Top 10 de Filmes —
-    // reaproveita o adapter existente via DiffUtil (Top10Adapter.updateList)
-    // quando já existe um, em vez de trocar o RecyclerView.adapter inteiro
-    // (o que resetava o scroll e causava o "pisca" visual).
     private fun aplicarTop10Filmes(lista: List<VodItem>) {
         val onClick: (VodItem) -> Unit = { selectedItem ->
             val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
@@ -698,7 +622,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVO: mesma ideia de aplicarTop10Filmes(), só que pro Top 10 de Séries.
     private fun aplicarTop10Series(lista: List<VodItem>) {
         val onClick: (VodItem) -> Unit = { selectedItem ->
             val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
@@ -720,18 +643,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ OTIMIZADO: busca o Top 10 de filmes da semana no TMDB e casa cada
-    // título com o banco local. Antes, cada um dos até 20 títulos era
-    // processado em SEQUÊNCIA (esperando a cadeia de até 6 consultas ao
-    // banco do anterior terminar antes de começar a do próximo), o que
-    // multiplicava o tempo total pelo número de títulos. Agora o matching
-    // roda em PARALELO (mesmo padrão já usado pra buscar escudos de times
-    // no banner de jogos), e a chamada de rede usa timeout explícito
-    // (TMDB_TIMEOUT_MS) em vez de ficar sem limite. Como o matching
-    // paralelo não pode compartilhar um "set de IDs já usados" entre
-    // tarefas concorrentes (isso exigiria sequência), a deduplicação é
-    // feita DEPOIS que todos os resultados chegam, mantendo a primeira
-    // ocorrência (preserva a ordem de popularidade do TMDB) e limitando a 10.
     private suspend fun buscarTop10FilmesAgora(): List<VodEntity> {
         return try {
             val tmdbUrl = "https://api.themoviedb.org/3/trending/movie/week?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
@@ -768,7 +679,6 @@ class HomeActivity : AppCompatActivity() {
         } catch (e: Exception) { emptyList() }
     }
 
-    // ✅ OTIMIZADO: mesma lógica de buscarTop10FilmesAgora(), pra séries.
     private suspend fun buscarTop10SeriesAgora(): List<SeriesEntity> {
         return try {
             val tmdbUrl = "https://api.themoviedb.org/3/trending/tv/week?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
@@ -888,15 +798,6 @@ class HomeActivity : AppCompatActivity() {
             resultado
         }
 
-    // ✅ NOVO: variante de querySerieEntityExato() que devolve TODAS as
-    // linhas com o mesmo "name" (não só a primeira). Existe pra resolver
-    // o bug do banner "Destaque da Semana" abrindo a série errada: quando
-    // o catálogo tem duas entradas com o mesmo nome (duplicata comum em
-    // listas Xtream — mesmo título cadastrado em categorias diferentes),
-    // a query antiga (com "LIMIT 10" mas sem ORDER BY, pegando sempre a
-    // primeira linha) podia devolver qualquer uma das duas, sem garantia
-    // de que fosse a que realmente tem episódios corretos. Usada em
-    // conjunto com serieTemEpisodiosValidos() em buscarIdFeaturedBanner().
     private suspend fun querySerieEntidadesExatoTodos(titulo: String): List<SeriesEntity> =
         withContext(Dispatchers.IO) {
             val tituloLimpo = normalizarTituloParaMatch(titulo)
@@ -932,22 +833,6 @@ class HomeActivity : AppCompatActivity() {
             resultado
         }
 
-    // ✅ NOVO (corrige "banner de destaque pisca e some"): versão tolerante
-    // de querySerieEntidadesExatoTodos(). A busca "name = ? COLLATE NOCASE"
-    // exige o texto praticamente idêntico ao cadastrado no catálogo — um
-    // espaço a mais, um hífen, "(2022)" junto ao nome, ou qualquer detalhe
-    // de formatação já fazia a busca não encontrar NADA, e o card do
-    // destaque era escondido mesmo com o nome "certo" digitado no Firebase.
-    //
-    // Aqui a estratégia muda em duas etapas:
-    //   1) Busca ampla no banco (LIKE) usando a palavra mais forte do
-    //      título, só pra reduzir a lista de candidatos.
-    //   2) Cada candidato só é aceito se o título INTEIRO (normalizado:
-    //      sem acento/pontuação/maiúscula) for IGUAL ao nome do candidato
-    //      normalizado da mesma forma — não apenas contido nele.
-    // Isso resolve tanto os falsos negativos (nome "quase igual" não
-    // encontrado) quanto os falsos positivos (ex: "Reacher" não pode
-    // bater com "Preacher", pois a palavra inteira teria que ser igual).
     private suspend fun buscarSeriesPorNomeTolerante(titulo: String): List<SeriesEntity> =
         withContext(Dispatchers.IO) {
             val alvoNormalizado = normalizarParaComparacaoTitulo(limparNomeParaTMDB(titulo))
@@ -988,7 +873,6 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
-    // ✅ NOVO: mesma lógica de buscarSeriesPorNomeTolerante(), pra filmes.
     private suspend fun buscarVodsPorNomeTolerante(titulo: String): List<VodEntity> =
         withContext(Dispatchers.IO) {
             val alvoNormalizado = normalizarParaComparacaoTitulo(limparNomeParaTMDB(titulo))
@@ -1031,12 +915,6 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
-    // ✅ NOVO: confirma no servidor Xtream se um series_id realmente tem
-    // episódios cadastrados. É a forma definitiva de desempatar entre
-    // duas séries duplicadas com o mesmo nome no catálogo: em vez de
-    // "chutar" a primeira linha do banco, a gente pergunta pro servidor
-    // "esse ID aqui tem episódio de verdade?" — só um dos duplicados
-    // deve responder que sim.
     private suspend fun serieTemEpisodiosValidos(seriesId: Int): Boolean =
         withContext(Dispatchers.IO) {
             try {
@@ -1151,12 +1029,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun configurarOrientacaoAutomatica() {
-        // ✅ Usa a detecção central de DeviceUtils.kt (isTelevisionDevice()),
-        // a mesma usada no resto desta Activity (foco de D-pad) e em todas
-        // as outras telas do app. Antes havia uma função local isTVDevice()
-        // com uma heurística extra de tamanho de tela que podia divergir
-        // do resultado usado no resto do arquivo, fazendo o mesmo aparelho
-        // ser tratado como "TV" na orientação e como "celular" no foco.
         requestedOrientation = if (isTelevisionDevice()) {
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         } else {
@@ -1170,28 +1042,11 @@ class HomeActivity : AppCompatActivity() {
         binding.bannerViewPager?.isUserInputEnabled = false
     }
 
-    /**
-     * ✅ CORREÇÃO: os avatares escolhidos na tela de Perfis (ProfilesActivity)
-     * são nomes de drawables locais (ex: "av_iron_man", "av_batman"), e NÃO
-     * URLs. O Glide, quando recebe uma String, tenta interpretá-la como
-     * URL/caminho — como "av_iron_man" não é uma URL válida, o load falhava
-     * silenciosamente e o ícone do perfil no rodapé nunca era preenchido.
-     *
-     * Agora resolvemos o nome do drawable pra um resource ID (igual já é
-     * feito em ProfilesActivity.exibirAvatar) antes de pedir pro Glide
-     * carregar. Se por algum motivo currentProfileIcon vier como uma URL
-     * de verdade (http/https), o fallback abaixo continua funcionando.
-     */
     private fun setupBottomNavigation() {
         binding.bottomNavigation?.let { nav ->
             val profileItem = nav.menu.findItem(R.id.nav_profile)
             profileItem?.title = currentProfile
 
-            // ✅ OTIMIZAÇÃO: evita recarregar o avatar via Glide toda vez
-            // que a Home volta ao primeiro plano (onResume chama essa
-            // função inteira) quando o ícone não mudou desde a última
-            // aplicação — antes isso rodava incondicionalmente em todo
-            // onResume(), mesmo sem nada ter mudado no perfil.
             if (!currentProfileIcon.isNullOrEmpty() && currentProfileIcon != ultimoIconeAplicadoNoNav) {
                 val iconValue = currentProfileIcon!!
                 val ehUrlRemota = iconValue.startsWith("http://") || iconValue.startsWith("https://")
@@ -1299,18 +1154,6 @@ class HomeActivity : AppCompatActivity() {
             .trim()
     }
 
-    // ✅ NOVO: converte VodEntity/SeriesEntity pro modelo de exibição
-    // (VodItem) já com os selos calculados (Top 10, Novidade, Nova
-    // Temporada, Novo Episódio, Em Breve). Centralizado aqui em vez de
-    // repetir "VodItem(it.stream_id.toString(), ...)" em cada lugar que
-    // monta uma lista pra Home — assim os selos aparecem em TODAS as
-    // fileiras (Novidades, Séries Para Você etc.) e não só numa.
-    //
-    // is_nova_temporada/is_novo_episodio não são limpos a cada
-    // sincronização (ver TmdbSyncHelper), então "expiram" sozinhos aqui:
-    // só valem enquanto estiverem dentro de JANELA_NOVIDADE_MS a partir de
-    // tmdb_flag_marcado_em. Depois disso, o selo simplesmente para de
-    // aparecer — sem precisar de nenhum job de limpeza.
     private fun VodEntity.paraItem(): VodItem = VodItem(
         id = stream_id.toString(),
         name = limparNomeExibicao(name),
@@ -1335,6 +1178,8 @@ class HomeActivity : AppCompatActivity() {
             isNovoEpisodio = is_novo_episodio == 1 && dentroDaJanela,
             isNovaTemporadaEmBreve = !tmdb_proxima_temporada_data.isNullOrEmpty() &&
                 tmdb_proxima_temporada_data > hoje,
+            isNovoEpisodioEmBreve = !tmdb_proximo_episodio_data.isNullOrEmpty() &&
+                tmdb_proximo_episodio_data > hoje,
             logoUrl = logo_url
         )
     }
@@ -1479,16 +1324,6 @@ class HomeActivity : AppCompatActivity() {
             .trim()
     }
 
-    // ✅ CORRIGIDO (bug "Reacher abre episódios de Preacher"): o fallback
-    // likeExato() usado em buscarIdFeaturedBanner() monta um LIKE
-    // '%titulo%' — que também bate quando o título configurado é uma
-    // SUBSTRING de outro nome (ex: "Reacher" está contido dentro de
-    // "Preacher"). Esse helper valida, DEPOIS que o banco já devolveu um
-    // candidato, se o título configurado aparece como PALAVRA/FRASE
-    // COMPLETA no nome do candidato (com fronteira de palavra dos dois
-    // lados), e não apenas como pedaço de outra palavra. Se não bater
-    // dentro dessa regra, o candidato é descartado — o app prefere
-    // esconder o card de destaque a abrir o conteúdo errado.
     private fun tituloEhCompativel(alvo: String, candidato: String): Boolean {
         val a = normalizarParaComparacaoTitulo(limparNomeParaTMDB(alvo))
         val c = normalizarParaComparacaoTitulo(limparNomeParaTMDB(candidato))
@@ -1565,11 +1400,6 @@ class HomeActivity : AppCompatActivity() {
         } catch (e: Exception) { null }
     }
 
-    // ✅ OTIMIZAÇÃO: cache em memória (escudoBitmapCache) evita baixar o
-    // mesmo escudo de novo em toda rotação/onResume — o brasão de um time
-    // não muda de imagem de um resume pro outro. Também aplicamos um
-    // timeout de 4s no Glide.get() pra uma imagem lenta/travada não segurar
-    // o carregamento do card de jogo indefinidamente.
     private suspend fun buscarEscudoBitmap(nomeTime: String, tamanhoPx: Int): Bitmap? {
         if (nomeTime.isBlank()) return null
         escudoBitmapCache[nomeTime]?.let { return it }
@@ -1618,13 +1448,6 @@ class HomeActivity : AppCompatActivity() {
         return sb
     }
 
-    // ✅ OTIMIZAÇÃO: a checagem do Remote Config agora é adiada em ~400ms
-    // no onResume() (veja override abaixo) pra não competir por rede com
-    // o carregamento inicial dos pôsteres de filmes/séries. O corpo desta
-    // função continua igual — o ganho de performance vem principalmente
-    // do cache em aplicarGameBannerRotacao()/aplicarFeaturedBanner() logo
-    // abaixo, que evita refazer todo o trabalho pesado quando os dados
-    // não mudaram desde a última vez.
     private fun setupFirebaseRemoteConfig() {
         val remoteConfig = Firebase.remoteConfig
         remoteConfig.setDefaultsAsync(mapOf(
@@ -1646,11 +1469,6 @@ class HomeActivity : AppCompatActivity() {
             "featured_synopsis"     to "",
             "featured_image_url"    to "",
             "featured_is_series"    to false,
-            // ✅ NOVO: ID exato (series_id ou stream_id, conforme
-            // featured_is_series) do seu catálogo Xtream. Preencha esse
-            // campo no Firebase Remote Config sempre que configurar o
-            // destaque — é o jeito 100% confiável de evitar que o app
-            // "adivinhe" errado entre títulos duplicados no catálogo.
             "featured_content_id"   to "",
             "show_retro_games"      to true
         ))
@@ -1741,13 +1559,6 @@ class HomeActivity : AppCompatActivity() {
             return
         }
 
-        // ✅ OTIMIZAÇÃO PRINCIPAL: se os jogos de hoje são exatamente os
-        // mesmos da última vez que essa tela foi montada (mesmo JSON vindo
-        // do Remote Config), não tem motivo pra baixar os escudos e gerar
-        // a imagem de fundo do confronto de novo — isso só consome rede e
-        // tempo à toa em TODO onResume(), e é a causa principal da Home
-        // demorar pra popular quando o banner de jogos está ativo. Só
-        // reaplicamos a rotação já pronta.
         if (gamesJson == ultimoGamesJsonAplicado && gameRotationList.isNotEmpty()) {
             card.visibility = View.VISIBLE
             if (gameRotationIndex !in gameRotationList.indices) gameRotationIndex = 0
@@ -1758,13 +1569,6 @@ class HomeActivity : AppCompatActivity() {
 
         gameRotationFetchJob?.cancel()
         gameRotationFetchJob = lifecycleScope.launch(Dispatchers.IO) {
-            // ATENÇÃO: todo o corpo fica dentro de um try/catch amplo.
-            // lifecycleScope usa um Job comum (não SupervisorJob) — uma
-            // exceção não tratada aqui cancelaria o Job inteiro da Activity,
-            // derrubando também as coroutines de Top10/Novidades/Continuar
-            // Assistindo que nada têm a ver com o banner de jogos. Por isso
-            // qualquer falha (rede, escudo, geração do fundo) só esconde o
-            // card do jogo, sem afetar o resto da Home.
             try {
                 val jogos = try {
                     parseJogosDoDia(gamesJson)
@@ -1782,20 +1586,12 @@ class HomeActivity : AppCompatActivity() {
 
                 val tamanhoPx = 28.dp
 
-                // ✅ OTIMIZAÇÃO: escudos/fundos de TODOS os jogos são
-                // buscados em PARALELO agora (antes era sequencial — um
-                // jogo esperava o escudo do outro terminar de baixar antes
-                // de começar o próximo, o que multiplicava o tempo total
-                // pelo número de jogos do dia).
                 val prontos = coroutineScope {
                     jogos.map { info ->
                         async {
                             val casa = try { buscarEscudoBitmap(info.team_home, tamanhoPx) } catch (e: Exception) { null }
                             val fora = try { buscarEscudoBitmap(info.team_away, tamanhoPx) } catch (e: Exception) { null }
                             val fundo = if (info.image_url.isBlank()) {
-                                // Não veio image_url no JSON: monta o fundo do confronto
-                                // automaticamente (degradê + escudos) via ConfrontoImageHelper.
-                                // Também cacheado por par de times pra não regerar à toa.
                                 val chaveFundo = "${info.team_home}|${info.team_away}"
                                 if (confrontoBitmapCache.containsKey(chaveFundo)) {
                                     confrontoBitmapCache[chaveFundo]
@@ -1929,11 +1725,9 @@ class HomeActivity : AppCompatActivity() {
                     .into(imgFundo)
             } catch (e: Exception) { e.printStackTrace() }
         } else if (jogo.bitmapFundo != null) {
-            // Sem image_url: usa o fundo gerado localmente (degradê + escudos)
             Glide.with(this).clear(imgFundo)
             imgFundo.setImageBitmap(jogo.bitmapFundo)
         } else {
-            // Nem image_url nem bitmap gerado (ex: escudos não encontrados e falha grave)
             Glide.with(this).clear(imgFundo)
             imgFundo.setImageDrawable(null)
         }
@@ -1970,31 +1764,18 @@ class HomeActivity : AppCompatActivity() {
         Glide.with(this)
             .load(imageUrl)
             .centerCrop()
-            .format(DecodeFormat.PREFER_RGB_565)   // menos bytes decodificados, decodifica mais rápido
+            .format(DecodeFormat.PREFER_RGB_565)
             .diskCacheStrategy(DiskCacheStrategy.ALL)
-            .priority(com.bumptech.glide.Priority.IMMEDIATE) // não fica na fila atrás dos pôsteres
-            .override(720, 405)                     // ajuste pro tamanho real do card — evita baixar em resolução original
+            .priority(com.bumptech.glide.Priority.IMMEDIATE)
+            .override(720, 405)
             .dontAnimate()
             .into(card.findViewById(R.id.imgFeaturedBanner))
     } catch (e: Exception) { e.printStackTrace() }
         }
 
-        // ✅ CORRIGIDO ("banner pisca e some"): antes o card era exibido
-        // (VISIBLE) IMEDIATAMENTE aqui, antes mesmo de saber se o título
-        // seria encontrado no catálogo local. Quando a busca terminava e
-        // não achava nada, buscarIdFeaturedBanner() escondia o card de
-        // novo — resultando no "flash": aparece por um instante e some.
-        // Agora só deixamos visível de cara quando já resolvemos esse
-        // MESMO título com sucesso antes nesta sessão (cache). Pra um
-        // título novo, o card fica oculto até a busca confirmar o
-        // resultado — sem susto visual, aparece só quando tem certeza.
         val jaResolvidoAntes = title == ultimoFeaturedTitleAplicado && featuredBannerEncontrado
         if (jaResolvidoAntes) {
             card.visibility = View.VISIBLE
-            // Já resolvido nesta sessão: não repete a busca (evita
-            // consultas LIKE/full-table-scan a cada onResume()). Os
-            // cliques continuam funcionando pois os listeners já foram
-            // configurados na resolução anterior nesta mesma Activity.
             return
         }
 
@@ -2008,9 +1789,6 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ NOVO: busca uma série direto pelo series_id (sem nenhum matching
-    // por nome). Usada quando "featured_content_id" vem preenchido no
-    // Remote Config — é o caminho 100% confiável, sem ambiguidade.
     private suspend fun buscarSeriePorId(id: Int): SeriesEntity? =
         withContext(Dispatchers.IO) {
             val cursor = database.openHelper.readableDatabase.query(
@@ -2041,8 +1819,6 @@ class HomeActivity : AppCompatActivity() {
             resultado
         }
 
-    // ✅ NOVO: mesma ideia de buscarSeriePorId(), pra filmes (VOD) — busca
-    // direto pelo stream_id, sem matching por nome.
     private suspend fun buscarVodPorId(id: Int): VodEntity? =
         withContext(Dispatchers.IO) {
             val cursor = database.openHelper.readableDatabase.query(
@@ -2075,22 +1851,6 @@ class HomeActivity : AppCompatActivity() {
             resultado
         }
 
-    // ✅ CORRIGIDO (bug "capa certa, conteúdo de outro título"): quando o
-    // catálogo tem entradas duplicadas com o mesmo nome exato (mesmo
-    // título cadastrado mais de uma vez, comum em listas Xtream), a
-    // resolução por nome não tem como garantir 100% qual duplicata tem o
-    // conteúdo certo — mesmo checando "tem episódio" no servidor, pois a
-    // duplicata errada pode responder com episódios (só que de outra
-    // série/temporada, um problema de cadastro no próprio servidor).
-    //
-    // A solução definitiva: se "featured_content_id" vier preenchido no
-    // Remote Config (você mesmo escolhe o series_id/stream_id certo no
-    // seu painel ao configurar o destaque), o app usa ESSE id direto,
-    // sem NENHUM matching por nome — zero ambiguidade possível. Se esse
-    // campo vier vazio (destaques configurados antes dessa mudança, ou
-    // que você ainda não preencheu), cai no fallback por nome de sempre
-    // (com a validação de episódios pra séries, que ajuda nos casos sem
-    // duplicata problemática no servidor).
     private fun buscarIdFeaturedBanner(
         card: androidx.cardview.widget.CardView,
         title: String,
@@ -2106,7 +1866,6 @@ class HomeActivity : AppCompatActivity() {
                 val idForcado = contentIdRC.trim().toIntOrNull()?.takeIf { it > 0 }
 
                 if (idForcado != null) {
-                    // Caminho confiável: ID exato configurado manualmente.
                     if (isSeriesRC) {
                         val serie = buscarSeriePorId(idForcado)
                         seriesId = idForcado
@@ -2118,12 +1877,6 @@ class HomeActivity : AppCompatActivity() {
                     }
                 } else if (isSeriesRC) {
                     val idCacheado = featuredResolvedIdCache[title]
-                    // ✅ CORRIGIDO ("banner pisca e some" / falso negativo):
-                    // troca a busca rígida (name = ? exato) pela tolerante
-                    // (buscarSeriesPorNomeTolerante), que ignora diferenças
-                    // de acento/pontuação/espaço mas ainda exige o título
-                    // INTEIRO batendo — não corre o risco de pegar "Preacher"
-                    // quando o título é "Reacher".
                     val candidatos = buscarSeriesPorNomeTolerante(title)
 
                     val serieResolvida = when {
@@ -2131,9 +1884,6 @@ class HomeActivity : AppCompatActivity() {
                             ?: candidatos.firstOrNull()
                         candidatos.size == 1 -> candidatos.first()
                         candidatos.size > 1 -> {
-                            // Mais de uma série com o mesmo nome: pergunta pro
-                            // servidor qual das duplicatas tem episódios de
-                            // verdade, em vez de chutar a primeira do banco.
                             candidatos.firstOrNull { serieTemEpisodiosValidos(it.series_id) }
                                 ?: candidatos.first()
                         }
@@ -2146,8 +1896,6 @@ class HomeActivity : AppCompatActivity() {
                         featuredResolvedIdCache[title] = serieResolvida.series_id
                     }
                 } else {
-                    // ✅ CORRIGIDO: mesma troca acima, agora pra filmes —
-                    // busca tolerante em vez de exata/substring.
                     val candidatosVod = buscarVodsPorNomeTolerante(title)
                     val vod = candidatosVod.firstOrNull()
                     if (vod != null) {
@@ -2159,9 +1907,6 @@ class HomeActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
 
-                    // Com ID forçado (featured_content_id), sempre "encontrado"
-                    // mesmo que a busca local não devolva capa — usamos o ID
-                    // direto e deixamos featured_image_url como visual.
                     val encontrado = idForcado != null || streamId != null || seriesId != null
                     if (!encontrado) {
                         if (ContentRepository.pronto) {
@@ -2202,13 +1947,6 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         try {
-            // ✅ OTIMIZAÇÃO: a checagem do Remote Config (banner de jogos e
-            // banner em destaque) é adiada em ~400ms aqui, pra não competir
-            // por rede com o carregamento inicial dos pôsteres de
-            // filmes/séries que acontece assim que a Home abre/volta ao
-            // primeiro plano. Combinado com o cache em
-            // aplicarGameBannerRotacao()/aplicarFeaturedBanner() acima, a
-            // Home volta a popular rápido mesmo com os banners ativos.
             lifecycleScope.launch(Dispatchers.Main) {
                 delay(400)
                 if (!isFinishing && !isDestroyed) {
@@ -2260,9 +1998,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun setupClicks() {
-        // Detecção de TV centralizada em DeviceUtils.kt (isTelevisionDevice()),
-        // usada em todo o app — não reimplementar localmente aqui.
-
         val cards = listOfNotNull(binding.cardLiveTv, binding.cardMovies, binding.cardSeries, binding.cardDownloads, binding.cardRetroGames)
         cards.forEach { card ->
             card.isFocusable = true
@@ -2345,17 +2080,6 @@ class HomeActivity : AppCompatActivity() {
         setupBannerFocusParaTv()
     }
 
-    /**
-     * cardGameBanner e cardFeaturedBanner hoje só existem no layout de
-     * celular (layout-port) — não aparecem no layout de TV (layout), então
-     * `binding.cardGameBanner` / `binding.cardFeaturedBanner` ficam `null`
-     * quando rodando em TV, e as funções abaixo simplesmente não fazem nada.
-     *
-     * Ainda assim deixamos o foco e a navegação por D-pad prontos aqui,
-     * pra caso esses cards sejam adicionados futuramente também no layout
-     * de TV — sem isso, o controle remoto não conseguiria alcançá-los,
-     * mesmo com o card visível na tela (só o clique por toque funcionaria).
-     */
     private fun setupBannerFocusParaTv() {
         if (!isTelevisionDevice()) return
 
@@ -2398,9 +2122,6 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
-        // Se cardFeaturedBanner/cardGameBanner existirem, conecta a linha de
-        // cima (bannerViewPager) e a linha de baixo (cardLiveTv) até eles,
-        // pra fechar a cadeia de D-pad nos dois sentidos.
         binding.bannerViewPager?.let { pager ->
             val destinoAbaixo = binding.cardFeaturedBanner ?: binding.cardGameBanner ?: binding.cardLiveTv
             pager.setOnKeyListener { _, keyCode, event ->
@@ -2469,8 +2190,6 @@ class HomeActivity : AppCompatActivity() {
                     val isSeries = item.is_series
                     var finalLogo: String? = null
 
-                    // ✅ NOVO: porcentagem assistida (0-100) pra desenhar a
-                    // barra de progresso no card largo, igual Netflix.
                     val progresso = if (item.duration > 0) {
                         ((item.last_position * 100) / item.duration).toInt().coerceIn(0, 100)
                     } else -1
@@ -2501,8 +2220,6 @@ class HomeActivity : AppCompatActivity() {
                             }
                         } catch (e: Exception) { e.printStackTrace() }
                     } else {
-                        // ✅ NOVO: histórico não guarda logo do filme — busca
-                        // no vod_streams pra poder mostrar a logo no card.
                         try {
                             finalLogo = database.streamDao().getVodByStreamId(item.stream_id)?.logo_url
                         } catch (e: Exception) { e.printStackTrace() }
@@ -2626,15 +2343,6 @@ class HomeActivity : AppCompatActivity() {
                     return
                 }
 
-                // ✅ NOVO: mostra IMEDIATAMENTE o pôster local (fallbackIcon)
-                // como fundo provisório, com o título por cima, enquanto a
-                // busca do backdrop/logo em alta resolução no TMDB roda em
-                // segundo plano. Antes, essa área ficava completamente
-                // vazia (sem imagem, sem título) até a resposta do TMDB
-                // voltar — essa era a causa principal da Home parecer
-                // "vazia" por alguns segundos ao abrir. Quando o resultado
-                // do TMDB chegar, resolverEAplicarBannerCompleto() substitui
-                // essa imagem provisória pelo backdrop/logo de verdade.
                 aplicarBannerCompleto(imgBanner, imgLogo, tvTitle, icon, null, cleanTitle)
 
                 resolverEAplicarBannerCompleto(
@@ -2654,11 +2362,6 @@ class HomeActivity : AppCompatActivity() {
         private val onItemClick: (VodItem) -> Unit
     ) : RecyclerView.Adapter<Top10Adapter.ViewHolder>() {
 
-        // ✅ NOVO: atualiza a lista via DiffUtil em vez de forçar quem
-        // chama a trocar o RecyclerView.adapter inteiro — mantém a
-        // posição de scroll e anima só as mudanças reais, evitando o
-        // "reset"/pisca visual quando o Top 10 do fallback local é
-        // substituído pelo resultado real do TMDB.
         fun updateList(newList: List<VodItem>) {
             val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
                 override fun getOldListSize() = list.size
