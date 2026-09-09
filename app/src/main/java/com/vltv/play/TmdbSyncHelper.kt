@@ -16,53 +16,37 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
 /**
- * TmdbSyncHelper — ver comentários originais de matching em cascata
- * (mantidos abaixo, sem mudança na lógica de Top10/Novidades).
+ * TmdbSyncHelper — matching em cascata pra Top10/Novidades (ver
+ * comentários originais mantidos abaixo). NOVIDADES NESTA VERSÃO:
  *
- * ─────────────────────────────────────────────────────────────────────────
- * NOVO NESTA VERSÃO:
+ * 1. ✅ CORRIGIDO (Top 10 Filmes/Séries Hoje mostrando conteúdo antigo/
+ *    incompleto): removido o filtro que só aceitava título com ANO DE
+ *    LANÇAMENTO = 2026 no Top 10. Um título estar no ranking real da
+ *    Netflix ESTA SEMANA já significa que ele é atual — não importa o
+ *    ano em que foi lançado (ex: uma série de 2022 que voltou a bombar
+ *    continua sendo Top 10 "hoje"). Esse filtro descartava quase todo o
+ *    ranking real, deixando o banco quase sem nada marcado is_top10, e
+ *    o HomeActivity caía no fallback (TMDB trending sem curadoria
+ *    nenhuma de atualidade) — daí filme de 2003/2016/2019 aparecendo e
+ *    Top 10 Séries mostrando só 1-2 itens.
  *
- * 1. Selo "Em Breve" agora distingue temporada nova de episódio novo,
- *    comparando o season_number do next_episode_to_air com a temporada
- *    atual (última já ao ar) — em vez de assumir sempre "temporada nova".
- *    Isso corrige séries como Lanternas mostrando "Nova Temporada Em
- *    Breve" quando na verdade era só mais um episódio da temporada em
- *    andamento.
+ * 2. Selo "Em Breve" distingue temporada nova de episódio novo, com
+ *    janela de ~30 dias.
  *
- * 2. Janela de antecedência (~30 dias) pro "Em Breve", em vez de aceitar
- *    qualquer data futura (antes uma estreia daqui a 6 meses já mostrava
- *    o selo).
- *
- * 3. vincularTmdbIdsFaltantes(): antes, uma série só ganhava tmdb_id se
- *    aparecesse no Top10 Netflix ou nos "lançamentos" do TMDB (ano ≥
- *    2025). Séries mais antigas que continuam lançando episódios (ex:
- *    Reacher) nunca passavam por ali, nunca ganhavam tmdb_id, e por isso
- *    nunca entravam na checagem de temporada/episódio — nunca ganhavam
- *    selo nenhum. Agora, antes de checar temporada/episódio, o código
- *    tenta vincular tmdb_id nas séries que ainda não têm, buscando pelo
- *    nome no TMDB com o mesmo critério de pontuação já usado pro Top10
- *    Netflix (só aceita match com pontuação ≥ 75, pra não vincular
- *    errado).
+ * 3. vincularTmdbIdsFaltantes(): vincula tmdb_id retroativamente pra
+ *    séries antigas que nunca passaram pelo Top10/Novidades (ex:
+ *    Reacher), que por isso nunca entravam na checagem de
+ *    temporada/episódio.
  *
  * 4. Ao final da sincronização, a cópia em memória do ContentRepository
- *    (usada por quase todas as fileiras da Home, exceto "Top 10 Hoje"
- *    que busca direto do banco) é recarregada com os dados frescos do
- *    banco — antes, fileiras como "Séries Para Você"/"Novidades"
- *    continuavam mostrando a versão desatualizada até o app ser
- *    reaberto, mesmo com o banco já correto.
- * ─────────────────────────────────────────────────────────────────────────
+ *    é recarregada com os dados frescos do banco.
  */
 object TmdbSyncHelper {
 
     private val TMDB_KEY = TmdbConfig.API_KEY
     private const val NOVIDADE_ANO_MIN = 2025
-    private const val TOP10_ANO_MIN = 2026
-    private const val TOP10_ANO_MAX = 2026
     private const val LIMITE_SERIES_TEMPORADA_EPISODIO = 40
-    // ✅ NOVO: quantas séries sem tmdb_id tentamos vincular por ciclo.
     private const val LIMITE_SERIES_SEM_TMDB_ID = 30
-    // ✅ NOVO: janela de antecedência pro selo "Em Breve" — só mostra se
-    // a estreia estiver a até ~30 dias, não qualquer data futura.
     private const val ANTECEDENCIA_EM_BREVE_MS = 30L * 24 * 60 * 60 * 1000L
 
     @Volatile
@@ -90,9 +74,6 @@ object TmdbSyncHelper {
             e.printStackTrace()
         }
 
-        // ✅ CORREÇÃO (selos/Top10 sumindo em fileiras que não sejam "Top
-        // 10 Hoje"): recarrega a cópia em memória do ContentRepository
-        // direto daqui, com os dados já frescos do banco.
         try {
             val vodsAtualizados = db.streamDao().getAllVods()
             val seriesAtualizadas = db.streamDao().getAllSeries()
@@ -121,8 +102,10 @@ object TmdbSyncHelper {
             val idsVodUsados = mutableSetOf<Int>()
             val idsSeriesUsados = mutableSetOf<Int>()
 
+            // ✅ SEM filtro de ano — o ranking já é "o que está bombando
+            // agora", ponto final. Todo item do ranking oficial que bater
+            // no catálogo entra no Top 10, não importa o ano do título.
             for (item in ranking.filmes) {
-                if (!ehTop10Recente(item.item)) continue
                 val id = encontrarVod(db, item.item, idsVodUsados)
                 if (id != null) {
                     idsVodUsados.add(id)
@@ -132,7 +115,6 @@ object TmdbSyncHelper {
             }
 
             for (item in ranking.series) {
-                if (!ehTop10Recente(item.item)) continue
                 val id = encontrarSerie(db, item.item, idsSeriesUsados)
                 if (id != null) {
                     idsSeriesUsados.add(id)
@@ -179,11 +161,9 @@ object TmdbSyncHelper {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // NOVA TEMPORADA / NOVO EPISÓDIO / EM BREVE (nova temporada e episódio)
+    // NOVA TEMPORADA / NOVO EPISÓDIO / EM BREVE
     // ─────────────────────────────────────────────────────────────────────────
     private suspend fun sincronizarTemporadasEpisodios(db: AppDatabase) {
-        // ✅ Antes de checar, tenta vincular tmdb_id nas séries que ainda
-        // não têm — senão elas nunca entram na consulta abaixo.
         try { vincularTmdbIdsFaltantes(db) } catch (e: Exception) { e.printStackTrace() }
 
         val candidatas = db.streamDao()
@@ -220,12 +200,6 @@ object TmdbSyncHelper {
                         )
                 }
 
-                // ✅ "Em breve" — só dentro da janela de antecedência, e
-                // distingue se o próximo episódio anunciado já é de uma
-                // temporada NOVA (comparado à temporada mais recente já ao
-                // ar) ou se é só mais um episódio da temporada em
-                // andamento. Cada caso vai pro seu próprio campo — nunca
-                // os dois preenchidos ao mesmo tempo.
                 var novaTemporadaEmBreveData: String? = null
                 var novoEpisodioEmBreveData: String? = null
 
@@ -255,8 +229,6 @@ object TmdbSyncHelper {
         val temporadaAtual: Int,
         val episodioAtual: Int,
         val proximaData: String?,
-        // ✅ NOVO: season_number do next_episode_to_air, pra saber se o
-        // próximo episódio é da temporada atual ou de uma nova.
         val proximaTemporadaNumero: Int?
     )
 
@@ -342,9 +314,6 @@ object TmdbSyncHelper {
                     nOrig.startsWith(alvo) || alvo.startsWith(nOrig) -> 75
                     else -> 0
                 }
-                // ⚠️ Limiar alto — sem um segundo critério de desempate
-                // (tipo ano, que a Netflix já fornece no caso do Top10), é
-                // melhor deixar a série sem tmdb_id do que vincular errado.
                 if (score > melhorPontuacao) {
                     melhorPontuacao = score
                     melhorId = obj.optInt("id", 0).takeIf { it > 0 }
@@ -469,11 +438,6 @@ object TmdbSyncHelper {
         }
         cursor.close()
         return resultado
-    }
-
-    private fun ehTop10Recente(item: TmdbItem): Boolean {
-        val ano = item.releaseDate.take(4).toIntOrNull() ?: return false
-        return ano in TOP10_ANO_MIN..TOP10_ANO_MAX
     }
 
     // ─────────────────────────────────────────────────────────────────────────
