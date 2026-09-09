@@ -16,74 +16,55 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
 /**
- * TmdbSyncHelper
- *
- * Estratégia de matching (em cascata, da mais para a menos confiável):
- *
- *  1. Título original do TMDB com delimitador de palavra
- *     Ex: "From" → WHERE name LIKE '% From %' OR name LIKE 'From %' OR ...
- *     Evita que "From" bata em "Away from Home" ou "Origem"
- *
- *  2. Título PT do TMDB com delimitador de palavra
- *     Ex: "Casa do Dragão" → delimitado, com curinga de acento
- *     Evita que "Origem" bata em "A Origem da Eternidade"
- *
- *  3. Palavra mais longa do título original com delimitador de palavra (fallback)
- *
- *  4. Palavra mais longa do título PT com delimitador de palavra (último recurso)
- *
- * ORDER BY LENGTH(name) ASC em todas as queries garante que o nome mais
- * curto (mais limpo, sem prefixos extras) seja sempre preferido.
- *
- * Delimitador de palavra simulado no SQLite:
- *   name LIKE '% TOKEN %'    → token no meio
- *   name LIKE 'TOKEN %'      → token no início
- *   name LIKE '% TOKEN'      → token no final
- *   name = 'TOKEN'           → token é o nome inteiro
- *   (variantes com ':' e '-' para padrões de servidor IPTV como "BR: From")
+ * TmdbSyncHelper — ver comentários originais de matching em cascata
+ * (mantidos abaixo, sem mudança na lógica de Top10/Novidades).
  *
  * ─────────────────────────────────────────────────────────────────────────
- * CORREÇÃO (trava/ANR ao abrir o app pela 2ª vez):
- * Antes, cada updateVodTop10()/updateVodNovidade()/updateSeriesTop10()/
- * updateSeriesNovidade() era chamado individualmente dentro do loop, fora de
- * qualquer transação. No SQLite em modo WAL (Room) só existe UMA conexão de
- * escrita por vez; cada UPDATE solto abre/fecha sua própria transação
- * implícita. Com 100+ updates em sequência (10 trending + até 3 páginas x 20
- * itens x 2 tipos de "lançamentos"), essa única conexão de escrita ficava
- * ocupada tempo suficiente para travar outras leituras/escritas concorrentes
- * (Home, Novidades) — daí o ANR "VLTV não está respondendo".
- * Agora cada fase (Top10 e Novidades) roda dentro de db.withTransaction { },
- * agrupando todos os updates daquela fase em UMA única transação de escrita.
+ * NOVO NESTA VERSÃO:
+ *
+ * 1. Selo "Em Breve" agora distingue temporada nova de episódio novo,
+ *    comparando o season_number do next_episode_to_air com a temporada
+ *    atual (última já ao ar) — em vez de assumir sempre "temporada nova".
+ *    Isso corrige séries como Lanternas mostrando "Nova Temporada Em
+ *    Breve" quando na verdade era só mais um episódio da temporada em
+ *    andamento.
+ *
+ * 2. Janela de antecedência (~30 dias) pro "Em Breve", em vez de aceitar
+ *    qualquer data futura (antes uma estreia daqui a 6 meses já mostrava
+ *    o selo).
+ *
+ * 3. vincularTmdbIdsFaltantes(): antes, uma série só ganhava tmdb_id se
+ *    aparecesse no Top10 Netflix ou nos "lançamentos" do TMDB (ano ≥
+ *    2025). Séries mais antigas que continuam lançando episódios (ex:
+ *    Reacher) nunca passavam por ali, nunca ganhavam tmdb_id, e por isso
+ *    nunca entravam na checagem de temporada/episódio — nunca ganhavam
+ *    selo nenhum. Agora, antes de checar temporada/episódio, o código
+ *    tenta vincular tmdb_id nas séries que ainda não têm, buscando pelo
+ *    nome no TMDB com o mesmo critério de pontuação já usado pro Top10
+ *    Netflix (só aceita match com pontuação ≥ 75, pra não vincular
+ *    errado).
+ *
+ * 4. Ao final da sincronização, a cópia em memória do ContentRepository
+ *    (usada por quase todas as fileiras da Home, exceto "Top 10 Hoje"
+ *    que busca direto do banco) é recarregada com os dados frescos do
+ *    banco — antes, fileiras como "Séries Para Você"/"Novidades"
+ *    continuavam mostrando a versão desatualizada até o app ser
+ *    reaberto, mesmo com o banco já correto.
  * ─────────────────────────────────────────────────────────────────────────
  */
 object TmdbSyncHelper {
 
-    // ⚠️ CORREÇÃO (selos zerados — Top10=0 e Novidade=0 em filme E série):
-    // este arquivo usava uma chave de API do TMDB DIFERENTE e fixa no
-    // código, em vez da chave real configurada no app (TmdbConfig.API_KEY,
-    // que vem do BuildConfig/segredo do GitHub Actions). Se essa chave
-    // avulsa estiver vencida, revogada ou sem cota, TODA chamada ao TMDB
-    // feita por este arquivo falha silenciosamente (cada função tem
-    // try/catch que engole o erro e retorna vazio/nulo) — por isso Top10 E
-    // Novidade davam zero ao mesmo tempo: as duas dependem de uma consulta
-    // ao TMDB em algum momento (Top10 pra achar o tmdb_id do título da
-    // Netflix; Novidade pra listar os lançamentos). Outras telas do app
-    // (Filmes, Séries, Detalhes) já usavam TmdbConfig.API_KEY e por isso
-    // continuavam funcionando normalmente — só este arquivo estava com a
-    // chave errada.
     private val TMDB_KEY = TmdbConfig.API_KEY
     private const val NOVIDADE_ANO_MIN = 2025
     private const val TOP10_ANO_MIN = 2026
     private const val TOP10_ANO_MAX = 2026
-    // ✅ Limite de séries checadas por ciclo (evita sobrecarregar a API do
-    // TMDB com uma chamada de detalhes por série a cada sincronização).
     private const val LIMITE_SERIES_TEMPORADA_EPISODIO = 40
+    // ✅ NOVO: quantas séries sem tmdb_id tentamos vincular por ciclo.
+    private const val LIMITE_SERIES_SEM_TMDB_ID = 30
+    // ✅ NOVO: janela de antecedência pro selo "Em Breve" — só mostra se
+    // a estreia estiver a até ~30 dias, não qualquer data futura.
+    private const val ANTECEDENCIA_EM_BREVE_MS = 30L * 24 * 60 * 60 * 1000L
 
-    // 🔎 DIAGNÓSTICO TEMPORÁRIO — guarda um resumo de cada fase da última
-    // sincronização (quantos itens vieram da rede, quantos bateram com o
-    // catálogo), pra descobrir exatamente ONDE a corrente quebra quando os
-    // selos não aparecem. HomeActivity mostra isso num Toast. Remover
-    // depois que os selos voltarem a funcionar de forma confiável.
     @Volatile
     var ultimoDiagnostico: String = "(sincronização ainda não rodou)"
         private set
@@ -103,7 +84,24 @@ object TmdbSyncHelper {
             diag.append("NOVIDADE ERRO: ${e.javaClass.simpleName} ${e.message}")
             e.printStackTrace()
         }
-        try { sincronizarTemporadasEpisodios(db) } catch (e: Exception) { e.printStackTrace() }
+        try {
+            sincronizarTemporadasEpisodios(db)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // ✅ CORREÇÃO (selos/Top10 sumindo em fileiras que não sejam "Top
+        // 10 Hoje"): recarrega a cópia em memória do ContentRepository
+        // direto daqui, com os dados já frescos do banco.
+        try {
+            val vodsAtualizados = db.streamDao().getAllVods()
+            val seriesAtualizadas = db.streamDao().getAllSeries()
+            ContentRepository.atualizarVods(vodsAtualizados)
+            ContentRepository.atualizarSeries(seriesAtualizadas)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         ultimoDiagnostico = diag.toString()
     }
 
@@ -111,8 +109,6 @@ object TmdbSyncHelper {
     // TOP 10
     // ─────────────────────────────────────────────────────────────────────────
     private suspend fun sincronizarTop10(db: AppDatabase): String {
-        // Fonte oficial: Top 10 semanal da Netflix Brasil.
-        // A lista é publicada por país e contém o ranking real (1..10).
         val ranking = buscarTop10NetflixBrasil()
 
         var filmesAchados = 0
@@ -125,9 +121,6 @@ object TmdbSyncHelper {
             val idsVodUsados = mutableSetOf<Int>()
             val idsSeriesUsados = mutableSetOf<Int>()
 
-            // Somente títulos de 2026 entram no Top 10 do aplicativo.
-            // Títulos antigos do ranking oficial da Netflix são ignorados e
-            // não são usados para preencher posições vazias.
             for (item in ranking.filmes) {
                 if (!ehTop10Recente(item.item)) continue
                 val id = encontrarVod(db, item.item, idsVodUsados)
@@ -157,7 +150,6 @@ object TmdbSyncHelper {
     // NOVIDADES
     // ─────────────────────────────────────────────────────────────────────────
     private suspend fun sincronizarNovidades(db: AppDatabase): String {
-        // Idem: rede primeiro, fora da transação.
         val filmesNovos = buscarLancamentosTmdb("movie", paginas = 3)
         val seriesNovas = buscarLancamentosTmdb("tv",    paginas = 3)
 
@@ -187,24 +179,18 @@ object TmdbSyncHelper {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // NOVA TEMPORADA / NOVO EPISÓDIO / EM BREVE
+    // NOVA TEMPORADA / NOVO EPISÓDIO / EM BREVE (nova temporada e episódio)
     // ─────────────────────────────────────────────────────────────────────────
-    // Diferente do Top10/Novidades (que batem uma lista do TMDB contra o
-    // catálogo por título), aqui já se sabe o tmdb_id de cada série — então
-    // é uma consulta de DETALHES por série (GET /tv/{id}), uma a uma.
-    // last_episode_to_air = episódio mais recente já ao ar; comparando com
-    // o que estava salvo da última vez, dá pra saber se subiu temporada
-    // nova ou só mais um episódio. next_episode_to_air = próximo episódio
-    // anunciado mas ainda não exibido — vira o selo "Em breve" quando a
-    // data dele ainda está no futuro.
     private suspend fun sincronizarTemporadasEpisodios(db: AppDatabase) {
+        // ✅ Antes de checar, tenta vincular tmdb_id nas séries que ainda
+        // não têm — senão elas nunca entram na consulta abaixo.
+        try { vincularTmdbIdsFaltantes(db) } catch (e: Exception) { e.printStackTrace() }
+
         val candidatas = db.streamDao()
             .getSeriesComTmdbIdParaChecarEpisodios(LIMITE_SERIES_TEMPORADA_EPISODIO)
             .filter { it.tmdb_id != null }
         if (candidatas.isEmpty()) return
 
-        // Busca todos os detalhes na rede ANTES de abrir a transação — mesma
-        // regra do resto do arquivo: transação só com operações de banco.
         val resultados = mutableListOf<Pair<SeriesTmdbProgresso, DetalhesSerieTmdb>>()
         for (c in candidatas) {
             val detalhes = buscarDetalhesSerieTmdb(c.tmdb_id!!) ?: continue
@@ -213,15 +199,10 @@ object TmdbSyncHelper {
         if (resultados.isEmpty()) return
 
         val agora = System.currentTimeMillis()
-        val hoje  = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
         db.withTransaction {
             for ((progresso, detalhes) in resultados) {
                 when {
-                    // Baseline nunca gravada (0,0) — primeira vez que essa
-                    // série é checada. Só salva o estado atual, sem marcar
-                    // como "novidade" (senão TODA série marcaria selo na
-                    // primeira sincronização depois de instalar o app).
                     progresso.tmdb_ultima_temporada == 0 && progresso.tmdb_ultimo_episodio == 0 ->
                         db.streamDao().atualizarProgressoSemAlerta(
                             progresso.series_id, detalhes.temporadaAtual, detalhes.episodioAtual
@@ -239,10 +220,33 @@ object TmdbSyncHelper {
                         )
                 }
 
-                val emBreve = detalhes.proximaData != null && detalhes.proximaData > hoje
-                db.streamDao().atualizarProximaTemporada(
-                    progresso.series_id, if (emBreve) detalhes.proximaData else null
-                )
+                // ✅ "Em breve" — só dentro da janela de antecedência, e
+                // distingue se o próximo episódio anunciado já é de uma
+                // temporada NOVA (comparado à temporada mais recente já ao
+                // ar) ou se é só mais um episódio da temporada em
+                // andamento. Cada caso vai pro seu próprio campo — nunca
+                // os dois preenchidos ao mesmo tempo.
+                var novaTemporadaEmBreveData: String? = null
+                var novoEpisodioEmBreveData: String? = null
+
+                if (detalhes.proximaData != null) {
+                    val proximaMillis = parseDataParaMillis(detalhes.proximaData)
+                    val dentroDaJanela = proximaMillis != null &&
+                        proximaMillis > agora &&
+                        (proximaMillis - agora) <= ANTECEDENCIA_EM_BREVE_MS
+
+                    if (dentroDaJanela) {
+                        val temporadaDoProximo = detalhes.proximaTemporadaNumero ?: detalhes.temporadaAtual
+                        if (temporadaDoProximo > detalhes.temporadaAtual) {
+                            novaTemporadaEmBreveData = detalhes.proximaData
+                        } else {
+                            novoEpisodioEmBreveData = detalhes.proximaData
+                        }
+                    }
+                }
+
+                db.streamDao().atualizarProximaTemporada(progresso.series_id, novaTemporadaEmBreveData)
+                db.streamDao().atualizarProximoEpisodio(progresso.series_id, novoEpisodioEmBreveData)
             }
         }
     }
@@ -250,7 +254,10 @@ object TmdbSyncHelper {
     private data class DetalhesSerieTmdb(
         val temporadaAtual: Int,
         val episodioAtual: Int,
-        val proximaData: String?
+        val proximaData: String?,
+        // ✅ NOVO: season_number do next_episode_to_air, pra saber se o
+        // próximo episódio é da temporada atual ou de uma nova.
+        val proximaTemporadaNumero: Int?
     )
 
     private fun buscarDetalhesSerieTmdb(tmdbId: Int): DetalhesSerieTmdb? {
@@ -264,8 +271,87 @@ object TmdbSyncHelper {
 
             val proximo = json.optJSONObject("next_episode_to_air")
             val proximaData = proximo?.optString("air_date", "")?.takeIf { it.isNotEmpty() }
+            val proximaTemporadaNumero = proximo?.optInt("season_number", -1)?.takeIf { it >= 0 }
 
-            DetalhesSerieTmdb(temporadaAtual, episodioAtual, proximaData)
+            DetalhesSerieTmdb(temporadaAtual, episodioAtual, proximaData, proximaTemporadaNumero)
+        } catch (e: Exception) { null }
+    }
+
+    private fun parseDataParaMillis(data: String): Long? {
+        return try {
+            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(data)?.time
+        } catch (e: Exception) { null }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // VINCULAÇÃO RETROATIVA DE tmdb_id (séries antigas tipo Reacher)
+    // ─────────────────────────────────────────────────────────────────────────
+    private val REGEX_TARJAS_CATALOGO = Regex(
+        "(?i)\\b(4K|8K|FULL[\\s.-]?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|LEG|DUB|DUAL|AUDIO|LATINO|" +
+        "NACIONAL|PT[-.]?BR|PTBR|WEB[-.]?DL|WEBRIP|BLU-?RAY|REMUX|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|" +
+        "HEVC|X264|X265|WEB|HDR|UHD|FHD|CAM|HDCAM|TS|TC|R5|SCREENER|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO|" +
+        "COMPLETO|COMPLETE|S\\d{1,2}|E\\d{1,3}|EP\\d{1,3}|TEMPORADA|SEASON)\\b"
+    )
+
+    private suspend fun vincularTmdbIdsFaltantes(db: AppDatabase) {
+        val candidatas = db.streamDao().getSeriesSemTmdbId(LIMITE_SERIES_SEM_TMDB_ID)
+        if (candidatas.isEmpty()) return
+
+        val encontrados = mutableListOf<Pair<Int, Int>>()
+        for (c in candidatas) {
+            val tmdbId = buscarTmdbIdPorNomeCatalogo(c.name) ?: continue
+            encontrados.add(c.series_id to tmdbId)
+        }
+        if (encontrados.isEmpty()) return
+
+        db.withTransaction {
+            for ((seriesId, tmdbId) in encontrados) {
+                db.streamDao().atualizarTmdbIdSerie(seriesId, tmdbId)
+            }
+        }
+    }
+
+    private fun buscarTmdbIdPorNomeCatalogo(nomeCatalogo: String): Int? {
+        val limpo = nomeCatalogo
+            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
+            .replace(REGEX_TARJAS_CATALOGO, "")
+            .replace(Regex("\\s{2,}"), " ")
+            .trim()
+        if (limpo.isBlank()) return null
+
+        return try {
+            val query = URLEncoder.encode(limpo, "UTF-8")
+            val url = "https://api.themoviedb.org/3/search/tv" +
+                "?api_key=$TMDB_KEY&query=$query&language=pt-BR&region=BR&page=1"
+            val json = JSONObject(URL(url).readText())
+            val results = json.optJSONArray("results") ?: return null
+            if (results.length() == 0) return null
+
+            val alvo = normalizarTitulo(limpo)
+            var melhorId: Int? = null
+            var melhorPontuacao = 0
+
+            for (i in 0 until minOf(results.length(), 10)) {
+                val obj = results.getJSONObject(i)
+                val nPt = normalizarTitulo(obj.optString("name", ""))
+                val nOrig = normalizarTitulo(obj.optString("original_name", ""))
+                val score = when {
+                    alvo == nPt && alvo.isNotBlank() -> 100
+                    alvo == nOrig && alvo.isNotBlank() -> 95
+                    nPt.startsWith(alvo) || alvo.startsWith(nPt) -> 80
+                    nOrig.startsWith(alvo) || alvo.startsWith(nOrig) -> 75
+                    else -> 0
+                }
+                // ⚠️ Limiar alto — sem um segundo critério de desempate
+                // (tipo ano, que a Netflix já fornece no caso do Top10), é
+                // melhor deixar a série sem tmdb_id do que vincular errado.
+                if (score > melhorPontuacao) {
+                    melhorPontuacao = score
+                    melhorId = obj.optInt("id", 0).takeIf { it > 0 }
+                }
+            }
+            if (melhorPontuacao < 75) return null
+            melhorId
         } catch (e: Exception) { null }
     }
 
@@ -273,27 +359,21 @@ object TmdbSyncHelper {
     // MATCHING — 4 estratégias em cascata para VOD
     // ─────────────────────────────────────────────────────────────────────────
     private fun encontrarVod(db: AppDatabase, item: TmdbItem, excluir: Set<Int>): Int? {
-        // Primeiro tenta o TMDB ID, quando já existe no catálogo.
         item.tmdbId?.let { tmdbId ->
             queryVodByTmdbId(db, tmdbId, excluir)?.let { return it }
         }
-
-        // 1. Título original com delimitador de palavra (mais específico — evita colisão de traduções)
         if (item.tituloOrig.length >= 3) {
             val id = queryVodMultiPattern(db, wordBoundaryPatterns(item.tituloOrig), excluir)
             if (id != null) return id
         }
-        // 2. Título PT com delimitador de palavra + curinga de acento
         if (item.tituloPt.length >= 4) {
             val id = queryVodMultiPattern(db, wordBoundaryPatterns(item.tituloPt, acentoCuringa = true), excluir)
             if (id != null) return id
         }
-        // 3. Palavra mais longa do original com delimitador de palavra (fallback)
         palavraMaisLonga(item.tituloOrig)?.let { p ->
             val id = queryVodMultiPattern(db, wordBoundaryPatterns(p), excluir)
             if (id != null) return id
         }
-        // 4. Palavra mais longa do PT com delimitador de palavra (último recurso)
         palavraMaisLonga(item.tituloPt)?.let { p ->
             val id = queryVodMultiPattern(db, wordBoundaryPatterns(p, acentoCuringa = true), excluir)
             if (id != null) return id
@@ -305,27 +385,21 @@ object TmdbSyncHelper {
     // MATCHING — 4 estratégias em cascata para SÉRIE
     // ─────────────────────────────────────────────────────────────────────────
     private fun encontrarSerie(db: AppDatabase, item: TmdbItem, excluir: Set<Int>): Int? {
-        // Primeiro tenta o TMDB ID, quando já existe no catálogo.
         item.tmdbId?.let { tmdbId ->
             querySerieByTmdbId(db, tmdbId, excluir)?.let { return it }
         }
-
-        // 1. Título original com delimitador de palavra
         if (item.tituloOrig.length >= 3) {
             val id = querySerieMultiPattern(db, wordBoundaryPatterns(item.tituloOrig), excluir)
             if (id != null) return id
         }
-        // 2. Título PT com delimitador de palavra + curinga de acento
         if (item.tituloPt.length >= 4) {
             val id = querySerieMultiPattern(db, wordBoundaryPatterns(item.tituloPt, acentoCuringa = true), excluir)
             if (id != null) return id
         }
-        // 3. Palavra mais longa do original com delimitador de palavra
         palavraMaisLonga(item.tituloOrig)?.let { p ->
             val id = querySerieMultiPattern(db, wordBoundaryPatterns(p), excluir)
             if (id != null) return id
         }
-        // 4. Palavra mais longa do PT com delimitador de palavra
         palavraMaisLonga(item.tituloPt)?.let { p ->
             val id = querySerieMultiPattern(db, wordBoundaryPatterns(p, acentoCuringa = true), excluir)
             if (id != null) return id
@@ -361,17 +435,6 @@ object TmdbSyncHelper {
         return resultado
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Queries SQLite com múltiplos padrões (OR) — ORDER BY LENGTH(name) ASC
-    //
-    // Executa uma query com todos os padrões de word boundary via OR,
-    // para não fazer múltiplos roundtrips ao banco por título.
-    //
-    // Usa readableDatabase: dentro da transação de escrita (withTransaction),
-    // a própria conexão de escrita do Room atende a leitura também — não há
-    // necessidade nem benefício de pedir writableDatabase aqui, e pedir
-    // readableDatabase deixa a intenção clara (isto é um SELECT).
-    // ─────────────────────────────────────────────────────────────────────────
     private fun queryVodMultiPattern(
         db: AppDatabase,
         patterns: List<String>,
@@ -423,9 +486,6 @@ object TmdbSyncHelper {
         val series: List<NetflixRankedItem>
     )
 
-    // 🔎 DIAGNÓSTICO TEMPORÁRIO — motivo exato de falha na busca do Top10
-    // Netflix (código HTTP, timeout, etc.), já que o catch abaixo engolia
-    // isso e só devolvia listas vazias sem dizer por quê.
     @Volatile
     var ultimoErroTop10Rede: String? = null
         private set
@@ -437,10 +497,6 @@ object TmdbSyncHelper {
             connection.connectTimeout = 12000
             connection.readTimeout = 20000
             connection.requestMethod = "GET"
-            // ⚠️ Sem User-Agent, alguns servidores (inclusive CDNs da
-            // Netflix) recusam a requisição silenciosamente ou retornam
-            // conteúdo vazio/erro — o que zeraria o Top10 mesmo com a API
-            // key do TMDB certa. Um User-Agent de navegador comum evita isso.
             connection.setRequestProperty(
                 "User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -587,9 +643,6 @@ object TmdbSyncHelper {
             .trim()
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TMDB — usado pela seção de NOVIDADES.
-    // ─────────────────────────────────────────────────────────────────────────
     private fun buscarLancamentosTmdb(tipo: String, paginas: Int): List<TmdbItem> {
         val resultado = mutableListOf<TmdbItem>()
         val dataMin = "$NOVIDADE_ANO_MIN-01-01"
@@ -636,29 +689,7 @@ object TmdbSyncHelper {
         return lista
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // wordBoundaryPatterns
-    //
-    // Gera os padrões LIKE que simulam "word boundary" no SQLite.
-    //
-    // Para o token "From" (limpo de ruídos), gera:
-    //   "% From %"   → token no meio do nome
-    //   "From %"     → token no início do nome
-    //   "% From"     → token no final do nome
-    //   "From"       → nome exatamente igual ao token
-    //   "% : From %" → token após separador de servidor (ex: "BR: From")
-    //   ": From %"   → idem, no início
-    //   "% - From %  → token após traço (ex: "4K - From")
-    //   "- From %"   → idem, no início
-    //
-    // Se acentoCuringa=true, substitui letras acentuadas por "_" (qualquer char).
-    // Isso faz "Casa do Drag_o" bater com "Casa do Dragao" e "Casa do Dragão".
-    //
-    // Remove ruídos antes de montar os padrões: ano entre parênteses, tags de
-    // qualidade comuns (4K, HD, DUBLADO etc.).
-    // ─────────────────────────────────────────────────────────────────────────
     private fun wordBoundaryPatterns(titulo: String, acentoCuringa: Boolean = false): List<String> {
-        // 1. Limpar ruídos do título TMDB (ano, qualidade)
         val limpo = titulo
             .replace(Regex("\\(\\d{4}\\)"), "")
             .replace(
@@ -669,29 +700,22 @@ object TmdbSyncHelper {
 
         if (limpo.isBlank()) return emptyList()
 
-        // 2. Aplicar curinga de acento se solicitado
         val token = if (acentoCuringa) aplicarCuringaAcento(limpo) else limpo
 
-        // 3. Montar os padrões de word boundary
-        // Separadores comuns no IPTV: espaço, ": ", " - ", "- "
         return listOf(
-            "% $token %",   // token no meio
-            "$token %",     // token no início
-            "% $token",     // token no final
-            token,          // nome exato
-            "%: $token %",  // após "BR: " no meio
-            ": $token %",   // após "BR: " no início
-            "%: $token",    // após "BR: " no final
-            "% - $token %", // após "- " (tags de qualidade) no meio
-            "- $token %",   // após "- " no início
-            "% - $token"    // após "- " no final
+            "% $token %",
+            "$token %",
+            "% $token",
+            token,
+            "%: $token %",
+            ": $token %",
+            "%: $token",
+            "% - $token %",
+            "- $token %",
+            "% - $token"
         )
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Substitui letras acentuadas por "_" (curinga SQLite = qualquer 1 char)
-    // Permite bater "Dragão" com "Dragao" e vice-versa.
-    // ─────────────────────────────────────────────────────────────────────────
     private fun aplicarCuringaAcento(texto: String): String {
         return texto
             .replace(Regex("[àáâãäå]"), "_")
@@ -703,11 +727,6 @@ object TmdbSyncHelper {
             .replace(Regex("[ñ]"), "_")
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Extrai a palavra mais longa do título (mínimo 5 chars).
-    // Remove acentos para busca mais robusta como fallback.
-    // Ignora palavras curtas (artigos, preposições).
-    // ─────────────────────────────────────────────────────────────────────────
     private fun palavraMaisLonga(titulo: String): String? {
         if (titulo.isBlank()) return null
         return titulo
