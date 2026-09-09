@@ -87,7 +87,7 @@ data class SeriesEntity(
     val is_novidade: Int = 0,
     val tmdb_id: Int? = null,
     val backdrop_path: String? = null,
-    // ✅ NOVO: rastreamento de temporada/episódio pra detectar quando uma
+    // ✅ rastreamento de temporada/episódio pra detectar quando uma
     // série existente ganha conteúdo novo. Guarda a última temporada/
     // episódio já vistos no TMDB (last_episode_to_air) da última vez que
     // a sincronização rodou — comparando com o valor atual, dá pra saber
@@ -102,20 +102,40 @@ data class SeriesEntity(
     // não são limpos a cada sincronização (senão nunca dariam tempo de
     // aparecer pro usuário entre um ciclo e outro).
     val tmdb_flag_marcado_em: Long = 0,
-    // ✅ Data (ISO yyyy-MM-dd) do próximo episódio/temporada ainda não
-    // exibido no TMDB (next_episode_to_air) — usada pro selo "Em breve".
-    // Null quando não há nada agendado.
-    val tmdb_proxima_temporada_data: String? = null
+    // ✅ Data (ISO yyyy-MM-dd) do próximo episódio já não exibido no
+    // TMDB (next_episode_to_air), APENAS quando esse próximo episódio já
+    // pertence a uma temporada NOVA — usada pro selo "Nova Temporada Em
+    // Breve". Null quando não há nada agendado dentro da janela.
+    val tmdb_proxima_temporada_data: String? = null,
+    // ✅ NOVO (v14 → v15): Data (ISO yyyy-MM-dd) do próximo episódio
+    // quando ele é da MESMA temporada já em andamento — usada pro selo
+    // "Novo Episódio Em Breve", separado do campo acima (que é só
+    // quando o próximo episódio já é de uma temporada nova). Antes só
+    // existia um campo pros dois casos, o que fazia séries com episódio
+    // semanal (ex: Reacher) mostrarem "Nova Temporada Em Breve" errado.
+    val tmdb_proximo_episodio_data: String? = null
 )
 
-// ✅ NOVO: projeção leve (só os 4 campos necessários) pra checar o
-// progresso de temporada/episódio de cada série sem carregar a entidade
-// inteira — usado pela sincronização de nova temporada/novo episódio.
+// ✅ projeção leve (só os 4 campos necessários) pra checar o progresso
+// de temporada/episódio de cada série sem carregar a entidade inteira —
+// usado pela sincronização de nova temporada/novo episódio.
 data class SeriesTmdbProgresso(
     val series_id: Int,
     val tmdb_id: Int?,
     val tmdb_ultima_temporada: Int,
     val tmdb_ultimo_episodio: Int
+)
+
+// ✅ NOVO: projeção leve (só série_id + nome) pra achar séries que ainda
+// não têm tmdb_id vinculado — usada pra tentar vincular retroativamente.
+// Hoje o tmdb_id só é gravado quando a série aparece no Top10 Netflix ou
+// nos "lançamentos" do TMDB (ano ≥ 2025); séries mais antigas que ainda
+// lançam episódios novos (ex: Reacher) nunca passam por ali e por isso
+// nunca ganhavam tmdb_id — e sem tmdb_id, nunca entravam na checagem de
+// temporada/episódio.
+data class SeriesNomeBasico(
+    val series_id: Int,
+    val name: String
 )
 
 @Entity(
@@ -154,23 +174,6 @@ data class EpgEntity(
     val description: String?
 )
 
-// ✅ (v11 → v12): campo "profile_name" — cada download fica amarrado ao
-// perfil que o iniciou (ex: "Infantil" ou o nome do perfil adulto). Antes
-// esse campo não existia, então TODOS os downloads apareciam pra TODOS os
-// perfis (bug relatado pelo Léo: download feito no Kids aparecendo no
-// perfil adulto e vice-versa).
-//
-// Segue o mesmo padrão já usado em "watch_history.profile_name" — mesma
-// convenção de nome de coluna, mesmo jeito de guardar (string simples
-// com o nome do perfil, sem precisar de FK pra manter simplicidade).
-//
-// ✅ (v12 → v13): adicionados índices em "android_download_id",
-// "file_path" e "stream_id"+"type" — colunas usadas em
-// updateDownloadProgress, updateDownloadProgressByContentId e
-// getDownloadByStreamId, que antes não tinham índice próprio (só existia
-// em status/name+season/profile_name). Sem efeito perceptível hoje (a
-// tabela costuma ter poucas linhas), é só margem de segurança caso o
-// usuário acumule muitos downloads ao longo do tempo.
 @Entity(
     tableName = "downloads",
     indices = [
@@ -244,10 +247,7 @@ interface StreamDao {
     @Query("SELECT COUNT(*) FROM vod_streams")
     suspend fun getVodCount(): Int
 
-    // 🔎 DIAGNÓSTICO TEMPORÁRIO — usado só pra descobrir se os selos não
-    // aparecem porque o TmdbSyncHelper não está marcando nada no banco
-    // (contagem = 0) ou porque o banco está certo e o problema é só na
-    // exibição (contagem > 0). Pode remover depois de descobrir a causa.
+    // 🔎 DIAGNÓSTICO TEMPORÁRIO
     @Query("SELECT COUNT(*) FROM vod_streams WHERE is_top10 = 1")
     suspend fun contarVodTop10(): Int
 
@@ -269,9 +269,6 @@ interface StreamDao {
     @Query("SELECT * FROM vod_streams WHERE category_id = :categoryId ORDER BY added DESC")
     suspend fun getVodsByCategory(categoryId: String): List<VodEntity>
 
-    // ✅ NOVO: busca um único filme pelo stream_id — usado pra recuperar a
-    // logo (logo_url) na fileira "Continuar Assistindo", já que o
-    // histórico (WatchHistoryEntity) não guarda a logo.
     @Query("SELECT * FROM vod_streams WHERE stream_id = :id LIMIT 1")
     suspend fun getVodByStreamId(id: Int): VodEntity?
 
@@ -365,8 +362,7 @@ interface StreamDao {
     @Query("UPDATE series_streams SET is_novidade = 0, tmdb_release_date = NULL")
     suspend fun clearSeriesNovidadeFlags()
 
-    // ✅ NOVO: nova temporada / novo episódio (independente de "novidade",
-    // que é só pra séries recém-adicionadas ao catálogo)
+    // --- nova temporada / novo episódio ---
     @Query("SELECT series_id, tmdb_id, tmdb_ultima_temporada, tmdb_ultimo_episodio FROM series_streams WHERE tmdb_id IS NOT NULL ORDER BY last_modified DESC LIMIT :limite")
     suspend fun getSeriesComTmdbIdParaChecarEpisodios(limite: Int): List<SeriesTmdbProgresso>
 
@@ -381,6 +377,17 @@ interface StreamDao {
 
     @Query("UPDATE series_streams SET tmdb_proxima_temporada_data = :data WHERE series_id = :id")
     suspend fun atualizarProximaTemporada(id: Int, data: String?)
+
+    // ✅ NOVO: "Novo Episódio Em Breve" — mesma temporada em andamento.
+    @Query("UPDATE series_streams SET tmdb_proximo_episodio_data = :data WHERE series_id = :id")
+    suspend fun atualizarProximoEpisodio(id: Int, data: String?)
+
+    // ✅ NOVO: séries sem tmdb_id ainda — candidatas a vinculação retroativa.
+    @Query("SELECT series_id, name FROM series_streams WHERE tmdb_id IS NULL ORDER BY last_modified DESC LIMIT :limite")
+    suspend fun getSeriesSemTmdbId(limite: Int): List<SeriesNomeBasico>
+
+    @Query("UPDATE series_streams SET tmdb_id = :tmdbId WHERE series_id = :id")
+    suspend fun atualizarTmdbIdSerie(id: Int, tmdbId: Int)
 
     // --- CATEGORIAS ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -403,27 +410,15 @@ interface StreamDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDownload(download: DownloadEntity): Long
 
-    // ⚠️ Mantida por compatibilidade, mas NÃO deve mais ser usada pelas
-    // telas de listagem (Kids e Adulto), já que retorna downloads de
-    // TODOS os perfis misturados — era essa a causa do bug relatado.
     @Query("SELECT * FROM downloads ORDER BY id DESC")
     fun getAllDownloads(): androidx.lifecycle.LiveData<List<DownloadEntity>>
 
-    // ✅ Usar esta em vez de getAllDownloads() nas telas de listagem —
-    // filtra pelo perfil que fez o download. Usada tanto por
-    // DownloadsActivity (perfil adulto) quanto por KidsDownloadsActivity/
-    // KidsSeriesEpisodesActivity (perfil Kids), cada uma passando o nome
-    // do próprio perfil ativo.
     @Query("SELECT * FROM downloads WHERE profile_name = :profileName ORDER BY id DESC")
     fun getDownloadsByProfile(profileName: String): androidx.lifecycle.LiveData<List<DownloadEntity>>
 
     @Query("SELECT * FROM downloads WHERE stream_id = :streamId AND type = :type LIMIT 1")
     suspend fun getDownloadByStreamId(streamId: Int, type: String): DownloadEntity?
 
-    // ✅ NOVO: versão da consulta acima que também filtra por perfil —
-    // evita ambiguidade quando o MESMO filme/episódio foi baixado tanto
-    // pelo perfil adulto quanto pelo perfil Kids (cada um com sua própria
-    // linha na tabela). Usada pela KidsMovieDownloadActivity.
     @Query("SELECT * FROM downloads WHERE stream_id = :streamId AND type = :type AND profile_name = :profileName LIMIT 1")
     suspend fun getDownloadByStreamIdAndProfile(streamId: Int, type: String, profileName: String): DownloadEntity?
 
@@ -448,9 +443,6 @@ interface StreamDao {
     @Query("DELETE FROM downloads")
     suspend fun deleteAllDownloads()
 
-    // ✅ Usar nas telas de "Limpar tudo" para apagar só os downloads do
-    // perfil atual, sem afetar os downloads de outros perfis no mesmo
-    // aparelho (ex: apagar tudo no Kids não mexe nos downloads do adulto).
     @Query("DELETE FROM downloads WHERE profile_name = :profileName")
     suspend fun deleteAllDownloadsByProfile(profileName: String)
 
@@ -468,9 +460,9 @@ interface StreamDao {
 }
 
 // ==========================================
-// DATABASE — version 14 (novas colunas em series_streams: rastreamento
-// de nova temporada/novo episódio via TMDB e data da próxima temporada
-// "em breve" — usadas pelos selos da tela Home)
+// DATABASE — version 15 (nova coluna em series_streams:
+// tmdb_proximo_episodio_data, separando "novo episódio em breve" de
+// "nova temporada em breve", que antes dividiam o mesmo campo)
 // ==========================================
 
 @Database(
@@ -484,7 +476,7 @@ interface StreamDao {
         DownloadEntity::class,
         ProfileEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -506,48 +498,17 @@ abstract class AppDatabase : RoomDatabase() {
                 AppDatabase::class.java,
                 "vltv_play_db"
             )
-                // ✅ fallbackToDestructiveMigration recria as tabelas automaticamente
-                // por causa da mudança de versão 13→14 (novas colunas em
-                // "series_streams" para os selos de Nova Temporada/Novo
-                // Episódio/Em Breve). Isso apaga downloads salvos localmente (o
-                // usuário vai precisar baixar de novo o que já tinha baixado)
-                // e o catálogo (vod_streams/series_streams), mas o catálogo
+                // ✅ fallbackToDestructiveMigration recria as tabelas por
+                // causa da mudança de versão 14→15 (nova coluna
+                // tmdb_proximo_episodio_data em "series_streams"). Apaga
+                // downloads salvos e o catálogo local, mas ele
                 // resincroniza sozinho na próxima abertura do app — mesmo
-                // comportamento já aceito nas migrações anteriores (v9→v10,
-                // v10→v11, v11→v12, v12→v13).
+                // comportamento já aceito nas migrações anteriores.
                 .fallbackToDestructiveMigration()
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-                // ✅ Esse queryExecutor é compartilhado por TODAS as queries
-                // suspend do Room no app inteiro (Home, catálogo VOD/séries,
-                // categorias, histórico, downloads...) e também pela
-                // reconsulta/emissão do LiveData quando uma tabela muda.
                 .setQueryExecutor(
                     java.util.concurrent.Executors.newCachedThreadPool()
                 )
-                // ✅ CORREÇÃO REAL do "sumiço" da tela de Downloads por
-                // 10-15s: até agora, o Room nunca teve um transactionExecutor
-                // próprio configurado aqui. Sem isso, o Room usa
-                // silenciosamente o próprio queryExecutor também como
-                // executor de transação — ou seja, leituras e escritas
-                // competiam pelo MESMO pool de threads.
-                //
-                // O problema: toda vez que o SyncManager insere o catálogo
-                // (VOD/séries/canais ao vivo, em lotes de 200 — inclusive na
-                // sincronização automática que roda sozinha a cada 10
-                // minutos, em segundo plano), cada lote é uma transação. O
-                // SQLite só permite UM escritor por vez, então uma thread do
-                // pool fica presa esperando esse lock a cada lote — e como
-                // esse mesmo pool também atende a consulta de Downloads
-                // (LiveData), a tela podia ficar sem thread livre pra
-                // reconsultar bem na hora do clique.
-                //
-                // Um executor de transação dedicado (thread única, só pra
-                // escritas) não elimina a regra do SQLite de 1 escritor por
-                // vez — isso é do banco, não dá pra burlar — mas isola esse
-                // gargalo do pool de leitura, e cada transação em lote de
-                // 200 itens é rápida (milissegundos), então a fila de espera
-                // do clique passa a ser curta, não mais os 10-15s inteiros
-                // de uma sincronização completa.
                 .setTransactionExecutor(
                     java.util.concurrent.Executors.newSingleThreadExecutor()
                 )
