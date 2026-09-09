@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.Priority
 import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.vltv.play.data.AppDatabase
@@ -81,6 +82,26 @@ class HomeRowAdapter(
 
         holder.logoJob?.cancel()
         holder.logoJob = null
+
+        // ✅ CORRIGIDO: a capa (poster) entra na fila do Glide ANTES da logo,
+        // e com prioridade HIGH. Antes a logo (imagem pequena, TMDB) era
+        // disparada primeiro e sempre "furava a fila" na frente da capa
+        // (imagem maior, vindo do Xtream), fazendo a logo aparecer visualmente
+        // antes da própria capa no primeiro carregamento do app. Agora a capa
+        // sempre entra primeiro no pipeline de rede do Glide.
+        val larguraPoster = if (useWideLayout) 320 else 180
+        val alturaPoster = if (useWideLayout) 180 else 270
+
+        Glide.with(context)
+            .asBitmap()
+            .load(item.streamIcon)
+            .format(DecodeFormat.PREFER_RGB_565)
+            .override(larguraPoster, alturaPoster)
+            .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .priority(Priority.HIGH)
+            .dontAnimate()
+            .placeholder(R.drawable.ic_launcher)
+            .into(holder.ivPoster)
 
         if (holder.ivLogo != null) {
             if (!item.logoUrl.isNullOrEmpty()) {
@@ -187,19 +208,6 @@ class HomeRowAdapter(
             }
         }
 
-        val larguraPoster = if (useWideLayout) 320 else 180
-        val alturaPoster = if (useWideLayout) 180 else 270
-
-        Glide.with(context)
-            .asBitmap()
-            .load(item.streamIcon)
-            .format(DecodeFormat.PREFER_RGB_565)
-            .override(larguraPoster, alturaPoster)
-            .diskCacheStrategy(DiskCacheStrategy.ALL)
-            .dontAnimate()
-            .placeholder(R.drawable.ic_launcher)
-            .into(holder.ivPoster)
-
         holder.itemView.setOnClickListener { onItemClick(item) }
 
         holder.itemView.setOnFocusChangeListener { v, hasFocus ->
@@ -219,9 +227,13 @@ class HomeRowAdapter(
         val ivLogo = holder.ivLogo ?: return
         holder.tvTitle.visibility = View.INVISIBLE
         ivLogo.visibility = View.VISIBLE
+        // ✅ CORRIGIDO: prioridade LOW — a logo nunca deve competir pelo
+        // pool de rede do Glide na frente da capa (ver comentário no
+        // carregamento do ivPoster acima).
         Glide.with(context)
             .load(url)
             .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .priority(Priority.LOW)
             .dontAnimate()
             .into(ivLogo)
     }
