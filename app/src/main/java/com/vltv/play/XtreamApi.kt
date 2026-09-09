@@ -48,13 +48,20 @@ data class LiveStream(val stream_id: Int, val name: String, val stream_icon: Str
     val icon: String? get() = stream_icon
 }
 
-data class VodStream(val stream_id: Int, val name: String, val title: String?, val stream_icon: String?, val container_extension: String?, val rating: String?) {
+data class VodStream(val stream_id: Int, val name: String, val title: String?, val stream_icon: String?, val container_extension: String?, val rating: String?, val added: Long = 0, val tmdb_release_date: String? = null) {
     val id: Int get() = stream_id
     val icon: String? get() = stream_icon
     val extension: String? get() = container_extension
 }
 
-data class SeriesStream(val series_id: Int, val name: String, val cover: String?, val rating: String?) {
+data class SeriesStream(
+    val series_id: Int, val name: String, val cover: String?, val rating: String?,
+    val last_modified: Long = 0,
+    val tmdb_release_date: String? = null,
+    val is_nova_temporada: Boolean = false,
+    val is_novo_episodio: Boolean = false,
+    val tmdb_proxima_temporada_data: String? = null
+) {
     val id: Int get() = series_id
     val icon: String? get() = cover
 }
