@@ -298,28 +298,34 @@ class HomeActivity : AppCompatActivity() {
                 carregarDadosLocaisImediato()
             }
 
-            // 🔎 DIAGNÓSTICO TEMPORÁRIO — mostra num Toast quantos itens
-            // estão marcados com cada selo, direto do banco. Se aparecer
-            // tudo zerado, o problema está antes (TmdbSyncHelper não está
-            // conseguindo marcar nada); se aparecer número > 0, o problema
-            // é na exibição (HomeRowAdapter/layout). Pode remover este
-            // bloco assim que descobrirmos qual é o caso.
-            lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    val db = AppDatabase.getDatabase(applicationContext)
-                    val vTop10 = db.streamDao().contarVodTop10()
-                    val vNovidade = db.streamDao().contarVodNovidade()
-                    val sTop10 = db.streamDao().contarSeriesTop10()
-                    val sNovidade = db.streamDao().contarSeriesNovidade()
-                    val sNovaTemp = db.streamDao().contarSeriesNovaTemporada()
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            this@HomeActivity,
-                            "SELOS NO BANCO — Filmes: Top10=$vTop10 Novidade=$vNovidade | Séries: Top10=$sTop10 Novidade=$sNovidade NovaTemp=$sNovaTemp",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                } catch (e: Exception) { e.printStackTrace() }
+            // 🔎 DIAGNÓSTICO TEMPORÁRIO — mostra num Toast, depois que uma
+            // sincronização de verdade terminar, quantos itens vieram
+            // "brutos" da Netflix/TMDB e quantos bateram com o catálogo em
+            // cada fase — pra ver exatamente onde a corrente quebra quando
+            // os selos não aparecem. Antes, esse Toast disparava na hora
+            // (onCreate), ou seja, ANTES da sincronização sequer começar —
+            // por isso sempre lia zero, mesmo com tudo funcionando. Agora
+            // só dispara quando o SyncManager avisa que uma sincronização
+            // terminou. Pode remover este bloco assim que os selos
+            // voltarem a funcionar de forma confiável.
+            fun mostrarDiagnosticoSelos() {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        val db = AppDatabase.getDatabase(applicationContext)
+                        val vTop10 = db.streamDao().contarVodTop10()
+                        val vNovidade = db.streamDao().contarVodNovidade()
+                        val sTop10 = db.streamDao().contarSeriesTop10()
+                        val sNovidade = db.streamDao().contarSeriesNovidade()
+                        val sNovaTemp = db.streamDao().contarSeriesNovaTemporada()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@HomeActivity,
+                                "BANCO — Filmes: Top10=$vTop10 Novidade=$vNovidade | Séries: Top10=$sTop10 Novidade=$sNovidade NovaTemp=$sNovaTemp\n${TmdbSyncHelper.ultimoDiagnostico}",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
+                }
             }
 
             // ✅ CORREÇÃO: o listener é registrado ANTES de disparar o sync.
@@ -333,6 +339,7 @@ class HomeActivity : AppCompatActivity() {
             removerOuvinteSync = SyncManager.registrarOuvinteNovidade {
                 if (!isFinishing && !isDestroyed) {
                     popularTelaDoRepositorio()
+                    mostrarDiagnosticoSelos() // 🔎 TEMPORÁRIO
                 }
             }
             SyncManager.sincronizarSeNecessario(applicationContext)
