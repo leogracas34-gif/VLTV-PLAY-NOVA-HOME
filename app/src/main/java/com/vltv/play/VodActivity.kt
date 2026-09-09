@@ -13,8 +13,6 @@ import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
-import java.text.SimpleDateFormat
-import java.util.Locale
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.GridLayoutManager
@@ -508,8 +506,11 @@ class VodActivity : AppCompatActivity() {
         salvarUltimaCategoria(categoria)
 
         // 1. Cache de memória da API — instantâneo
+        // ✅ Sem filtro de "últimos 3 meses": a tela de Filmes mostra o
+        // catálogo completo em todas as abas. Esse filtro agora só existe
+        // na Home (Novidades/Top 10), não aqui.
         moviesCache[categoria.id]?.let {
-            val filtrados = filtrarRecentes(filtrarFilmesAdultos(it))
+            val filtrados = filtrarFilmesAdultos(it)
             moviesAdapter?.submitList(filtrados); preLoadImages(filtrados); return
         }
 
@@ -542,7 +543,7 @@ class VodActivity : AppCompatActivity() {
             val items = emRepositorio.map {
                 VodStream(it.stream_id, it.name, it.title, it.stream_icon, it.container_extension, it.rating, it.added, it.tmdb_release_date)
             }
-            val itemsFiltrados = filtrarRecentes(filtrarFilmesAdultos(items))
+            val itemsFiltrados = filtrarFilmesAdultos(items)
             moviesAdapter?.submitList(itemsFiltrados)
             preLoadImages(itemsFiltrados)
             // ✅ Só tenta atualizar em segundo plano se a categoria não
@@ -565,7 +566,7 @@ class VodActivity : AppCompatActivity() {
                     val filmes = response.body()!!
                     moviesCache[categoria.id] = filmes
                     if (categoriaAtualId == categoria.id) {
-                        val filtrados = filtrarRecentes(filtrarFilmesAdultos(filmes))
+                        val filtrados = filtrarFilmesAdultos(filmes)
                         moviesAdapter?.submitList(filtrados)
                         preLoadImages(filtrados)
                     }
@@ -576,34 +577,6 @@ class VodActivity : AppCompatActivity() {
                     progressBar.visibility = View.GONE
                 }
             })
-    }
-
-    // ✅ NOVO: só mostra filmes/séries adicionados nos últimos 3 meses ao
-    // servidor (evita catálogo cheio de título antigo). Usa o campo
-    // "added" que o próprio provedor Xtream envia — se ele não vier
-    // preenchido (added == 0), o item NÃO é escondido, pra não sumir o
-    // catálogo inteiro caso o provedor não informe essa data.
-    // ✅ CORREÇÃO: "added" é a data que o SEU provedor subiu o arquivo, não
-    // a data real de lançamento do filme — um filme antigo subido ontem
-    // passaria como "recente" por engano. Agora prioriza tmdb_release_date
-    // (data real do TMDB, calculada pelo TmdbSyncHelper/busca de logo);
-    // só cai pro "added" cru quando o TMDB ainda não foi checado pra esse
-    // item. Item sem NENHuma das duas datas não é escondido.
-    private fun paraEpocaSegundos(valor: Long): Long =
-        if (valor > 9_999_999_999L) valor / 1000 else valor
-
-    private fun filtrarRecentes(lista: List<VodStream>): List<VodStream> {
-        val limiteMs = System.currentTimeMillis() - (90L * 24 * 60 * 60 * 1000)
-        return lista.filter { vod ->
-            val dataTmdb = vod.tmdb_release_date?.let {
-                try { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it)?.time } catch (e: Exception) { null }
-            }
-            when {
-                dataTmdb != null -> dataTmdb >= limiteMs
-                vod.added == 0L -> true
-                else -> paraEpocaSegundos(vod.added) * 1000 >= limiteMs
-            }
-        }
     }
 
     private fun salvarNoBancoERepositorio(categoryId: String, filmes: List<VodStream>) {
