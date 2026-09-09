@@ -244,6 +244,25 @@ interface StreamDao {
     @Query("SELECT COUNT(*) FROM vod_streams")
     suspend fun getVodCount(): Int
 
+    // 🔎 DIAGNÓSTICO TEMPORÁRIO — usado só pra descobrir se os selos não
+    // aparecem porque o TmdbSyncHelper não está marcando nada no banco
+    // (contagem = 0) ou porque o banco está certo e o problema é só na
+    // exibição (contagem > 0). Pode remover depois de descobrir a causa.
+    @Query("SELECT COUNT(*) FROM vod_streams WHERE is_top10 = 1")
+    suspend fun contarVodTop10(): Int
+
+    @Query("SELECT COUNT(*) FROM vod_streams WHERE is_novidade = 1")
+    suspend fun contarVodNovidade(): Int
+
+    @Query("SELECT COUNT(*) FROM series_streams WHERE is_top10 = 1")
+    suspend fun contarSeriesTop10(): Int
+
+    @Query("SELECT COUNT(*) FROM series_streams WHERE is_novidade = 1")
+    suspend fun contarSeriesNovidade(): Int
+
+    @Query("SELECT COUNT(*) FROM series_streams WHERE is_nova_temporada = 1")
+    suspend fun contarSeriesNovaTemporada(): Int
+
     @Query("SELECT * FROM vod_streams")
     suspend fun getAllVods(): List<VodEntity>
 
