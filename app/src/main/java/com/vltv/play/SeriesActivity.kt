@@ -14,6 +14,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DiffUtil
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -477,7 +480,7 @@ class SeriesActivity : AppCompatActivity() {
 
         // 1. Cache de memória da API — instantâneo
         seriesCache[categoria.id]?.let {
-            val filtrados = filtrarSeriesAdultas(it)
+            val filtrados = filtrarRecentes(filtrarSeriesAdultas(it))
             seriesAdapter?.submitList(filtrados); preLoadImages(filtrados); return
         }
 
@@ -504,8 +507,14 @@ class SeriesActivity : AppCompatActivity() {
                 val cached = seriesCachePrefs.getString("logo_${s.name}", null)
                 if (cached != null) logoMemoryCache[s.name] = cached
             }
-            val items = emRepositorio.map { SeriesStream(it.series_id, it.name, it.cover, it.rating) }
-            val itemsFiltrados = filtrarSeriesAdultas(items)
+            val items = emRepositorio.map {
+                SeriesStream(
+                    it.series_id, it.name, it.cover, it.rating, it.last_modified,
+                    it.tmdb_release_date, it.is_nova_temporada == 1, it.is_novo_episodio == 1,
+                    it.tmdb_proxima_temporada_data
+                )
+            }
+            val itemsFiltrados = filtrarRecentes(filtrarSeriesAdultas(items))
             seriesAdapter?.submitList(itemsFiltrados)
             preLoadImages(itemsFiltrados)
             // ✅ Só tenta atualizar em segundo plano se a categoria não
@@ -525,7 +534,7 @@ class SeriesActivity : AppCompatActivity() {
                     val series = response.body()!!
                     seriesCache[categoria.id] = series
                     if (categoriaAtualId == categoria.id) {
-                        val filtrados = filtrarSeriesAdultas(series)
+                        val filtrados = filtrarRecentes(filtrarSeriesAdultas(series))
                         seriesAdapter?.submitList(filtrados)
                         preLoadImages(filtrados)
                     }
@@ -538,12 +547,45 @@ class SeriesActivity : AppCompatActivity() {
             })
     }
 
+    // ✅ NOVO: mesma lógica do VodActivity — só mostra séries com
+    // "last_modified" (data que o provedor Xtream informa) dentro dos
+    // últimos 3 meses. Item sem essa data (0) não é escondido, pra não
+    // sumir com o catálogo inteiro caso o provedor não informe.
+    // ✅ CORREÇÃO: "last_modified" é a data que o SEU provedor atualizou o
+    // arquivo, não a data real de lançamento/atividade da série — e uma
+    // série antiga (ex: 2022) que ganhou temporada nova não pode sumir só
+    // por causa da data de estreia original. Agora considera "recente"
+    // quando qualquer um for verdade: (a) tmdb_release_date (estreia real,
+    // do TMDB) está dentro dos últimos 3 meses, (b) tem selo de Nova
+    // Temporada ou Novo Episódio ativo agora, ou (c) tem próxima temporada
+    // anunciada (Em Breve). Só cai pro "last_modified" cru quando nada
+    // disso está disponível ainda (série que o TmdbSyncHelper não checou).
+    private fun paraEpocaSegundos(valor: Long): Long =
+        if (valor > 9_999_999_999L) valor / 1000 else valor
+
+    private fun filtrarRecentes(lista: List<SeriesStream>): List<SeriesStream> {
+        val limiteMs = System.currentTimeMillis() - (90L * 24 * 60 * 60 * 1000)
+        val hoje = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return lista.filter { s ->
+            val dataTmdb = s.tmdb_release_date?.let {
+                try { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(it)?.time } catch (e: Exception) { null }
+            }
+            when {
+                s.is_nova_temporada || s.is_novo_episodio -> true
+                !s.tmdb_proxima_temporada_data.isNullOrEmpty() && s.tmdb_proxima_temporada_data > hoje -> true
+                dataTmdb != null -> dataTmdb >= limiteMs
+                s.last_modified == 0L -> true
+                else -> paraEpocaSegundos(s.last_modified) * 1000 >= limiteMs
+            }
+        }
+    }
+
     private fun salvarNoBancoERepositorio(categoryId: String, series: List<SeriesStream>) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val entities = series.map {
                     SeriesEntity(it.series_id, it.name, it.cover, it.rating,
-                        categoryId, System.currentTimeMillis())
+                        categoryId, if (it.last_modified > 0) it.last_modified else System.currentTimeMillis() / 1000)
                 }
                 database.streamDao().insertSeriesStreams(entities)
                 ContentRepository.atualizarCategoriaSeries(categoryId, entities)
