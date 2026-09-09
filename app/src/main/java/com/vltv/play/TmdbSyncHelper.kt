@@ -58,7 +58,20 @@ import kotlinx.coroutines.coroutineScope
  */
 object TmdbSyncHelper {
 
-    private const val TMDB_KEY = "9b73f5dd15b8165b1b57419be2f29128"
+    // ⚠️ CORREÇÃO (selos zerados — Top10=0 e Novidade=0 em filme E série):
+    // este arquivo usava uma chave de API do TMDB DIFERENTE e fixa no
+    // código, em vez da chave real configurada no app (TmdbConfig.API_KEY,
+    // que vem do BuildConfig/segredo do GitHub Actions). Se essa chave
+    // avulsa estiver vencida, revogada ou sem cota, TODA chamada ao TMDB
+    // feita por este arquivo falha silenciosamente (cada função tem
+    // try/catch que engole o erro e retorna vazio/nulo) — por isso Top10 E
+    // Novidade davam zero ao mesmo tempo: as duas dependem de uma consulta
+    // ao TMDB em algum momento (Top10 pra achar o tmdb_id do título da
+    // Netflix; Novidade pra listar os lançamentos). Outras telas do app
+    // (Filmes, Séries, Detalhes) já usavam TmdbConfig.API_KEY e por isso
+    // continuavam funcionando normalmente — só este arquivo estava com a
+    // chave errada.
+    private val TMDB_KEY = TmdbConfig.API_KEY
     private const val NOVIDADE_ANO_MIN = 2025
     private const val TOP10_ANO_MIN = 2026
     private const val TOP10_ANO_MAX = 2026
