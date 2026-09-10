@@ -27,16 +27,12 @@ import kotlinx.coroutines.coroutineScope
  * 3. vincularTmdbIdsFaltantes(): vincula tmdb_id retroativamente pra
  *    séries antigas que nunca passaram pelo Top10/Novidades.
  *
- * 4. ✅ NOVO: preencherLogosFaltantes() — a busca de logo (clearlogo do
- *    TMDB) que antes rodava AO VIVO dentro do HomeRowAdapter (2
- *    chamadas de rede por item visível SEM logo salva) foi movida pra
- *    cá. Numa instalação nova, TODO item de TODA fileira dispara essa
- *    busca ao mesmo tempo — isso saturava a rede e competia com o
- *    carregamento dos próprios pôsteres, causando 2-4 minutos de
- *    demora com a tela mostrando só o placeholder genérico. Agora um
- *    número limitado de itens (LIMITE_ITENS_SEM_LOGO) ganha logo por
- *    ciclo de sincronização, em segundo plano, sem travar a Home — o
- *    HomeRowAdapter só LÊ o que já está salvo, nunca busca na hora.
+ * 4. ✅ REVERTIDO: a busca de logo (clearlogo do TMDB) — que chegou a
+ *    rodar ao vivo no HomeRowAdapter e depois foi movida pra cá — foi
+ *    removida por completo a pedido. Os cards da Home voltam a mostrar
+ *    só o nome em texto, sem nenhuma chamada de rede extra de logo em
+ *    lugar nenhum (nem no adapter, nem aqui). Isso também elimina de vez
+ *    essa fonte de disputa por rede com o carregamento dos pôsteres.
  *
  * 5. Ao final da sincronização, a cópia em memória do ContentRepository
  *    é recarregada com os dados frescos do banco.
@@ -48,10 +44,6 @@ object TmdbSyncHelper {
     private const val LIMITE_SERIES_TEMPORADA_EPISODIO = 40
     private const val LIMITE_SERIES_SEM_TMDB_ID = 30
     private const val ANTECEDENCIA_EM_BREVE_MS = 30L * 24 * 60 * 60 * 1000L
-    // ✅ NOVO: quantos filmes/séries sem logo ganham logo por ciclo.
-    // Baixo de propósito — é trabalho de "preenchimento gradual" em
-    // segundo plano, não uma corrida pra terminar tudo de uma vez.
-    private const val LIMITE_ITENS_SEM_LOGO = 20
 
     @Volatile
     var ultimoDiagnostico: String = "(sincronização ainda não rodou)"
@@ -74,11 +66,6 @@ object TmdbSyncHelper {
         }
         try {
             sincronizarTemporadasEpisodios(db)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        try {
-            preencherLogosFaltantes(db)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -327,62 +314,6 @@ object TmdbSyncHelper {
             }
             if (melhorPontuacao < 75) return null
             melhorId
-        } catch (e: Exception) { null }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PREENCHIMENTO GRADUAL DE LOGOS (movido do HomeRowAdapter pra cá)
-    // ─────────────────────────────────────────────────────────────────────────
-    private suspend fun preencherLogosFaltantes(db: AppDatabase) {
-        try {
-            val vodsSemLogo = db.streamDao().getVodsSemLogo(LIMITE_ITENS_SEM_LOGO)
-            for (v in vodsSemLogo) {
-                val logo = buscarLogoTmdbPorNome(v.name, isSerie = false) ?: continue
-                try { db.streamDao().updateVodLogo(v.stream_id, logo) } catch (e: Exception) {}
-            }
-        } catch (e: Exception) { e.printStackTrace() }
-
-        try {
-            val seriesSemLogo = db.streamDao().getSeriesSemLogo(LIMITE_ITENS_SEM_LOGO)
-            for (s in seriesSemLogo) {
-                val logo = buscarLogoTmdbPorNome(s.name, isSerie = true) ?: continue
-                try { db.streamDao().updateSeriesLogo(s.series_id, logo) } catch (e: Exception) {}
-            }
-        } catch (e: Exception) { e.printStackTrace() }
-    }
-
-    private fun buscarLogoTmdbPorNome(rawName: String, isSerie: Boolean): String? {
-        val limpo = rawName
-            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-            .replace(REGEX_TARJAS_CATALOGO, "")
-            .replace(Regex("\\s{2,}"), " ")
-            .trim()
-        if (limpo.isBlank()) return null
-
-        val tipo = if (isSerie) "tv" else "movie"
-        return try {
-            val query = URLEncoder.encode(limpo, "UTF-8")
-            val url = "https://api.themoviedb.org/3/search/$tipo?api_key=$TMDB_KEY" +
-                "&query=$query&language=pt-BR&region=BR&include_adult=false"
-            val results = JSONObject(URL(url).readText()).optJSONArray("results") ?: return null
-            if (results.length() == 0) return null
-            val id = results.getJSONObject(0).optInt("id", 0)
-            if (id <= 0) return null
-
-            val logos = JSONObject(
-                URL("https://api.themoviedb.org/3/$tipo/$id/images?api_key=$TMDB_KEY&include_image_language=pt,en,null")
-                    .readText()
-            ).optJSONArray("logos") ?: return null
-            if (logos.length() == 0) return null
-
-            var path: String? = null
-            for (i in 0 until logos.length()) {
-                if (logos.getJSONObject(i).optString("iso_639_1") == "pt") {
-                    path = logos.getJSONObject(i).getString("file_path"); break
-                }
-            }
-            if (path == null) path = logos.getJSONObject(0).getString("file_path")
-            path?.let { VpsConfig.tmdbImage(it, "w500") }
         } catch (e: Exception) { null }
     }
 
