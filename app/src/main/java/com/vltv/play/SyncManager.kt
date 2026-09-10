@@ -74,6 +74,17 @@ object SyncManager {
         return { ouvintesNovidade.remove(callback) }
     }
 
+    /**
+     * ✅ NOVO: chamado pelo TmdbSyncHelper ao final de CADA fase da
+     * sincronização (Top10, Novidades, Temporada/Episódio) — permite que
+     * a Home atualize os selos progressivamente, fase por fase, em vez
+     * de esperar a sincronização inteira terminar (que podia levar 1-2
+     * min) pra só então mostrar qualquer selo.
+     */
+    fun notificarProgressoParcial() {
+        notificarOuvintes()
+    }
+
     private fun notificarOuvintes() {
         scope.launch(Dispatchers.Main) {
             ouvintesNovidade.toList().forEach { it.invoke() }
