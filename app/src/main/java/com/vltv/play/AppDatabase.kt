@@ -202,6 +202,13 @@ data class DownloadEntity(
     val profile_name: String = ""
 )
 
+// ✅ NOVO: projeção leve (stream_id + nome) pra achar filmes sem logo
+// salva ainda — mesma ideia de SeriesNomeBasico, agora pra VOD.
+data class VodNomeBasico(
+    val stream_id: Int,
+    val name: String
+)
+
 // ==========================================
 // DAO
 // ==========================================
