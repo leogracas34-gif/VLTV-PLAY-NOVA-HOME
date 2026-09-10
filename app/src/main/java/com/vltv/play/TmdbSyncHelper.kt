@@ -230,7 +230,7 @@ object TmdbSyncHelper {
             }
         }
 
-        return "NOVIDADE: tmdb_bruto=${filmesNovos.size}f/${seriesNovas.size}s achados_no_catalogo=${filmesAchados}f/${seriesAchadas}s"
+        "NOVIDADE: tmdb_bruto=${filmesNovos.size}f/${seriesNovas.size}s achados_no_catalogo=${filmesAchados}f/${seriesAchadas}s"
     }
 
     // ─────────────────────────────────────────────────────────────────────────
