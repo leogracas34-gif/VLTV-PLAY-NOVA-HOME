@@ -198,9 +198,15 @@ object TmdbSyncHelper {
     // ─────────────────────────────────────────────────────────────────────────
     // NOVIDADES
     // ─────────────────────────────────────────────────────────────────────────
-    private suspend fun sincronizarNovidades(db: AppDatabase): String {
-        val filmesNovos = buscarLancamentosTmdb("movie", paginas = 3)
-        val seriesNovas = buscarLancamentosTmdb("tv",    paginas = 3)
+    // ✅ Paralelizado — antes buscava lançamentos de filme e depois de
+    // série em sequência (6 chamadas de rede seguidas). Agora os dois
+    // tipos são buscados ao mesmo tempo, cortando essa etapa quase pela
+    // metade.
+    private suspend fun sincronizarNovidades(db: AppDatabase): String = coroutineScope {
+        val filmesNovosDeferred = async { buscarLancamentosTmdb("movie", paginas = 3) }
+        val seriesNovasDeferred = async { buscarLancamentosTmdb("tv",    paginas = 3) }
+        val filmesNovos = filmesNovosDeferred.await()
+        val seriesNovas = seriesNovasDeferred.await()
 
         var filmesAchados = 0
         var seriesAchadas = 0
