@@ -9,6 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -62,6 +65,19 @@ object SyncManager {
 
     private val ouvintesNovidade = mutableListOf<() -> Unit>()
 
+    // ✅ NOVO (evita "piscar" a tela várias vezes seguidas): o
+    // TmdbSyncHelper avisa a Home ao final de CADA fase (Top10, Novidades,
+    // Temporada/Episódio) — em catálogos grandes essas 3 fases + o aviso
+    // final da sincronização inicial podiam disparar 4 redesenhos da tela
+    // em poucos segundos, dando a sensação de app travando/piscando. Agora
+    // os avisos passam por um debounce: se chegar outro aviso em menos de
+    // 400ms, o redesenho anterior é cancelado e só o mais recente
+    // acontece — várias fases terminando perto uma da outra viram UM único
+    // redesenho, sem atrasar avisos que já vêm espaçados (sync periódica).
+    @Volatile
+    private var debounceJob: Job? = null
+    private const val DEBOUNCE_NOTIFICACAO_MS = 400L
+
     /**
      * Registra um callback chamado (na Main thread) sempre que:
      *   a) a sincronização INICIAL terminar (nomes/logos oficiais do TMDB
@@ -86,8 +102,12 @@ object SyncManager {
     }
 
     private fun notificarOuvintes() {
-        scope.launch(Dispatchers.Main) {
-            ouvintesNovidade.toList().forEach { it.invoke() }
+        debounceJob?.cancel()
+        debounceJob = scope.launch {
+            kotlinx.coroutines.delay(DEBOUNCE_NOTIFICACAO_MS)
+            withContext(Dispatchers.Main) {
+                ouvintesNovidade.toList().forEach { it.invoke() }
+            }
         }
     }
 
@@ -198,6 +218,7 @@ object SyncManager {
     /** Reseta o estado — chamar apenas no logout, para a próxima sessão sincronizar de novo. */
     fun resetarSessao() {
         jobAtual?.cancel()
+        debounceJob?.cancel()
         jaSincronizouNestaSessao = false
         pararSyncPeriodica()
         ouvintesNovidade.clear()
@@ -227,108 +248,20 @@ object SyncManager {
             val vodsExistentes = try { db.streamDao().getAllVods().associateBy { it.stream_id } } catch (e: Exception) { emptyMap() }
             val seriesExistentes = try { db.streamDao().getAllSeries().associateBy { it.series_id } } catch (e: Exception) { emptyMap() }
 
-            // ── VOD ────────────────────────────────────────────────────────
-            val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
-            val vodArray = JSONArray(URL(vodUrl).readText())
-            val vodBatch = mutableListOf<VodEntity>()
-            for (i in 0 until vodArray.length()) {
-                val obj = vodArray.getJSONObject(i)
-                val nome = obj.optString("name")
-                if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
-                    val streamId = obj.optInt("stream_id")
-                    val existente = vodsExistentes[streamId]
-                    vodBatch.add(VodEntity(
-                        stream_id = streamId,
-                        name = nome,
-                        title = obj.optString("name"),
-                        stream_icon = obj.optString("stream_icon"),
-                        container_extension = obj.optString("container_extension"),
-                        rating = obj.optString("rating"),
-                        category_id = obj.optString("category_id"),
-                        added = obj.optLong("added"),
-                        // ↓ preservados do que já existia (senão o TMDB
-                        // precisaria recalcular tudo de novo a cada sync)
-                        logo_url = existente?.logo_url,
-                        tmdb_rank = existente?.tmdb_rank ?: 0,
-                        tmdb_release_date = existente?.tmdb_release_date,
-                        is_top10 = existente?.is_top10 ?: 0,
-                        is_novidade = existente?.is_novidade ?: 0,
-                        tmdb_id = existente?.tmdb_id,
-                        backdrop_path = existente?.backdrop_path
-                    ))
-                }
-                if (vodBatch.size >= 200) {
-                    db.streamDao().insertVodStreams(vodBatch)
-                    vodBatch.clear()
-                }
+            // ✅ CORREÇÃO (demora de 1-2 min pra aparecer o catálogo
+            // correto na 1ª instalação): VOD, Séries e Live eram buscados
+            // do Xtream em SEQUÊNCIA — cada `URL(...).readText()` é uma
+            // chamada de rede bloqueante, e num catálogo grande a soma das
+            // três (VOD + Séries + Live) facilmente passava de 1 minuto
+            // sozinha, antes mesmo do TMDB entrar em ação. Agora as três
+            // rodam em PARALELO com coroutineScope/async — o tempo total
+            // passa a ser o da mais lenta das três, não a soma delas.
+            coroutineScope {
+                val vodJob = async { sincronizarVod(db, dns, user, pass, palavrasProibidas, vodsExistentes) }
+                val seriesJob = async { sincronizarSeries(db, dns, user, pass, palavrasProibidas, seriesExistentes) }
+                val liveJob = async { sincronizarLive(db, dns, user, pass) }
+                awaitAll(vodJob, seriesJob, liveJob)
             }
-            if (vodBatch.isNotEmpty()) db.streamDao().insertVodStreams(vodBatch)
-
-            val vodsAtualizados = db.streamDao().getRecentVods(200)
-            ContentRepository.atualizarVods(vodsAtualizados)
-
-            // ── SÉRIES ─────────────────────────────────────────────────────
-            val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
-            val seriesArray = JSONArray(URL(seriesUrl).readText())
-            val seriesBatch = mutableListOf<SeriesEntity>()
-            for (i in 0 until seriesArray.length()) {
-                val obj = seriesArray.getJSONObject(i)
-                val nome = obj.optString("name")
-                if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
-                    val seriesId = obj.optInt("series_id")
-                    val existente = seriesExistentes[seriesId]
-                    seriesBatch.add(SeriesEntity(
-                        series_id = seriesId,
-                        name = nome,
-                        cover = obj.optString("cover"),
-                        rating = obj.optString("rating"),
-                        category_id = obj.optString("category_id"),
-                        last_modified = obj.optLong("last_modified"),
-                        // ↓ preservados do que já existia
-                        logo_url = existente?.logo_url,
-                        tmdb_rank = existente?.tmdb_rank ?: 0,
-                        tmdb_release_date = existente?.tmdb_release_date,
-                        is_top10 = existente?.is_top10 ?: 0,
-                        is_novidade = existente?.is_novidade ?: 0,
-                        tmdb_id = existente?.tmdb_id,
-                        backdrop_path = existente?.backdrop_path,
-                        tmdb_ultima_temporada = existente?.tmdb_ultima_temporada ?: 0,
-                        tmdb_ultimo_episodio = existente?.tmdb_ultimo_episodio ?: 0,
-                        is_nova_temporada = existente?.is_nova_temporada ?: 0,
-                        is_novo_episodio = existente?.is_novo_episodio ?: 0,
-                        tmdb_flag_marcado_em = existente?.tmdb_flag_marcado_em ?: 0,
-                        tmdb_proxima_temporada_data = existente?.tmdb_proxima_temporada_data
-                    ))
-                }
-                if (seriesBatch.size >= 200) {
-                    db.streamDao().insertSeriesStreams(seriesBatch)
-                    seriesBatch.clear()
-                }
-            }
-            if (seriesBatch.isNotEmpty()) db.streamDao().insertSeriesStreams(seriesBatch)
-
-            val seriesAtualizadas = db.streamDao().getRecentSeries(200)
-            ContentRepository.atualizarSeries(seriesAtualizadas)
-
-            // ── LIVE ───────────────────────────────────────────────────────
-            val liveUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_live_streams"
-            val liveArray = JSONArray(URL(liveUrl).readText())
-            val liveBatch = mutableListOf<LiveStreamEntity>()
-            for (i in 0 until liveArray.length()) {
-                val obj = liveArray.getJSONObject(i)
-                liveBatch.add(LiveStreamEntity(
-                    stream_id = obj.optInt("stream_id"),
-                    name = obj.optString("name"),
-                    stream_icon = obj.optString("stream_icon"),
-                    epg_channel_id = obj.optString("epg_channel_id"),
-                    category_id = obj.optString("category_id")
-                ))
-                if (liveBatch.size >= 200) {
-                    db.streamDao().insertLiveStreams(liveBatch)
-                    liveBatch.clear()
-                }
-            }
-            if (liveBatch.isNotEmpty()) db.streamDao().insertLiveStreams(liveBatch)
 
             // ── TMDB (nomes oficiais + top10/novidades) ─────────────────────
             // É AQUI que os nomes crus do provedor ("007", "Rambo") são
@@ -346,5 +279,120 @@ object SyncManager {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    // ── VOD ────────────────────────────────────────────────────────────────
+    private suspend fun sincronizarVod(
+        db: AppDatabase, dns: String, user: String, pass: String,
+        palavrasProibidas: List<String>, vodsExistentes: Map<Int, VodEntity>
+    ) = withContext(Dispatchers.IO) {
+        val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
+        val vodArray = JSONArray(URL(vodUrl).readText())
+        val vodBatch = mutableListOf<VodEntity>()
+        for (i in 0 until vodArray.length()) {
+            val obj = vodArray.getJSONObject(i)
+            val nome = obj.optString("name")
+            if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                val streamId = obj.optInt("stream_id")
+                val existente = vodsExistentes[streamId]
+                vodBatch.add(VodEntity(
+                    stream_id = streamId,
+                    name = nome,
+                    title = obj.optString("name"),
+                    stream_icon = obj.optString("stream_icon"),
+                    container_extension = obj.optString("container_extension"),
+                    rating = obj.optString("rating"),
+                    category_id = obj.optString("category_id"),
+                    added = obj.optLong("added"),
+                    // ↓ preservados do que já existia (senão o TMDB
+                    // precisaria recalcular tudo de novo a cada sync)
+                    logo_url = existente?.logo_url,
+                    tmdb_rank = existente?.tmdb_rank ?: 0,
+                    tmdb_release_date = existente?.tmdb_release_date,
+                    is_top10 = existente?.is_top10 ?: 0,
+                    is_novidade = existente?.is_novidade ?: 0,
+                    tmdb_id = existente?.tmdb_id,
+                    backdrop_path = existente?.backdrop_path
+                ))
+            }
+            if (vodBatch.size >= 200) {
+                db.streamDao().insertVodStreams(vodBatch)
+                vodBatch.clear()
+            }
+        }
+        if (vodBatch.isNotEmpty()) db.streamDao().insertVodStreams(vodBatch)
+
+        val vodsAtualizados = db.streamDao().getRecentVods(200)
+        ContentRepository.atualizarVods(vodsAtualizados)
+    }
+
+    // ── SÉRIES ─────────────────────────────────────────────────────────────
+    private suspend fun sincronizarSeries(
+        db: AppDatabase, dns: String, user: String, pass: String,
+        palavrasProibidas: List<String>, seriesExistentes: Map<Int, SeriesEntity>
+    ) = withContext(Dispatchers.IO) {
+        val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
+        val seriesArray = JSONArray(URL(seriesUrl).readText())
+        val seriesBatch = mutableListOf<SeriesEntity>()
+        for (i in 0 until seriesArray.length()) {
+            val obj = seriesArray.getJSONObject(i)
+            val nome = obj.optString("name")
+            if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
+                val seriesId = obj.optInt("series_id")
+                val existente = seriesExistentes[seriesId]
+                seriesBatch.add(SeriesEntity(
+                    series_id = seriesId,
+                    name = nome,
+                    cover = obj.optString("cover"),
+                    rating = obj.optString("rating"),
+                    category_id = obj.optString("category_id"),
+                    last_modified = obj.optLong("last_modified"),
+                    // ↓ preservados do que já existia
+                    logo_url = existente?.logo_url,
+                    tmdb_rank = existente?.tmdb_rank ?: 0,
+                    tmdb_release_date = existente?.tmdb_release_date,
+                    is_top10 = existente?.is_top10 ?: 0,
+                    is_novidade = existente?.is_novidade ?: 0,
+                    tmdb_id = existente?.tmdb_id,
+                    backdrop_path = existente?.backdrop_path,
+                    tmdb_ultima_temporada = existente?.tmdb_ultima_temporada ?: 0,
+                    tmdb_ultimo_episodio = existente?.tmdb_ultimo_episodio ?: 0,
+                    is_nova_temporada = existente?.is_nova_temporada ?: 0,
+                    is_novo_episodio = existente?.is_novo_episodio ?: 0,
+                    tmdb_flag_marcado_em = existente?.tmdb_flag_marcado_em ?: 0,
+                    tmdb_proxima_temporada_data = existente?.tmdb_proxima_temporada_data
+                ))
+            }
+            if (seriesBatch.size >= 200) {
+                db.streamDao().insertSeriesStreams(seriesBatch)
+                seriesBatch.clear()
+            }
+        }
+        if (seriesBatch.isNotEmpty()) db.streamDao().insertSeriesStreams(seriesBatch)
+
+        val seriesAtualizadas = db.streamDao().getRecentSeries(200)
+        ContentRepository.atualizarSeries(seriesAtualizadas)
+    }
+
+    // ── LIVE ───────────────────────────────────────────────────────────────
+    private suspend fun sincronizarLive(db: AppDatabase, dns: String, user: String, pass: String) = withContext(Dispatchers.IO) {
+        val liveUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_live_streams"
+        val liveArray = JSONArray(URL(liveUrl).readText())
+        val liveBatch = mutableListOf<LiveStreamEntity>()
+        for (i in 0 until liveArray.length()) {
+            val obj = liveArray.getJSONObject(i)
+            liveBatch.add(LiveStreamEntity(
+                stream_id = obj.optInt("stream_id"),
+                name = obj.optString("name"),
+                stream_icon = obj.optString("stream_icon"),
+                epg_channel_id = obj.optString("epg_channel_id"),
+                category_id = obj.optString("category_id")
+            ))
+            if (liveBatch.size >= 200) {
+                db.streamDao().insertLiveStreams(liveBatch)
+                liveBatch.clear()
+            }
+        }
+        if (liveBatch.isNotEmpty()) db.streamDao().insertLiveStreams(liveBatch)
     }
 }
