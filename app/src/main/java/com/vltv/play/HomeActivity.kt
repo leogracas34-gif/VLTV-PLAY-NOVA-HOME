@@ -26,7 +26,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -235,30 +234,17 @@ class HomeActivity : AppCompatActivity() {
                 carregarDadosLocaisImediato()
             }
 
-            fun mostrarDiagnosticoSelos() {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    try {
-                        val db = AppDatabase.getDatabase(applicationContext)
-                        val vTop10 = db.streamDao().contarVodTop10()
-                        val vNovidade = db.streamDao().contarVodNovidade()
-                        val sTop10 = db.streamDao().contarSeriesTop10()
-                        val sNovidade = db.streamDao().contarSeriesNovidade()
-                        val sNovaTemp = db.streamDao().contarSeriesNovaTemporada()
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                this@HomeActivity,
-                                "BANCO — Filmes: Top10=$vTop10 Novidade=$vNovidade | Séries: Top10=$sTop10 Novidade=$sNovidade NovaTemp=$sNovaTemp\n${TmdbSyncHelper.ultimoDiagnostico}",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
-            }
+            // ✅ REMOVIDO: Toast de diagnóstico ("BANCO — Filmes: Top10=...")
+            // que aparecia toda vez que a Home era notificada de uma
+            // atualização parcial/total dos selos. Era só um debug interno
+            // que ficou esquecido em produção e clientes estavam vendo essa
+            // mensagem. O diagnóstico continua sendo calculado internamente
+            // em TmdbSyncHelper.ultimoDiagnostico (útil em logcat), só não
+            // é mais exibido na tela.
 
             removerOuvinteSync = SyncManager.registrarOuvinteNovidade {
                 if (!isFinishing && !isDestroyed) {
                     popularTelaDoRepositorio()
-                    mostrarDiagnosticoSelos()
                 }
             }
             SyncManager.sincronizarSeNecessario(applicationContext)
