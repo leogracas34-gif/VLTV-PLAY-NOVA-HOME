@@ -24,18 +24,25 @@ import kotlinx.coroutines.coroutineScope
  * 2. Selo "Em Breve" distingue temporada nova de episódio novo, com
  *    janela de ~30 dias.
  *
- * 3. vincularTmdbIdsFaltantes(): vincula tmdb_id retroativamente pra
- *    séries antigas que nunca passaram pelo Top10/Novidades.
+ * 3. ✅ CORRIGIDO (selos demorando 1-2 min pra aparecer): duas coisas.
  *
- * 4. ✅ REVERTIDO: a busca de logo (clearlogo do TMDB) — que chegou a
- *    rodar ao vivo no HomeRowAdapter e depois foi movida pra cá — foi
- *    removida por completo a pedido. Os cards da Home voltam a mostrar
- *    só o nome em texto, sem nenhuma chamada de rede extra de logo em
- *    lugar nenhum (nem no adapter, nem aqui). Isso também elimina de vez
- *    essa fonte de disputa por rede com o carregamento dos pôsteres.
+ *    a) vincularTmdbIdsFaltantes() e a checagem de temporada/episódio
+ *       (sincronizarTemporadasEpisodios) faziam suas chamadas ao TMDB
+ *       UMA DE CADA VEZ, em sequência — até ~70 chamadas de rede
+ *       sequenciais no pior caso, cada uma esperando a anterior
+ *       terminar. Isso sozinho já explicava a maior parte da demora.
+ *       Agora as duas rodam em PARALELO (mesmo padrão já usado em
+ *       HomeActivity.buscarTop10FilmesAgora()).
  *
- * 5. Ao final da sincronização, a cópia em memória do ContentRepository
- *    é recarregada com os dados frescos do banco.
+ *    b) A Home só era avisada pra atualizar DEPOIS que a sincronização
+ *       INTEIRA terminasse (Top10 + Novidades + Temporada/Episódio
+ *       juntos). Agora ContentRepository é atualizado e a Home é
+ *       avisada (SyncManager.notificarProgressoParcial()) depois de
+ *       CADA fase — os selos de Top10 aparecem assim que essa fase
+ *       termina, sem esperar o resto.
+ *
+ * 4. O diagnóstico (ultimoDiagnostico) continua sendo calculado, mas o
+ *    Toast que mostrava ele na tela foi removido do HomeActivity.
  */
 object TmdbSyncHelper {
 
@@ -51,35 +58,46 @@ object TmdbSyncHelper {
 
     suspend fun sincronizar(db: AppDatabase) = withContext(Dispatchers.IO) {
         val diag = StringBuilder()
+
         try {
             diag.append(sincronizarTop10(db))
+            atualizarRepositorioENotificar(db)
         } catch (e: Exception) {
             diag.append("TOP10 ERRO: ${e.javaClass.simpleName} ${e.message}")
             e.printStackTrace()
         }
         diag.append(" || ")
+
         try {
             diag.append(sincronizarNovidades(db))
+            atualizarRepositorioENotificar(db)
         } catch (e: Exception) {
             diag.append("NOVIDADE ERRO: ${e.javaClass.simpleName} ${e.message}")
             e.printStackTrace()
         }
-        try {
-            sincronizarTemporadasEpisodios(db)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
 
         try {
-            val vodsAtualizados = db.streamDao().getAllVods()
-            val seriesAtualizadas = db.streamDao().getAllSeries()
-            ContentRepository.atualizarVods(vodsAtualizados)
-            ContentRepository.atualizarSeries(seriesAtualizadas)
+            sincronizarTemporadasEpisodios(db)
+            atualizarRepositorioENotificar(db)
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
         ultimoDiagnostico = diag.toString()
+    }
+
+    // ✅ NOVO: atualiza a cópia em memória do ContentRepository e avisa a
+    // Home — chamado ao final de cada fase, não só no final de tudo.
+    private suspend fun atualizarRepositorioENotificar(db: AppDatabase) {
+        try {
+            val vodsAtualizados = db.streamDao().getAllVods()
+            val seriesAtualizadas = db.streamDao().getAllSeries()
+            ContentRepository.atualizarVods(vodsAtualizados)
+            ContentRepository.atualizarSeries(seriesAtualizadas)
+            SyncManager.notificarProgressoParcial()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -164,11 +182,18 @@ object TmdbSyncHelper {
             .filter { it.tmdb_id != null }
         if (candidatas.isEmpty()) return
 
-        val resultados = mutableListOf<Pair<SeriesTmdbProgresso, DetalhesSerieTmdb>>()
-        for (c in candidatas) {
-            val detalhes = buscarDetalhesSerieTmdb(c.tmdb_id!!) ?: continue
-            resultados.add(c to detalhes)
-        }
+        // ✅ Paralelizado — antes cada série era checada uma de cada vez
+        // (até 40 chamadas de rede sequenciais); essa era a maior fatia
+        // da demora pros selos aparecerem.
+        val resultados = coroutineScope {
+            candidatas.map { c ->
+                async {
+                    val detalhes = buscarDetalhesSerieTmdb(c.tmdb_id!!) ?: return@async null
+                    c to detalhes
+                }
+            }.awaitAll()
+        }.filterNotNull()
+
         if (resultados.isEmpty()) return
 
         val agora = System.currentTimeMillis()
@@ -262,11 +287,17 @@ object TmdbSyncHelper {
         val candidatas = db.streamDao().getSeriesSemTmdbId(LIMITE_SERIES_SEM_TMDB_ID)
         if (candidatas.isEmpty()) return
 
-        val encontrados = mutableListOf<Pair<Int, Int>>()
-        for (c in candidatas) {
-            val tmdbId = buscarTmdbIdPorNomeCatalogo(c.name) ?: continue
-            encontrados.add(c.series_id to tmdbId)
-        }
+        // ✅ Paralelizado — antes cada série sem tmdb_id era buscada uma
+        // de cada vez (até 30 chamadas de rede sequenciais).
+        val encontrados = coroutineScope {
+            candidatas.map { c ->
+                async {
+                    val tmdbId = buscarTmdbIdPorNomeCatalogo(c.name) ?: return@async null
+                    c.series_id to tmdbId
+                }
+            }.awaitAll()
+        }.filterNotNull()
+
         if (encontrados.isEmpty()) return
 
         db.withTransaction {
