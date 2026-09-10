@@ -386,6 +386,14 @@ interface StreamDao {
     @Query("SELECT series_id, name FROM series_streams WHERE tmdb_id IS NULL ORDER BY last_modified DESC LIMIT :limite")
     suspend fun getSeriesSemTmdbId(limite: Int): List<SeriesNomeBasico>
 
+    // ✅ NOVO: filmes/séries sem logo salva ainda — candidatos ao
+    // preenchimento em segundo plano pelo TmdbSyncHelper.
+    @Query("SELECT stream_id, name FROM vod_streams WHERE logo_url IS NULL ORDER BY added DESC LIMIT :limite")
+    suspend fun getVodsSemLogo(limite: Int): List<VodNomeBasico>
+
+    @Query("SELECT series_id, name FROM series_streams WHERE logo_url IS NULL ORDER BY last_modified DESC LIMIT :limite")
+    suspend fun getSeriesSemLogo(limite: Int): List<SeriesNomeBasico>
+
     @Query("UPDATE series_streams SET tmdb_id = :tmdbId WHERE series_id = :id")
     suspend fun atualizarTmdbIdSerie(id: Int, tmdbId: Int)
 
