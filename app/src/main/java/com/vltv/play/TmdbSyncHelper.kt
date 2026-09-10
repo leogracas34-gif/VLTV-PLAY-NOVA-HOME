@@ -19,7 +19,13 @@ import kotlinx.coroutines.coroutineScope
  * TmdbSyncHelper — matching em cascata pra Top10/Novidades (ver
  * comentários originais mantidos abaixo). NOVIDADES NESTA VERSÃO:
  *
- * 1. Top 10 sem filtro de ano — o ranking real da Netflix já é "agora".
+ * 1. ✅ CORRIGIDO (Top10 mostrando filme/série antigos): o Top10 tinha
+ *    virado 100% o ranking oficial da Netflix Brasil, que às vezes traz
+ *    títulos antigos que voltaram a bombar (ex: Anaconda, Shrek). Voltou
+ *    o comportamento de antes: primeiro entram os títulos "em alta" AGORA
+ *    no TMDB (buscarTendenciaAtualTmdb, endpoint trending/semana) — e só
+ *    os slots que sobrarem até completar 10 são preenchidos pelo Top10
+ *    oficial da Netflix. As duas buscas rodam em paralelo.
  *
  * 2. Selo "Em Breve" distingue temporada nova de episódio novo, com
  *    janela de ~30 dias.
@@ -101,10 +107,22 @@ object TmdbSyncHelper {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TOP 10
+    // TOP 10 — restaurado o comportamento antigo: primeiro o que está "em
+    // alta" AGORA no TMDB (atualidade), e só os slots que sobrarem (até
+    // completar 10) são preenchidos pelo Top 10 oficial da Netflix Brasil.
+    // Antes desta correção o Top10 tinha virado 100% o ranking da Netflix,
+    // que mistura filme/série antigos que voltaram a bombar — daí clientes
+    // vendo títulos velhos no topo. As duas buscas (TMDB + Netflix) rodam
+    // em PARALELO pra não somar os tempos de rede.
     // ─────────────────────────────────────────────────────────────────────────
-    private suspend fun sincronizarTop10(db: AppDatabase): String {
-        val ranking = buscarTop10NetflixBrasil()
+    private suspend fun sincronizarTop10(db: AppDatabase): String = coroutineScope {
+        val filmesAtualidadeDeferred = async { buscarTendenciaAtualTmdb("movie") }
+        val seriesAtualidadeDeferred = async { buscarTendenciaAtualTmdb("tv") }
+        val netflixDeferred = async { buscarTop10NetflixBrasil() }
+
+        val filmesAtualidade = filmesAtualidadeDeferred.await()
+        val seriesAtualidade = seriesAtualidadeDeferred.await()
+        val ranking = netflixDeferred.await()
 
         var filmesAchados = 0
         var seriesAchadas = 0
@@ -116,27 +134,65 @@ object TmdbSyncHelper {
             val idsVodUsados = mutableSetOf<Int>()
             val idsSeriesUsados = mutableSetOf<Int>()
 
+            // 1) Atualidade do TMDB primeiro (ordem de popularidade/em alta)
+            var rankFilme = 1
+            for (item in filmesAtualidade) {
+                if (rankFilme > 10) break
+                val id = encontrarVod(db, item, idsVodUsados) ?: continue
+                idsVodUsados.add(id)
+                db.streamDao().updateVodTop10(id, rankFilme)
+                filmesAchados++
+                rankFilme++
+            }
+            // 2) Netflix preenche só os slots que sobraram
             for (item in ranking.filmes) {
-                val id = encontrarVod(db, item.item, idsVodUsados)
-                if (id != null) {
-                    idsVodUsados.add(id)
-                    db.streamDao().updateVodTop10(id, item.rank)
-                    filmesAchados++
-                }
+                if (rankFilme > 10) break
+                val id = encontrarVod(db, item.item, idsVodUsados) ?: continue
+                idsVodUsados.add(id)
+                db.streamDao().updateVodTop10(id, rankFilme)
+                filmesAchados++
+                rankFilme++
             }
 
+            var rankSerie = 1
+            for (item in seriesAtualidade) {
+                if (rankSerie > 10) break
+                val id = encontrarSerie(db, item, idsSeriesUsados) ?: continue
+                idsSeriesUsados.add(id)
+                db.streamDao().updateSeriesTop10(id, rankSerie)
+                seriesAchadas++
+                rankSerie++
+            }
             for (item in ranking.series) {
-                val id = encontrarSerie(db, item.item, idsSeriesUsados)
-                if (id != null) {
-                    idsSeriesUsados.add(id)
-                    db.streamDao().updateSeriesTop10(id, item.rank)
-                    seriesAchadas++
-                }
+                if (rankSerie > 10) break
+                val id = encontrarSerie(db, item.item, idsSeriesUsados) ?: continue
+                idsSeriesUsados.add(id)
+                db.streamDao().updateSeriesTop10(id, rankSerie)
+                seriesAchadas++
+                rankSerie++
             }
         }
 
-        return "TOP10: netflix_bruto=${ranking.filmes.size}f/${ranking.series.size}s achados_no_catalogo=${filmesAchados}f/${seriesAchadas}s" +
+        "TOP10: atualidade_tmdb=${filmesAtualidade.size}f/${seriesAtualidade.size}s netflix_bruto=${ranking.filmes.size}f/${ranking.series.size}s achados_no_catalogo=${filmesAchados}f/${seriesAchadas}s" +
             (ultimoErroTop10Rede?.let { " [ERRO REDE: $it]" } ?: "")
+    }
+
+    // Busca o que está "em alta" agora no TMDB (trending da semana), que é
+    // o mesmo conceito de "atualidade" que existia antes desta versão —
+    // não depende de ano fixo, então continua funcionando sem precisar de
+    // ajuste manual quando o ano virar.
+    private fun buscarTendenciaAtualTmdb(tipo: String, paginas: Int = 2): List<TmdbItem> {
+        val resultado = mutableListOf<TmdbItem>()
+        for (page in 1..paginas) {
+            val url = "https://api.themoviedb.org/3/trending/$tipo/week" +
+                "?api_key=$TMDB_KEY&language=pt-BR&page=$page"
+            try {
+                resultado.addAll(parseTmdbResults(JSONObject(URL(url).readText()), tipo))
+            } catch (e: Exception) {
+                break
+            }
+        }
+        return resultado
     }
 
     // ─────────────────────────────────────────────────────────────────────────
