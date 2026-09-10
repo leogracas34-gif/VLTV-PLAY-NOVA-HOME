@@ -9,23 +9,21 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.Priority
 import com.bumptech.glide.load.DecodeFormat
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.vltv.play.data.AppDatabase
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.URL
-import java.net.URLEncoder
 
+// ✅ CORRIGIDO (demora de 2-4 min pra carregar a Home numa instalação
+// nova): este adapter buscava a logo (clearlogo do TMDB) AO VIVO, com 2
+// chamadas de rede por item visível sem logo_url salva — numa instalação
+// nova isso é TODO item de TODA fileira ao mesmo tempo, o que saturava a
+// rede e competia com o carregamento dos próprios pôsteres. Essa busca
+// foi movida pro TmdbSyncHelper (roda em segundo plano, limitada, sem
+// travar nada — ver preencherLogosFaltantes() lá). Este adapter agora só
+// LÊ o que já está salvo no banco: tem logo → mostra logo; não tem →
+// mostra o nome em texto. Zero chamada de rede na hora de desenhar a tela.
 class HomeRowAdapter(
     private var list: List<VodItem>,
     private val useWideLayout: Boolean = false,
@@ -41,19 +39,6 @@ class HomeRowAdapter(
         val tvBadgeStatusLine2: TextView = view.findViewById(R.id.tvBadgeNewLine2)
         val tvBadgeTop10: TextView = view.findViewById(R.id.tvBadgeTop10)
         val pbProgress: ProgressBar? = view.findViewById(R.id.pbProgress)
-        var logoJob: Job? = null
-    }
-
-    companion object {
-        private val logoMemoryCache = mutableMapOf<String, String>()
-        private const val PREFS_LOGO_HOME = "home_row_logo_cache"
-
-        private val REGEX_TARJAS_LOGO_HOME = Regex(
-            "(?i)\\b(4K|8K|FULL[\\s.-]?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|LEG|DUB|DUAL|AUDIO|LATINO|" +
-            "NACIONAL|PT[-.]?BR|PTBR|WEB[-.]?DL|WEBRIP|BLU-?RAY|REMUX|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|" +
-            "HEVC|X264|X265|WEB|HDR|UHD|FHD|CAM|HDCAM|TS|TC|R5|SCREENER|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO|" +
-            "COMPLETO|COMPLETE|S\\d{1,2}|E\\d{1,3}|EP\\d{1,3}|TEMPORADA|SEASON)\\b"
-        )
     }
 
     fun updateList(newList: List<VodItem>) {
@@ -80,81 +65,19 @@ class HomeRowAdapter(
         val context = holder.itemView.context
         holder.tvTitle.text = item.name
 
-        holder.logoJob?.cancel()
-        holder.logoJob = null
-
-        // ✅ CORRIGIDO: a capa (poster) entra na fila do Glide ANTES da logo,
-        // e com prioridade HIGH. Antes a logo (imagem pequena, TMDB) era
-        // disparada primeiro e sempre "furava a fila" na frente da capa
-        // (imagem maior, vindo do Xtream), fazendo a logo aparecer visualmente
-        // antes da própria capa no primeiro carregamento do app. Agora a capa
-        // sempre entra primeiro no pipeline de rede do Glide.
-        val larguraPoster = if (useWideLayout) 320 else 180
-        val alturaPoster = if (useWideLayout) 180 else 270
-
-        Glide.with(context)
-            .asBitmap()
-            .load(item.streamIcon)
-            .format(DecodeFormat.PREFER_RGB_565)
-            .override(larguraPoster, alturaPoster)
-            .diskCacheStrategy(DiskCacheStrategy.ALL)
-            .priority(Priority.HIGH)
-            .dontAnimate()
-            .placeholder(R.drawable.ic_launcher)
-            .into(holder.ivPoster)
-
+        // ✅ Sem busca de rede aqui — só lê o que já está salvo.
         if (holder.ivLogo != null) {
             if (!item.logoUrl.isNullOrEmpty()) {
                 mostrarLogo(context, holder, item.logoUrl)
             } else {
-                val cacheKey = "${if (item.isSerie) "s" else "v"}_${item.id}"
-                val memCached = logoMemoryCache[cacheKey]
-                if (memCached != null) {
-                    mostrarLogo(context, holder, memCached)
-                } else {
-                    val prefs = context.getSharedPreferences(PREFS_LOGO_HOME, Context.MODE_PRIVATE)
-                    val diskCached = prefs.getString(cacheKey, null)
-                    if (diskCached != null) {
-                        logoMemoryCache[cacheKey] = diskCached
-                        mostrarLogo(context, holder, diskCached)
-                    } else {
-                        holder.ivLogo.visibility = View.GONE
-                        holder.tvTitle.visibility = View.VISIBLE
-
-                        val lifecycleOwner = context as? LifecycleOwner
-                        if (lifecycleOwner != null) {
-                            holder.logoJob = lifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-                                val url = buscarLogoTmdbHome(item.name, item.isSerie)
-                                if (url != null) {
-                                    logoMemoryCache[cacheKey] = url
-                                    prefs.edit().putString(cacheKey, url).apply()
-
-                                    item.id.toIntOrNull()?.let { idInt ->
-                                        try {
-                                            val db = AppDatabase.getDatabase(context)
-                                            if (item.isSerie) db.streamDao().updateSeriesLogo(idInt, url)
-                                            else db.streamDao().updateVodLogo(idInt, url)
-                                        } catch (e: Exception) {}
-                                    }
-
-                                    withContext(Dispatchers.Main) {
-                                        if (holder.adapterPosition == position) {
-                                            mostrarLogo(context, holder, url)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                holder.ivLogo.visibility = View.GONE
+                holder.tvTitle.visibility = View.VISIBLE
             }
         }
 
-        // ✅ Selo de status — agora 5 opções na cascata de prioridade:
+        // Selo de status — só um por vez, ordem de prioridade:
         // Nova Temporada > Novo Episódio > Nova Temporada Em Breve >
-        // Novo Episódio Em Breve > Novidade. Só um por vez. Os dois
-        // casos "Em Breve" usam duas linhas (título + "EM BREVE",
-        // definida estaticamente no layout); os outros usam só a linha 1.
+        // Novo Episódio Em Breve > Novidade.
         val linhasBadge: Int
         when {
             item.isNovaTemporada -> {
@@ -175,7 +98,6 @@ class HomeRowAdapter(
                 holder.llBadgeStatus.visibility = View.VISIBLE
                 linhasBadge = 2
             }
-            // ✅ NOVO
             item.isNovoEpisodioEmBreve -> {
                 holder.tvBadgeStatus.text = "NOVO EPISÓDIO"
                 holder.tvBadgeStatusLine2.visibility = View.VISIBLE
@@ -208,6 +130,19 @@ class HomeRowAdapter(
             }
         }
 
+        val larguraPoster = if (useWideLayout) 320 else 180
+        val alturaPoster = if (useWideLayout) 180 else 270
+
+        Glide.with(context)
+            .asBitmap()
+            .load(item.streamIcon)
+            .format(DecodeFormat.PREFER_RGB_565)
+            .override(larguraPoster, alturaPoster)
+            .diskCacheStrategy(DiskCacheStrategy.ALL)
+            .dontAnimate()
+            .placeholder(R.drawable.ic_launcher)
+            .into(holder.ivPoster)
+
         holder.itemView.setOnClickListener { onItemClick(item) }
 
         holder.itemView.setOnFocusChangeListener { v, hasFocus ->
@@ -217,61 +152,15 @@ class HomeRowAdapter(
         }
     }
 
-    override fun onViewRecycled(holder: ViewHolder) {
-        super.onViewRecycled(holder)
-        holder.logoJob?.cancel()
-        holder.logoJob = null
-    }
-
     private fun mostrarLogo(context: Context, holder: ViewHolder, url: String) {
         val ivLogo = holder.ivLogo ?: return
         holder.tvTitle.visibility = View.INVISIBLE
         ivLogo.visibility = View.VISIBLE
-        // ✅ CORRIGIDO: prioridade LOW — a logo nunca deve competir pelo
-        // pool de rede do Glide na frente da capa (ver comentário no
-        // carregamento do ivPoster acima).
         Glide.with(context)
             .load(url)
             .diskCacheStrategy(DiskCacheStrategy.ALL)
-            .priority(Priority.LOW)
             .dontAnimate()
             .into(ivLogo)
-    }
-
-    private suspend fun buscarLogoTmdbHome(rawName: String, isSerie: Boolean): String? {
-        val apiKey = TmdbConfig.API_KEY
-        val yearRegex = Regex("\\b(19|20)\\d{2}\\b")
-        val year = yearRegex.find(rawName)?.value
-        val cleanName = rawName
-            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-            .replace(yearRegex, "")
-            .replace(REGEX_TARJAS_LOGO_HOME, "")
-            .replace(Regex("\\s{2,}"), " ")
-            .trim()
-        if (cleanName.isEmpty()) return null
-
-        val tipo = if (isSerie) "tv" else "movie"
-        return try {
-            var url = "https://api.themoviedb.org/3/search/$tipo?api_key=$apiKey" +
-                    "&query=${URLEncoder.encode(cleanName, "UTF-8")}&language=pt-BR&region=BR&include_adult=false"
-            if (!isSerie && year != null) url += "&year=$year"
-            val results = JSONObject(URL(url).readText()).getJSONArray("results")
-            if (results.length() == 0) return null
-            val id = results.getJSONObject(0).getString("id")
-            val logos = JSONObject(
-                URL("https://api.themoviedb.org/3/$tipo/$id/images?api_key=$apiKey&include_image_language=pt,en,null")
-                    .readText()
-            ).getJSONArray("logos")
-            if (logos.length() == 0) return null
-            var path: String? = null
-            for (i in 0 until logos.length()) {
-                if (logos.getJSONObject(i).optString("iso_639_1") == "pt") {
-                    path = logos.getJSONObject(i).getString("file_path"); break
-                }
-            }
-            if (path == null) path = logos.getJSONObject(0).getString("file_path")
-            path?.let { VpsConfig.tmdbImage(it, "w500") }
-        } catch (e: Exception) { null }
     }
 
     private fun ajustarMargemInferior(context: android.content.Context, view: View?, linhasBadge: Int) {
