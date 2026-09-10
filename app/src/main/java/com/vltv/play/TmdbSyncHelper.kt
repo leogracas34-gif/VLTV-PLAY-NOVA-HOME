@@ -40,12 +40,18 @@ import kotlinx.coroutines.coroutineScope
  *       Agora as duas rodam em PARALELO (mesmo padrão já usado em
  *       HomeActivity.buscarTop10FilmesAgora()).
  *
- *    b) A Home só era avisada pra atualizar DEPOIS que a sincronização
- *       INTEIRA terminasse (Top10 + Novidades + Temporada/Episódio
- *       juntos). Agora ContentRepository é atualizado e a Home é
- *       avisada (SyncManager.notificarProgressoParcial()) depois de
- *       CADA fase — os selos de Top10 aparecem assim que essa fase
- *       termina, sem esperar o resto.
+ *    b) ✅ CORRIGIDO DE NOVO: a versão anterior passou a avisar a Home
+ *       (SyncManager.notificarProgressoParcial()) depois de CADA fase
+ *       (Top10, Novidades, Temporada/Episódio) pra fazer os selos
+ *       aparecerem mais rápido. Na prática isso criava 3 redesenhos
+ *       cheios da tela em sequência — cada um mexendo na ordem/selos dos
+ *       itens — e dava a sensação de "pisca, mostra capa errada, pisca de
+ *       novo" bem pior do que valia a pena. Voltamos ao modelo antigo (1
+ *       sincronização = no máximo 1 aviso, disparado pelo SyncManager só
+ *       depois que TUDO — nomes, logos E selos — está pronto). As 3 fases
+ *       continuam rodando e gravando no banco normalmente, só que em
+ *       silêncio; quem finalmente atualiza a tela e avisa a Home é o
+ *       SyncManager, uma única vez, no final de tudo.
  *
  * 4. O diagnóstico (ultimoDiagnostico) continua sendo calculado, mas o
  *    Toast que mostrava ele na tela foi removido do HomeActivity.
@@ -67,7 +73,6 @@ object TmdbSyncHelper {
 
         try {
             diag.append(sincronizarTop10(db))
-            atualizarRepositorioENotificar(db)
         } catch (e: Exception) {
             diag.append("TOP10 ERRO: ${e.javaClass.simpleName} ${e.message}")
             e.printStackTrace()
@@ -76,7 +81,6 @@ object TmdbSyncHelper {
 
         try {
             diag.append(sincronizarNovidades(db))
-            atualizarRepositorioENotificar(db)
         } catch (e: Exception) {
             diag.append("NOVIDADE ERRO: ${e.javaClass.simpleName} ${e.message}")
             e.printStackTrace()
@@ -84,26 +88,11 @@ object TmdbSyncHelper {
 
         try {
             sincronizarTemporadasEpisodios(db)
-            atualizarRepositorioENotificar(db)
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
         ultimoDiagnostico = diag.toString()
-    }
-
-    // ✅ NOVO: atualiza a cópia em memória do ContentRepository e avisa a
-    // Home — chamado ao final de cada fase, não só no final de tudo.
-    private suspend fun atualizarRepositorioENotificar(db: AppDatabase) {
-        try {
-            val vodsAtualizados = db.streamDao().getAllVods()
-            val seriesAtualizadas = db.streamDao().getAllSeries()
-            ContentRepository.atualizarVods(vodsAtualizados)
-            ContentRepository.atualizarSeries(seriesAtualizadas)
-            SyncManager.notificarProgressoParcial()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
