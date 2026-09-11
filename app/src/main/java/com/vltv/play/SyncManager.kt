@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -34,6 +33,17 @@ import java.net.URL
  * atualizado). Agora, ao final da sincronização inicial, notificarOuvintes()
  * é chamado incondicionalmente — a Home se atualiza sozinha assim que os
  * nomes/logos oficiais chegarem, sem precisar fechar/reabrir o app.
+ *
+ * ✅ NOVO (backend / Opção B): depois de baixar o catálogo cru do Xtream
+ * (como sempre fez), o app manda esse catálogo pro vltv-backend via
+ * HomeApiClient.enviarCatalogo() — o backend cruza com o TMDB e guarda
+ * Top10/Novidades/selos prontos pra qualquer cliente do mesmo painel ler
+ * instantâneo depois. Se o backend responder com esse resultado pronto
+ * (HomeApiClient.buscarHome), o app aplica ele direto (HomeBackendSync) e
+ * PULA o cálculo local — economiza rede/bateria/tempo no celular. Se o
+ * backend estiver fora do ar, ainda não tiver sido configurado, ou ainda
+ * não tiver processado esse domínio, o app cai automaticamente de volta
+ * pro cálculo local do TmdbSyncHelper — funciona exatamente como antes.
  *
  * PROBLEMA QUE RESOLVE (arquitetura original):
  * Antes, HomeActivity.onResume() chamava sincronizarConteudoSilenciosamente()
@@ -256,25 +266,60 @@ object SyncManager {
             // sozinha, antes mesmo do TMDB entrar em ação. Agora as três
             // rodam em PARALELO com coroutineScope/async — o tempo total
             // passa a ser o da mais lenta das três, não a soma delas.
+            val vodsCompletos: List<VodEntity>
+            val seriesCompletos: List<SeriesEntity>
+
             coroutineScope {
                 val vodJob = async { sincronizarVod(db, dns, user, pass, palavrasProibidas, vodsExistentes) }
                 val seriesJob = async { sincronizarSeries(db, dns, user, pass, palavrasProibidas, seriesExistentes) }
                 val liveJob = async { sincronizarLive(db, dns, user, pass) }
-                awaitAll(vodJob, seriesJob, liveJob)
+
+                vodsCompletos = vodJob.await()
+                seriesCompletos = seriesJob.await()
+                liveJob.await()
             }
 
             // ── TMDB (nomes oficiais + top10/novidades) ─────────────────────
-            // É AQUI que os nomes crus do provedor ("007", "Rambo") são
-            // resolvidos para os nomes oficiais e logos são associados.
+            // ✅ NOVO (backend / Opção B): primeiro manda o catálogo cru
+            // pro vltv-backend (HomeApiClient.enviarCatalogo) — ele
+            // processa o TMDB inteiro do lado de lá e responde. Se der
+            // certo, pedimos de volta o resultado pronto (buscarHome) e
+            // aplicamos direto nas mesmas colunas que o TmdbSyncHelper usa
+            // (via HomeBackendSync) — pulando o cálculo local, que
+            // economiza rede/bateria/tempo no celular do cliente.
+            //
+            // Se qualquer parte disso falhar (backend fora do ar, ainda
+            // não configurado, domínio ainda não processado, etc.), caímos
+            // automaticamente no TmdbSyncHelper LOCAL — exatamente o
+            // comportamento de antes, sem quebrar nada pra quem ainda não
+            // tem o backend rodando.
+            var aplicadoPeloBackend = false
             try {
-                TmdbSyncHelper.sincronizar(db)
-                val vodsFinal = db.streamDao().getRecentVods(200)
-                val seriesFinal = db.streamDao().getRecentSeries(200)
-                ContentRepository.atualizarVods(vodsFinal)
-                ContentRepository.atualizarSeries(seriesFinal)
+                HomeApiClient.enviarCatalogo(dns, vodsCompletos, seriesCompletos)
+                val resultadoBackend = HomeApiClient.buscarHome(dns)
+                if (resultadoBackend != null) {
+                    HomeBackendSync.aplicar(db, resultadoBackend)
+                    aplicadoPeloBackend = true
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+
+            if (!aplicadoPeloBackend) {
+                // É AQUI que os nomes crus do provedor ("007", "Rambo") são
+                // resolvidos para os nomes oficiais e logos são associados,
+                // caso o backend não tenha respondido com nada pronto.
+                try {
+                    TmdbSyncHelper.sincronizar(db)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            val vodsFinal = db.streamDao().getRecentVods(200)
+            val seriesFinal = db.streamDao().getRecentSeries(200)
+            ContentRepository.atualizarVods(vodsFinal)
+            ContentRepository.atualizarSeries(seriesFinal)
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -285,17 +330,21 @@ object SyncManager {
     private suspend fun sincronizarVod(
         db: AppDatabase, dns: String, user: String, pass: String,
         palavrasProibidas: List<String>, vodsExistentes: Map<Int, VodEntity>
-    ) = withContext(Dispatchers.IO) {
+    ): List<VodEntity> = withContext(Dispatchers.IO) {
         val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
         val vodArray = JSONArray(URL(vodUrl).readText())
         val vodBatch = mutableListOf<VodEntity>()
+        // ✅ NOVO: coleta TODOS os itens aceitos (não só o lote atual) pra
+        // poder mandar o catálogo completo pro backend no final — sem isso
+        // só teríamos acesso aos últimos 200 (vodBatch é limpo a cada flush).
+        val todosVods = mutableListOf<VodEntity>()
         for (i in 0 until vodArray.length()) {
             val obj = vodArray.getJSONObject(i)
             val nome = obj.optString("name")
             if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
                 val streamId = obj.optInt("stream_id")
                 val existente = vodsExistentes[streamId]
-                vodBatch.add(VodEntity(
+                val entity = VodEntity(
                     stream_id = streamId,
                     name = nome,
                     title = obj.optString("name"),
@@ -313,7 +362,9 @@ object SyncManager {
                     is_novidade = existente?.is_novidade ?: 0,
                     tmdb_id = existente?.tmdb_id,
                     backdrop_path = existente?.backdrop_path
-                ))
+                )
+                vodBatch.add(entity)
+                todosVods.add(entity)
             }
             if (vodBatch.size >= 200) {
                 db.streamDao().insertVodStreams(vodBatch)
@@ -324,23 +375,26 @@ object SyncManager {
 
         val vodsAtualizados = db.streamDao().getRecentVods(200)
         ContentRepository.atualizarVods(vodsAtualizados)
+        todosVods
     }
 
     // ── SÉRIES ─────────────────────────────────────────────────────────────
     private suspend fun sincronizarSeries(
         db: AppDatabase, dns: String, user: String, pass: String,
         palavrasProibidas: List<String>, seriesExistentes: Map<Int, SeriesEntity>
-    ) = withContext(Dispatchers.IO) {
+    ): List<SeriesEntity> = withContext(Dispatchers.IO) {
         val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
         val seriesArray = JSONArray(URL(seriesUrl).readText())
         val seriesBatch = mutableListOf<SeriesEntity>()
+        // ✅ NOVO: mesma ideia do sincronizarVod — coleta tudo pro upload.
+        val todasSeries = mutableListOf<SeriesEntity>()
         for (i in 0 until seriesArray.length()) {
             val obj = seriesArray.getJSONObject(i)
             val nome = obj.optString("name")
             if (!palavrasProibidas.any { nome.uppercase().contains(it) }) {
                 val seriesId = obj.optInt("series_id")
                 val existente = seriesExistentes[seriesId]
-                seriesBatch.add(SeriesEntity(
+                val entity = SeriesEntity(
                     series_id = seriesId,
                     name = nome,
                     cover = obj.optString("cover"),
@@ -361,7 +415,9 @@ object SyncManager {
                     is_novo_episodio = existente?.is_novo_episodio ?: 0,
                     tmdb_flag_marcado_em = existente?.tmdb_flag_marcado_em ?: 0,
                     tmdb_proxima_temporada_data = existente?.tmdb_proxima_temporada_data
-                ))
+                )
+                seriesBatch.add(entity)
+                todasSeries.add(entity)
             }
             if (seriesBatch.size >= 200) {
                 db.streamDao().insertSeriesStreams(seriesBatch)
@@ -372,6 +428,7 @@ object SyncManager {
 
         val seriesAtualizadas = db.streamDao().getRecentSeries(200)
         ContentRepository.atualizarSeries(seriesAtualizadas)
+        todasSeries
     }
 
     // ── LIVE ───────────────────────────────────────────────────────────────
