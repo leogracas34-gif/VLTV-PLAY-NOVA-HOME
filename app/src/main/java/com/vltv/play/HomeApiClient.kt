@@ -23,12 +23,24 @@ import java.net.URLEncoder
  * (Top10/Novidades/selos) — assim qualquer cliente do mesmo painel lê
  * instantâneo, sem cada celular reprocessar o próprio TMDB do zero.
  *
- * Fluxo:
- *  1) SyncManager baixa o catálogo cru do Xtream (como sempre fez) e
+ * ✅ NOVO (GET /catalog): além do Top10/Novidades/selos, o backend agora
+ * também guarda e devolve o CATÁLOGO INTEIRO (todos os filmes e séries
+ * do painel). Isso permite que um cliente NOVO, logando num painel que
+ * outro cliente já sincronizou antes, pule completamente a etapa de
+ * baixar get_vod_streams/get_series do Xtream (a parte mais pesada e
+ * lenta do login) — ver buscarCatalogo() e o uso em SyncManager.
+ *
+ * Fluxo completo:
+ *  1) SyncManager tenta buscarCatalogo(dns) ANTES de ir no Xtream. Se o
+ *     backend já tiver esse painel pronto, o catálogo inteiro chega
+ *     pronto daqui — nenhuma chamada de get_vod_streams/get_series é
+ *     feita nesse caso.
+ *  2) Se buscarCatalogo() vier null (painel novo pro backend, ou backend
+ *     fora do ar), o SyncManager baixa do Xtream como sempre fez, e
  *     chama enviarCatalogo(...) — silencioso: se o backend estiver fora
  *     do ar, essa chamada só falha e loga; o app continua funcionando
  *     100% como antes, com o TmdbSyncHelper local calculando os selos.
- *  2) SyncManager então chama buscarHome(dns): se o backend já tiver
+ *  3) SyncManager então chama buscarHome(dns): se o backend já tiver
  *     processado esse domínio, o resultado é aplicado nas mesmas
  *     colunas que o TmdbSyncHelper local usa (via HomeBackendSync) e o
  *     cálculo local é pulado. Se vier null, o TmdbSyncHelper local roda
@@ -48,12 +60,32 @@ object HomeApiClient {
     private const val UPLOAD_TIMEOUT_MS = 40_000
     private const val HOME_TIMEOUT_MS = 15_000
 
+    // O catálogo inteiro (17 mil+ filmes, 8 mil+ séries em painéis
+    // grandes) é um payload bem maior que o /home — dá mais folga de
+    // timeout que as outras chamadas, mas ainda assim é só JSON puro
+    // (sem processamento do lado do backend), então tende a ser rápido.
+    private const val CATALOG_TIMEOUT_MS = 25_000
+
     data class HomeCatalogo(
         val top10FilmesRank: Map<Int, Int>,       // stream_id -> rank
         val top10SeriesRank: Map<Int, Int>,       // series_id -> rank
         val novidadeFilmesData: Map<Int, String>, // stream_id -> release_date
         val novidadeSeriesData: Map<Int, String>, // series_id -> release_date
         val badgesSeries: List<JSONObject>        // series_id, is_nova_temporada, is_novo_episodio, datas "em breve"
+    )
+
+    /**
+     * Catálogo bruto (filmes + séries) devolvido pelo GET /catalog do
+     * backend. Os JSONObject de cada array têm exatamente os mesmos
+     * campos que o Xtream devolve em get_vod_streams/get_series
+     * (stream_id, name, stream_icon, container_extension, rating,
+     * category_id, added / series_id, name, cover, rating, category_id,
+     * last_modified) — por isso SyncManager consegue processar esses
+     * arrays com o mesmo código que já usava pro retorno do Xtream.
+     */
+    data class CatalogoBackend(
+        val vodArray: JSONArray,
+        val seriesArray: JSONArray
     )
 
     /**
@@ -112,6 +144,44 @@ object HomeApiClient {
             } finally {
                 conn?.disconnect()
             }
+        }
+    }
+
+    /**
+     * Busca o CATÁLOGO INTEIRO (todos os filmes e séries, não só
+     * Top10/Novidades) já salvo pelo backend pra um domínio. Retorna
+     * null se o backend não conhecer esse domínio ainda, não tiver
+     * catálogo processado, ou estiver indisponível — quem chamar
+     * (SyncManager) deve cair de volta pro download direto do Xtream
+     * nesse caso, exatamente como fazia antes desta função existir.
+     */
+    suspend fun buscarCatalogo(dns: String): CatalogoBackend? = withContext(Dispatchers.IO) {
+        var conn: HttpURLConnection? = null
+        try {
+            val urlDomain = URLEncoder.encode(dns, "UTF-8")
+            conn = (URL("$BASE_URL/catalog?domain=$urlDomain").openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = CATALOG_TIMEOUT_MS
+                readTimeout = CATALOG_TIMEOUT_MS
+            }
+            if (conn.responseCode != 200) return@withContext null
+
+            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            val vodArray = json.optJSONArray("vod_streams") ?: JSONArray()
+            val seriesArray = json.optJSONArray("series_streams") ?: JSONArray()
+
+            // Painel "conhecido" pelo backend mas ainda sem nenhum item
+            // (ex.: cadastrado mas nunca recebeu upload de verdade) não
+            // vale a pena tratar como catálogo pronto — deixa o
+            // SyncManager cair pro Xtream normalmente.
+            if (vodArray.length() == 0 && seriesArray.length() == 0) return@withContext null
+
+            CatalogoBackend(vodArray, seriesArray)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        } finally {
+            conn?.disconnect()
         }
     }
 
