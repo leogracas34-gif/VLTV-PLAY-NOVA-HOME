@@ -352,8 +352,23 @@ object SyncManager {
                 }
             }
 
-            val vodsFinal = db.streamDao().getRecentVods(200)
-            val seriesFinal = db.streamDao().getRecentSeries(200)
+            // ⚠️ CORREÇÃO (categorias como "Cinema" mostrando só 1-2 filmes
+            // depois da sincronização): atualizarVods()/atualizarSeries()
+            // SUBSTITUEM POR INTEIRO o mapa vodsPorCategoria/seriesPorCategoria
+            // usado por VodActivity/SeriesActivity (ContentRepository.
+            // getVodsByCategory). Antes, esse trecho passava só os 200 itens
+            // mais recentes (getRecentVods/getRecentSeries) — suficiente pra
+            // Home (Top10/Novidades/Continuar assistindo), mas isso apagava
+            // do mapa QUALQUER categoria que não tivesse nenhum item entre
+            // esses 200 mais recentes, sobrando só 1-2 filmes "por acaso"
+            // nela até o usuário reabrir aquela categoria (o que dispara um
+            // novo fetch que corrige só ela). Agora recarregamos o catálogo
+            // INTEIRO do banco pra memória — igual o ContentRepository.
+            // recarregar() já faz no login — mantendo todas as categorias
+            // completas. groupBy já é rápido mesmo com 10.000+ itens (ver
+            // comentário em ContentRepository.carregarDoBanco).
+            val vodsFinal = db.streamDao().getAllVods()
+            val seriesFinal = db.streamDao().getAllSeries()
             ContentRepository.atualizarVods(vodsFinal)
             ContentRepository.atualizarSeries(seriesFinal)
 
