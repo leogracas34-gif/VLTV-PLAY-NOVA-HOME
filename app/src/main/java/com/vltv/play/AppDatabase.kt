@@ -389,6 +389,22 @@ interface StreamDao {
     @Query("UPDATE series_streams SET tmdb_proximo_episodio_data = :data WHERE series_id = :id")
     suspend fun atualizarProximoEpisodio(id: Int, data: String?)
 
+    // ✅ NOVO (backend / Opção B): aplica o selo de Nova Temporada/Novo
+    // Episódio já calculado pelo vltv-backend — usado só quando o
+    // backend respondeu com o resultado pronto (HomeBackendSync). Grava
+    // o timestamp LOCAL de quando este aparelho aplicou o selo, já que
+    // o backend não manda o instante exato da mudança — só o estado
+    // atual (ver comentário em HomeBackendSync.kt).
+    @Query("UPDATE series_streams SET is_nova_temporada = :novaTemporada, is_novo_episodio = :novoEpisodio, tmdb_flag_marcado_em = :marcadoEm WHERE series_id = :id")
+    suspend fun aplicarBadgeSerieDoBackend(id: Int, novaTemporada: Int, novoEpisodio: Int, marcadoEm: Long)
+
+    // ✅ NOVO (backend / Opção B): limpa os selos de Nova Temporada/Novo
+    // Episódio/Em Breve de TODAS as séries antes de reaplicar o que veio
+    // do backend — mesmo padrão de clearVodTop10Flags/clearSeriesTop10Flags
+    // acima, só que para os campos de temporada/episódio.
+    @Query("UPDATE series_streams SET is_nova_temporada = 0, is_novo_episodio = 0, tmdb_proxima_temporada_data = NULL, tmdb_proximo_episodio_data = NULL")
+    suspend fun limparBadgesSeriesBackend()
+
     // ✅ NOVO: séries sem tmdb_id ainda — candidatas a vinculação retroativa.
     @Query("SELECT series_id, name FROM series_streams WHERE tmdb_id IS NULL ORDER BY last_modified DESC LIMIT :limite")
     suspend fun getSeriesSemTmdbId(limite: Int): List<SeriesNomeBasico>
@@ -478,6 +494,12 @@ interface StreamDao {
 // DATABASE — version 15 (nova coluna em series_streams:
 // tmdb_proximo_episodio_data, separando "novo episódio em breve" de
 // "nova temporada em breve", que antes dividiam o mesmo campo)
+//
+// ✅ NOVO (backend / Opção B): as duas queries novas acima
+// (aplicarBadgeSerieDoBackend / limparBadgesSeriesBackend) NÃO mudam o
+// schema — só operam nas colunas que já existiam desde a v15 — por isso
+// a versão do banco continua 15, sem precisar de outra migração
+// destrutiva.
 // ==========================================
 
 @Database(
