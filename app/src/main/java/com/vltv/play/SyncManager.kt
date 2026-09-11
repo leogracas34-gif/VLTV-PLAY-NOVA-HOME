@@ -34,16 +34,26 @@ import java.net.URL
  * é chamado incondicionalmente — a Home se atualiza sozinha assim que os
  * nomes/logos oficiais chegarem, sem precisar fechar/reabrir o app.
  *
- * ✅ NOVO (backend / Opção B): depois de baixar o catálogo cru do Xtream
- * (como sempre fez), o app manda esse catálogo pro vltv-backend via
- * HomeApiClient.enviarCatalogo() — o backend cruza com o TMDB e guarda
- * Top10/Novidades/selos prontos pra qualquer cliente do mesmo painel ler
- * instantâneo depois. Se o backend responder com esse resultado pronto
- * (HomeApiClient.buscarHome), o app aplica ele direto (HomeBackendSync) e
- * PULA o cálculo local — economiza rede/bateria/tempo no celular. Se o
- * backend estiver fora do ar, ainda não tiver sido configurado, ou ainda
- * não tiver processado esse domínio, o app cai automaticamente de volta
- * pro cálculo local do TmdbSyncHelper — funciona exatamente como antes.
+ * ✅ NOVO (backend / Opção B): antes de baixar QUALQUER coisa do Xtream,
+ * o app agora pergunta pro vltv-backend via HomeApiClient.buscarCatalogo()
+ * se ele já tem o catálogo inteiro (filmes + séries) desse domínio salvo
+ * de uma sincronização anterior de outro cliente. Se tiver, o app usa
+ * esse catálogo pronto direto — pulando completamente as chamadas
+ * get_vod_streams/get_series no Xtream, que são as mais pesadas do
+ * login. Só a lista de canais AO VIVO continua vindo sempre do Xtream
+ * (o backend não guarda isso). Se o backend não tiver nada pra esse
+ * domínio ainda (painel novo) ou estiver fora do ar, o app cai
+ * automaticamente pro caminho de sempre: baixa do Xtream e, ao final,
+ * ainda manda esse catálogo pro backend via enviarCatalogo() — pra que
+ * o PRÓXIMO cliente desse mesmo painel já encontre tudo pronto.
+ *
+ * Depois disso, como já acontecia: se o backend responder com
+ * Top10/Novidades/selos prontos (HomeApiClient.buscarHome), o app aplica
+ * ele direto (HomeBackendSync) e PULA o cálculo local — economiza
+ * rede/bateria/tempo no celular. Se o backend estiver fora do ar, ainda
+ * não tiver sido configurado, ou ainda não tiver processado esse
+ * domínio, o app cai automaticamente de volta pro cálculo local do
+ * TmdbSyncHelper — funciona exatamente como antes.
  *
  * PROBLEMA QUE RESOLVE (arquitetura original):
  * Antes, HomeActivity.onResume() chamava sincronizarConteudoSilenciosamente()
@@ -258,6 +268,20 @@ object SyncManager {
             val vodsExistentes = try { db.streamDao().getAllVods().associateBy { it.stream_id } } catch (e: Exception) { emptyMap() }
             val seriesExistentes = try { db.streamDao().getAllSeries().associateBy { it.series_id } } catch (e: Exception) { emptyMap() }
 
+            // ✅ NOVO (backend / catálogo pronto): pergunta pro backend
+            // ANTES de tocar no Xtream se ele já tem o catálogo inteiro
+            // desse domínio (salvo por outro cliente que sincronizou
+            // antes). Se tiver, os arrays abaixo já chegam prontos e as
+            // chamadas get_vod_streams/get_series no Xtream são puladas
+            // de vez — é a etapa mais pesada do login, e passa a não
+            // existir mais pra clientes de um painel já conhecido.
+            var catalogoBackend: HomeApiClient.CatalogoBackend? = null
+            try {
+                catalogoBackend = HomeApiClient.buscarCatalogo(dns)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
             // ✅ CORREÇÃO (demora de 1-2 min pra aparecer o catálogo
             // correto na 1ª instalação): VOD, Séries e Live eram buscados
             // do Xtream em SEQUÊNCIA — cada `URL(...).readText()` é uma
@@ -266,12 +290,22 @@ object SyncManager {
             // sozinha, antes mesmo do TMDB entrar em ação. Agora as três
             // rodam em PARALELO com coroutineScope/async — o tempo total
             // passa a ser o da mais lenta das três, não a soma delas.
+            // Canais AO VIVO continuam vindo sempre do Xtream — o backend
+            // não guarda essa lista.
             val vodsCompletos: List<VodEntity>
             val seriesCompletos: List<SeriesEntity>
 
             coroutineScope {
-                val vodJob = async { sincronizarVod(db, dns, user, pass, palavrasProibidas, vodsExistentes) }
-                val seriesJob = async { sincronizarSeries(db, dns, user, pass, palavrasProibidas, seriesExistentes) }
+                val vodJob = async {
+                    val vodArray = catalogoBackend?.vodArray
+                        ?: buscarArrayXtream(dns, user, pass, "get_vod_streams")
+                    sincronizarVod(db, vodArray, palavrasProibidas, vodsExistentes)
+                }
+                val seriesJob = async {
+                    val seriesArray = catalogoBackend?.seriesArray
+                        ?: buscarArrayXtream(dns, user, pass, "get_series")
+                    sincronizarSeries(db, seriesArray, palavrasProibidas, seriesExistentes)
+                }
                 val liveJob = async { sincronizarLive(db, dns, user, pass) }
 
                 vodsCompletos = vodJob.await()
@@ -280,22 +314,24 @@ object SyncManager {
             }
 
             // ── TMDB (nomes oficiais + top10/novidades) ─────────────────────
-            // ✅ NOVO (backend / Opção B): primeiro manda o catálogo cru
-            // pro vltv-backend (HomeApiClient.enviarCatalogo) — ele
-            // processa o TMDB inteiro do lado de lá e responde. Se der
-            // certo, pedimos de volta o resultado pronto (buscarHome) e
-            // aplicamos direto nas mesmas colunas que o TmdbSyncHelper usa
-            // (via HomeBackendSync) — pulando o cálculo local, que
-            // economiza rede/bateria/tempo no celular do cliente.
+            // Se o catálogo já veio pronto do backend (catalogoBackend !=
+            // null), isso significa que outro cliente desse mesmo painel
+            // já fez esse upload antes — não faz sentido reenviar os
+            // mesmos dados de volta. Só faz enviarCatalogo() quando o app
+            // teve que buscar do Xtream ele mesmo (painel novo pro
+            // backend), pra que o PRÓXIMO cliente já encontre tudo pronto.
             //
-            // Se qualquer parte disso falhar (backend fora do ar, ainda
-            // não configurado, domínio ainda não processado, etc.), caímos
-            // automaticamente no TmdbSyncHelper LOCAL — exatamente o
-            // comportamento de antes, sem quebrar nada pra quem ainda não
-            // tem o backend rodando.
+            // Em ambos os casos, buscarHome() é chamado pra tentar aplicar
+            // Top10/Novidades/selos prontos. Se qualquer parte disso
+            // falhar (backend fora do ar, ainda não configurado, domínio
+            // ainda não processado, etc.), caímos automaticamente no
+            // TmdbSyncHelper LOCAL — exatamente o comportamento de antes,
+            // sem quebrar nada pra quem ainda não tem o backend rodando.
             var aplicadoPeloBackend = false
             try {
-                HomeApiClient.enviarCatalogo(dns, vodsCompletos, seriesCompletos)
+                if (catalogoBackend == null) {
+                    HomeApiClient.enviarCatalogo(dns, vodsCompletos, seriesCompletos)
+                }
                 val resultadoBackend = HomeApiClient.buscarHome(dns)
                 if (resultadoBackend != null) {
                     HomeBackendSync.aplicar(db, resultadoBackend)
@@ -326,15 +362,23 @@ object SyncManager {
         }
     }
 
+    // ── Busca crua no Xtream (usada só quando o backend não tem o catálogo) ──
+    private fun buscarArrayXtream(dns: String, user: String, pass: String, action: String): JSONArray {
+        val url = "$dns/player_api.php?username=$user&password=$pass&action=$action"
+        return JSONArray(URL(url).readText())
+    }
+
     // ── VOD ────────────────────────────────────────────────────────────────
+    // Recebe o array já pronto (vindo do backend OU recém-baixado do
+    // Xtream via buscarArrayXtream) — o formato dos campos é o mesmo nos
+    // dois casos, então o processamento é idêntico independente da
+    // origem.
     private suspend fun sincronizarVod(
-        db: AppDatabase, dns: String, user: String, pass: String,
+        db: AppDatabase, vodArray: JSONArray,
         palavrasProibidas: List<String>, vodsExistentes: Map<Int, VodEntity>
     ): List<VodEntity> = withContext(Dispatchers.IO) {
-        val vodUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_vod_streams"
-        val vodArray = JSONArray(URL(vodUrl).readText())
         val vodBatch = mutableListOf<VodEntity>()
-        // ✅ NOVO: coleta TODOS os itens aceitos (não só o lote atual) pra
+        // ✅ coleta TODOS os itens aceitos (não só o lote atual) pra
         // poder mandar o catálogo completo pro backend no final — sem isso
         // só teríamos acesso aos últimos 200 (vodBatch é limpo a cada flush).
         val todosVods = mutableListOf<VodEntity>()
@@ -379,14 +423,14 @@ object SyncManager {
     }
 
     // ── SÉRIES ─────────────────────────────────────────────────────────────
+    // Mesma ideia do sincronizarVod: recebe o array já pronto, seja do
+    // backend ou recém-baixado do Xtream.
     private suspend fun sincronizarSeries(
-        db: AppDatabase, dns: String, user: String, pass: String,
+        db: AppDatabase, seriesArray: JSONArray,
         palavrasProibidas: List<String>, seriesExistentes: Map<Int, SeriesEntity>
     ): List<SeriesEntity> = withContext(Dispatchers.IO) {
-        val seriesUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_series"
-        val seriesArray = JSONArray(URL(seriesUrl).readText())
         val seriesBatch = mutableListOf<SeriesEntity>()
-        // ✅ NOVO: mesma ideia do sincronizarVod — coleta tudo pro upload.
+        // ✅ mesma ideia do sincronizarVod — coleta tudo pro upload.
         val todasSeries = mutableListOf<SeriesEntity>()
         for (i in 0 until seriesArray.length()) {
             val obj = seriesArray.getJSONObject(i)
@@ -432,6 +476,7 @@ object SyncManager {
     }
 
     // ── LIVE ───────────────────────────────────────────────────────────────
+    // Continua vindo sempre do Xtream — o backend não guarda canais ao vivo.
     private suspend fun sincronizarLive(db: AppDatabase, dns: String, user: String, pass: String) = withContext(Dispatchers.IO) {
         val liveUrl = "$dns/player_api.php?username=$user&password=$pass&action=get_live_streams"
         val liveArray = JSONArray(URL(liveUrl).readText())
