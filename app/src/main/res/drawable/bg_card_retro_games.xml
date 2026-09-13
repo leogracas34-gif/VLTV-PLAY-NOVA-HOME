@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Gradiente ambar/terracota — unico momento de cor saturada da Home,
-         reservado pra esse card promocional -->
+    <!-- Gradiente dourado — único momento de cor saturada da Home,
+         reservado de propósito pra esse card promocional (ver
+         games_gold* em colors.xml): o resto do app é vermelho agora,
+         então esse dourado passa a funcionar como destaque natural da
+         seção "Jogos retrô", sem precisar de uma terceira cor. -->
     <item>
         <shape android:shape="rectangle">
             <corners android:radius="14dp" />
             <gradient
                 android:type="linear"
                 android:angle="45"
-                android:startColor="#8A5A1E"
-                android:centerColor="#B97328"
-                android:endColor="#D9A24B" />
+                android:startColor="@color/games_gold_dark"
+                android:centerColor="@color/games_gold_mid"
+                android:endColor="@color/games_gold" />
         </shape>
     </item>
 

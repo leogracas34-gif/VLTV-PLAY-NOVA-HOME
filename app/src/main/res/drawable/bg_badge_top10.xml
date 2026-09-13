@@ -7,7 +7,7 @@
      card. Fundo sólido dourado (mocha_gold). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/mocha_gold" />
+    <solid android:color="@color/brand_red" />
     <corners
         android:topLeftRadius="10dp"
         android:topRightRadius="0dp"
