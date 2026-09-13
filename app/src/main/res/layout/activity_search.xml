@@ -37,7 +37,7 @@
                 android:layout_height="40dp"
                 android:src="@drawable/ic_mic"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:tint="#D9A24B"
+                android:tint="#C1443B"
                 android:contentDescription="Busca por voz" />
 
             <ImageButton

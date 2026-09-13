@@ -87,7 +87,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="EM BREVE"
-                android:textColor="@color/mocha_gold_darkest"
+                android:textColor="@color/brand_red_darkest"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
