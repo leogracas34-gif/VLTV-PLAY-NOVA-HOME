@@ -213,7 +213,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Destaque da semana"
-                        android:textColor="#D9A24B"
+                        android:textColor="#C1443B"
                         android:textSize="10sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.1"
@@ -221,7 +221,7 @@
                         android:paddingEnd="8dp"
                         android:paddingTop="3dp"
                         android:paddingBottom="3dp"
-                        android:background="#33D9A24B"
+                        android:background="#33C1443B"
                         android:layout_marginBottom="8dp"/>
 
                     <TextView
@@ -482,7 +482,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="📺  Globo / SporTV"
-                            android:textColor="#D9A24B"
+                            android:textColor="#C1443B"
                             android:textSize="12sp"
                             android:textStyle="bold"
                             android:layout_marginTop="4dp"/>
@@ -519,7 +519,7 @@
                 <View
                     android:layout_width="3dp"
                     android:layout_height="16dp"
-                    android:background="#D9A24B"
+                    android:background="#C1443B"
                     android:layout_marginEnd="10dp"/>
 
                 <TextView
@@ -560,7 +560,7 @@
                 <View
                     android:layout_width="3dp"
                     android:layout_height="16dp"
-                    android:background="#D9A24B"
+                    android:background="#C1443B"
                     android:layout_marginEnd="10dp"/>
                 <TextView
                     android:layout_width="wrap_content"
@@ -597,7 +597,7 @@
                 <View
                     android:layout_width="3dp"
                     android:layout_height="16dp"
-                    android:background="#D9A24B"
+                    android:background="#C1443B"
                     android:layout_marginEnd="10dp"/>
                 <TextView
                     android:layout_width="wrap_content"
@@ -633,7 +633,7 @@
                 <View
                     android:layout_width="3dp"
                     android:layout_height="16dp"
-                    android:background="#D9A24B"
+                    android:background="#C1443B"
                     android:layout_marginEnd="10dp"/>
                 <TextView
                     android:layout_width="wrap_content"
@@ -669,7 +669,7 @@
                 <View
                     android:layout_width="3dp"
                     android:layout_height="16dp"
-                    android:background="#D9A24B"
+                    android:background="#C1443B"
                     android:layout_marginEnd="10dp"/>
                 <TextView
                     android:layout_width="wrap_content"
@@ -705,7 +705,7 @@
                 <View
                     android:layout_width="3dp"
                     android:layout_height="16dp"
-                    android:background="#D9A24B"
+                    android:background="#C1443B"
                     android:layout_marginEnd="10dp"/>
                 <TextView
                     android:layout_width="wrap_content"

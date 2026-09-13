@@ -61,7 +61,7 @@
                         android:layout_height="3dp"
                         android:layout_gravity="bottom"
                         android:progressBackgroundTint="#44FFFFFF"
-                        android:progressTint="#D9A24B"
+                        android:progressTint="#C1443B"
                         android:progress="0"
                         android:max="100"
                         android:indeterminate="false"
@@ -136,7 +136,7 @@
                 android:layout_height="28dp"
                 android:layout_gravity="center"
                 android:visibility="gone"
-                app:indicatorColor="#D9A24B"
+                app:indicatorColor="#C1443B"
                 app:trackColor="#33FFFFFF"
                 app:trackThickness="3dp"
                 app:indicatorSize="28dp"/>

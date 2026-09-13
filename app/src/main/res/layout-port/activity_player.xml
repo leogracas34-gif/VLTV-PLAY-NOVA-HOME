@@ -133,7 +133,7 @@
             android:textColor="#FFFFFF"
             android:textSize="13sp"
             android:textStyle="bold"
-            android:backgroundTint="#D9A24B"
+            android:backgroundTint="#C1443B"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:stateListAnimator="@null"

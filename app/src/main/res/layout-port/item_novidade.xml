@@ -79,7 +79,7 @@
         android:background="@drawable/bg_badge_tagline"
         android:paddingHorizontal="10dp"
         android:paddingVertical="4dp"
-        android:textColor="#D9A24B"
+        android:textColor="#C1443B"
         android:textSize="11sp"
         android:textStyle="bold"
         android:letterSpacing="0.06"/>
