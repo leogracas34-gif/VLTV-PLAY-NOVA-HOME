@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
     id("com.google.devtools.ksp")
+    // ✅ NOVO: plugin do Crashlytics — é ele que injeta a task que sobe
+    // automaticamente o mapping.txt (arquivo de desofuscação do R8) pro
+    // Firebase toda vez que um build de release é gerado. Sem essa
+    // subida, o Crashlytics mostraria o crash igual à tela "Ops, o app
+    // travou" (com nomes/linhas trocados) — com ela, mostra a linha exata
+    // do .kt original.
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -60,6 +67,15 @@ android {
             shrinkResources true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig signingConfigs.release
+            // ✅ NOVO: garante explicitamente que o mapping.txt (a "chave
+            // de tradução" do R8) é gerado e enviado ao Crashlytics nesse
+            // build type. O plugin já faz isso por padrão quando
+            // minifyEnabled é true, mas deixar explícito evita qualquer
+            // dúvida futura sobre por que os crashes aparecem
+            // desofuscados no console do Firebase.
+            firebaseCrashlytics {
+                mappingFileUploadEnabled true
+            }
         }
         debug {
             minifyEnabled false
@@ -153,6 +169,13 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-config")
     implementation("com.google.firebase:firebase-auth")
+    // ✅ NOVO: Crashlytics — versão vem do firebase-bom acima, por isso
+    // não tem número de versão aqui (igual aos outros artefatos Firebase
+    // da lista). Reporta crashes automaticamente, com stack trace
+    // desofuscado (linha exata do .kt) e modelo/versão do aparelho —
+    // resolve o problema de "chutar" a causa de crashes específicos de
+    // um aparelho (ex: só em tablet).
+    implementation("com.google.firebase:firebase-crashlytics")
 
     // Rede e Imagens
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
