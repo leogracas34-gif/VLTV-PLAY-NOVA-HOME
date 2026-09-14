@@ -137,12 +137,12 @@
                                 android:layout_height="26dp"
                                 android:layout_marginEnd="8dp"
                                 android:background="@drawable/bg_pill_icon_circle">
-                                <ImageView
-                                    android:layout_width="15dp"
-                                    android:layout_height="15dp"
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
                                     android:layout_gravity="center"
-                                    android:src="@drawable/ic_pill_live"
-                                    android:contentDescription="null"/>
+                                    android:text="📡"
+                                    android:textSize="12sp"/>
                             </FrameLayout>
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ao vivo" android:textColor="#F5F3EF" android:textSize="12sp" android:textStyle="bold" android:letterSpacing="0.02"/>
                         </LinearLayout>
@@ -172,12 +172,12 @@
                                 android:layout_height="26dp"
                                 android:layout_marginEnd="8dp"
                                 android:background="@drawable/bg_pill_icon_circle">
-                                <ImageView
-                                    android:layout_width="15dp"
-                                    android:layout_height="15dp"
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
                                     android:layout_gravity="center"
-                                    android:src="@drawable/ic_pill_movies"
-                                    android:contentDescription="null"/>
+                                    android:text="🎬"
+                                    android:textSize="12sp"/>
                             </FrameLayout>
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Filmes" android:textColor="#F5F3EF" android:textSize="12sp" android:textStyle="bold" android:letterSpacing="0.02"/>
                         </LinearLayout>
@@ -206,12 +206,12 @@
                                 android:layout_height="26dp"
                                 android:layout_marginEnd="8dp"
                                 android:background="@drawable/bg_pill_icon_circle">
-                                <ImageView
-                                    android:layout_width="15dp"
-                                    android:layout_height="15dp"
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
                                     android:layout_gravity="center"
-                                    android:src="@drawable/ic_pill_series"
-                                    android:contentDescription="null"/>
+                                    android:text="🎭"
+                                    android:textSize="12sp"/>
                             </FrameLayout>
                             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Séries" android:textColor="#F5F3EF" android:textSize="12sp" android:textStyle="bold" android:letterSpacing="0.02"/>
                         </LinearLayout>
