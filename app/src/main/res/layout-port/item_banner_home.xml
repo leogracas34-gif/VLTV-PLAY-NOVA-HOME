@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- NOVO HOME — slide do banner hero. Estrutura de conteúdo igual (logo/
+     título, tags, Assistir/Detalhes), mas com um gradiente mais
+     cinematográfico (fica escuro só perto do texto, não a imagem toda)
+     e os botões trocados pra MaterialButton (ripple nativo, ícone
+     embutido) em vez de CardView+TextView "de mentirinha". -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B0B0C">
+    android:background="@color/mocha_bg">
 
-    <!-- Imagem de fundo full-screen -->
+    <!-- Imagem de fundo full-bleed -->
     <ImageView
         android:id="@+id/imgBanner"
         android:layout_width="match_parent"
@@ -13,13 +19,14 @@
         android:scaleType="centerCrop"
         android:contentDescription="Banner"/>
 
-    <!-- Gradiente escuro em cima da imagem — de cima para baixo e lateral -->
+    <!-- Gradiente cinematográfico: transparente no alto, escurece
+         progressivamente até a base, onde fica o texto -->
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/bg_banner_scrim"/>
 
-    <!-- Conteúdo sobreposto ao banner -->
+    <!-- Conteúdo sobreposto -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -27,13 +34,13 @@
         android:gravity="bottom"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
-        android:paddingBottom="28dp">
+        android:paddingBottom="32dp">
 
-        <!-- Logo do título (quando disponível via TMDB) -->
+        <!-- Logo do título (TMDB), quando disponível -->
         <ImageView
             android:id="@+id/imgBannerLogo"
-            android:layout_width="220dp"
-            android:layout_height="80dp"
+            android:layout_width="230dp"
+            android:layout_height="84dp"
             android:scaleType="fitStart"
             android:adjustViewBounds="true"
             android:visibility="gone"
@@ -46,7 +53,7 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textColor="#F5F3EF"
-            android:textSize="28sp"
+            android:textSize="29sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-condensed"
             android:maxLines="2"
@@ -60,7 +67,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
+            android:gravity="center_vertical"
+            android:layout_marginTop="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -72,7 +80,7 @@
                 android:background="@drawable/bg_tag_hd"
                 android:paddingHorizontal="6dp"
                 android:paddingVertical="2dp"
-                android:layout_marginEnd="6dp"/>
+                android:layout_marginEnd="8dp"/>
 
             <TextView
                 android:id="@+id/tvBannerGenre"
@@ -80,7 +88,7 @@
                 android:layout_height="wrap_content"
                 android:text="• Em Destaque"
                 android:textColor="#CCF5F3EF"
-                android:textSize="11sp"
+                android:textSize="11.5sp"
                 android:fontFamily="sans-serif"/>
 
         </LinearLayout>
@@ -88,81 +96,58 @@
         <!-- Botões de ação -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="46dp"
             android:orientation="horizontal"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:gravity="start">
 
-            <!-- Botão ASSISTIR (estilo Netflix branco sólido) -->
-            <androidx.cardview.widget.CardView
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnBannerPlay"
+                style="@style/Widget.MaterialComponents.Button"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardCornerRadius="6dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="#F5F3EF"
-                xmlns:app="http://schemas.android.com/apk/res-auto">
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:paddingHorizontal="18dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="▶"
-                        android:textColor="#000000"
-                        android:textSize="12sp"
-                        android:layout_marginEnd="6dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Assistir"
-                        android:textColor="#000000"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.05"/>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                android:layout_height="match_parent"
+                android:layout_marginEnd="10dp"
+                android:text="Assistir"
+                android:textAllCaps="false"
+                android:textColor="#000000"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.02"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:icon="@android:drawable/ic_media_play"
+                app:iconTint="#000000"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                app:iconSize="15dp"
+                app:cornerRadius="10dp"
+                app:backgroundTint="#F5F3EF"
+                app:rippleColor="#33000000"
+                app:elevation="0dp"/>
 
-            <!-- Botão MAIS INFORMAÇÕES (estilo HBO Max semi-transparente) -->
-            <androidx.cardview.widget.CardView
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnBannerInfo"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
-                android:layout_marginStart="10dp"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardCornerRadius="6dp"
-                app:cardElevation="2dp"
-                app:cardBackgroundColor="#55F5F3EF"
-                xmlns:app="http://schemas.android.com/apk/res-auto">
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:paddingHorizontal="16dp">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ⓘ"
-                        android:textColor="#F5F3EF"
-                        android:textSize="13sp"
-                        android:layout_marginEnd="6dp"/>
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Detalhes"
-                        android:textColor="#F5F3EF"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.05"/>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                android:layout_height="match_parent"
+                android:text="Detalhes"
+                android:textAllCaps="false"
+                android:textColor="#F5F3EF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.02"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                app:icon="@android:drawable/ic_menu_info_details"
+                app:iconTint="#F5F3EF"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                app:iconSize="15dp"
+                app:cornerRadius="10dp"
+                app:strokeColor="#66F5F3EF"
+                app:strokeWidth="1dp"
+                app:rippleColor="#22F5F3EF"
+                app:elevation="0dp"/>
 
         </LinearLayout>
 

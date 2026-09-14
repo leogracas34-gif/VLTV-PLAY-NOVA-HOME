@@ -1,21 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/cardWide"
-    android:layout_width="200dp"
-    android:layout_height="121dp"
+    android:layout_width="204dp"
+    android:layout_height="125dp"
     android:layout_marginEnd="10dp"
     android:layout_marginBottom="4dp"
     android:focusable="true"
     android:clickable="true"
     app:cardBackgroundColor="#111118"
-    app:cardCornerRadius="10dp"
-    app:cardElevation="6dp">
+    app:cardCornerRadius="14dp"
+    app:cardElevation="6dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="#1FF5F3EF">
 
-    <!-- ✅ Pôster e barra de progresso em áreas separadas (LinearLayout
-         vertical) em vez de sobrepostas — a barra fica numa faixa fina
-         abaixo do pôster, nunca mais em cima dele. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -38,7 +37,6 @@
                 android:layout_height="match_parent"
                 android:background="@drawable/gradient_card_scrim"/>
 
-            <!-- ✅ logo do título (clearlogo TMDB), estilo Netflix. -->
             <ImageView
                 android:id="@+id/ivLogo"
                 android:layout_width="match_parent"
@@ -70,8 +68,7 @@
                 android:shadowColor="#CC000000"
                 android:shadowRadius="4"/>
 
-            <!-- ✅ Selos também no card largo — barra sólida de largura total,
-                 mesmo formato do card vertical. -->
+            <!-- ✅ Selos em formato de pill, igual ao card vertical -->
             <LinearLayout
                 android:id="@+id/llBadgeStatus"
                 android:layout_width="wrap_content"
@@ -79,43 +76,45 @@
                 android:layout_gravity="bottom|center_horizontal"
                 android:layout_marginBottom="10dp"
                 android:orientation="vertical"
+                android:gravity="center_horizontal"
                 android:visibility="gone">
 
                 <TextView
                     android:id="@+id/tvBadgeNew"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:text="NOVIDADE"
                     android:textColor="@color/white"
-                    android:textSize="9sp"
+                    android:textSize="8.5sp"
                     android:textStyle="bold"
                     android:textAllCaps="true"
-                    android:letterSpacing="0.03"
-                    android:paddingHorizontal="18dp"
-                    android:paddingVertical="3dp"
-                    android:background="@drawable/bg_badge_status_bar"/>
+                    android:letterSpacing="0.04"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="4dp"
+                    android:background="@drawable/bg_section_pill"/>
 
                 <TextView
                     android:id="@+id/tvBadgeNewLine2"
-                    android:layout_width="match_parent"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:gravity="center"
                     android:text="EM BREVE"
                     android:textColor="@color/brand_red_darkest"
-                    android:textSize="13sp"
+                    android:textSize="12sp"
                     android:textStyle="bold"
                     android:textAllCaps="true"
                     android:letterSpacing="0.03"
-                    android:paddingHorizontal="18dp"
-                    android:paddingVertical="4dp"
-                    android:background="@color/white"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="3dp"
+                    android:background="@drawable/bg_section_pill"
+                    android:backgroundTint="@color/white"
                     android:visibility="gone"/>
 
             </LinearLayout>
 
-            <!-- ✅ Selo TOP 10 encaixado no canto superior esquerdo, sem
-                 margem, como se fizesse parte da própria capa. -->
+            <!-- ✅ Selo TOP 10 — mantido -->
             <TextView
                 android:id="@+id/tvBadgeTop10"
                 android:layout_width="wrap_content"
@@ -123,7 +122,7 @@
                 android:layout_gravity="top|start"
                 android:layout_margin="0dp"
                 android:text="TOP 10"
-                android:textColor="@color/black"
+                android:textColor="@color/white"
                 android:textSize="8sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
@@ -135,7 +134,7 @@
                 android:background="@drawable/bg_badge_top10"
                 android:visibility="gone"/>
 
-            <!-- Ícone play centralizado ao focar -->
+            <!-- Ícone play ao focar — mantido -->
             <ImageView
                 android:id="@+id/ivPlayIcon"
                 android:layout_width="36dp"
@@ -147,21 +146,18 @@
 
         </FrameLayout>
 
-        <!-- ✅ Barra de progresso (Continuar Assistindo) — abaixo do
-             pôster, usando o MESMO drawable da tela de Detalhes
-             (progress_horizontal_disney), então a cor azul (#0072D2)
-             fica sempre idêntica nas duas telas, sem hex duplicado. -->
+        <!-- Barra de progresso (Continuar Assistindo) — mesmo drawable
+             de sempre, cor idêntica à tela de Detalhes -->
         <ProgressBar
             android:id="@+id/pbProgress"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="4dp"
             android:layout_marginTop="2dp"
-            android:layout_marginHorizontal="0dp"
             android:progress="40"
             android:progressDrawable="@drawable/progress_horizontal_disney"
             android:visibility="gone"/>
 
     </LinearLayout>
 
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>

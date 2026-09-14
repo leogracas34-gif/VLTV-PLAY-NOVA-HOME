@@ -1,17 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
+<!-- NOVO HOME — card de pôster redesenhado. Trocado de CardView pra
+     MaterialCardView (já usado em outras telas do próprio app, ex.:
+     item_novidade.xml) só pra ganhar app:strokeColor/strokeWidth nativo
+     — nenhum ID mudou, nenhuma chamada no HomeRowAdapter.kt depende do
+     tipo CardView especificamente, então é uma troca 100% segura. -->
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/cardPoster"
-    android:layout_width="120dp"
-    android:layout_height="178dp"
+    android:layout_width="122dp"
+    android:layout_height="180dp"
     android:layout_marginEnd="10dp"
     android:layout_marginBottom="4dp"
     android:focusable="true"
     android:clickable="true"
     app:cardBackgroundColor="#111118"
-    app:cardCornerRadius="10dp"
-    app:cardElevation="6dp">
+    app:cardCornerRadius="14dp"
+    app:cardElevation="6dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="#1FF5F3EF">
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -26,13 +33,10 @@
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="80dp"
-            android:layout_gravity="bottom"
-            android:background="@drawable/gradient_card_bottom"/>
+            android:layout_height="match_parent"
+            android:background="@drawable/gradient_vod_card"/>
 
-        <!-- ✅ NOVO: logo do título (clearlogo TMDB), estilo Netflix.
-             Some por padrão; o adapter mostra ela e esconde tvTitle
-             quando o item tem logoUrl salva. -->
+        <!-- Logo do título via TMDB (substitui o texto quando disponível) -->
         <ImageView
             android:id="@+id/ivLogo"
             android:layout_width="match_parent"
@@ -51,9 +55,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="8dp"
+            android:paddingStart="9dp"
+            android:paddingEnd="9dp"
+            android:paddingBottom="9dp"
             android:text=""
             android:textColor="#FFFFFF"
             android:textSize="11sp"
@@ -66,55 +70,58 @@
             android:shadowDx="0"
             android:shadowDy="1"/>
 
-        <!-- ✅ Selo de status — barra sólida de largura total embaixo do
-             pôster, igual Netflix (degradê dourado da marca em vez de
-             vermelho). Linha 2 só aparece pro caso "Nova Temporada Em
-             Breve" (ex: "NOVA TEMPORADA" + "EM BREVE" empilhados). -->
+        <!-- ✅ Selo de status — agora em formato de pill flutuante (em vez
+             da barra reta de ponta a ponta), mais alinhado ao resto do
+             novo design. Continua só um por vez / mesma lógica de
+             prioridade do HomeRowAdapter.kt, e a 2ª linha ("EM BREVE")
+             continua existindo pro caso de duas linhas empilhadas. -->
         <LinearLayout
             android:id="@+id/llBadgeStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="9dp"
             android:orientation="vertical"
+            android:gravity="center_horizontal"
             android:visibility="gone">
 
             <TextView
                 android:id="@+id/tvBadgeNew"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="NOVIDADE"
                 android:textColor="@color/white"
-                android:textSize="9sp"
+                android:textSize="8.5sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
-                android:letterSpacing="0.03"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="3dp"
-                android:background="@drawable/bg_badge_status_bar"/>
+                android:letterSpacing="0.04"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:background="@drawable/bg_section_pill"/>
 
             <TextView
                 android:id="@+id/tvBadgeNewLine2"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:gravity="center"
                 android:text="EM BREVE"
                 android:textColor="@color/brand_red_darkest"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:textAllCaps="true"
                 android:letterSpacing="0.03"
-                android:paddingHorizontal="14dp"
-                android:paddingVertical="4dp"
-                android:background="@color/white"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="3dp"
+                android:background="@drawable/bg_section_pill"
+                android:backgroundTint="@color/white"
                 android:visibility="gone"/>
 
         </LinearLayout>
 
-        <!-- ✅ Selo TOP 10 encaixado no canto superior esquerdo, sem
-             margem, como se fizesse parte da própria capa (canto
-             arredondado igual ao do card). -->
+        <!-- ✅ Selo TOP 10 — mesmo encaixe no canto superior esquerdo,
+             igual antes. -->
         <TextView
             android:id="@+id/tvBadgeTop10"
             android:layout_width="wrap_content"
@@ -122,7 +129,7 @@
             android:layout_gravity="top|start"
             android:layout_margin="0dp"
             android:text="TOP 10"
-            android:textColor="@color/black"
+            android:textColor="@color/white"
             android:textSize="8sp"
             android:textStyle="bold"
             android:textAllCaps="true"
@@ -134,6 +141,27 @@
             android:background="@drawable/bg_badge_top10"
             android:visibility="gone"/>
 
+        <!-- Ícone de download — mantido igual, canto superior direito -->
+        <ImageView
+            android:id="@+id/imgDownload"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="6dp"
+            android:background="@drawable/bg_download_badge"
+            android:padding="5dp"
+            android:src="@drawable/ic_download"
+            android:scaleType="centerInside"
+            android:visibility="gone"/>
+
+        <!-- Borda de foco (TV/controle) — mantida -->
+        <View
+            android:id="@+id/viewFocusBorder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_card_focus_border"
+            android:visibility="invisible"/>
+
     </FrameLayout>
 
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>
