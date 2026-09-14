@@ -8,6 +8,8 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
@@ -73,6 +75,10 @@ class LoginActivity : AppCompatActivity() {
     private val dotsHandler = Handler(Looper.getMainLooper())
     private var dotsJob: Runnable? = null
     private var dotsCount = 0
+
+    // ✅ NOVO: estado do "olho" de mostrar/ocultar senha. Começa sempre
+    // false (senha oculta) a cada abertura da tela de login.
+    private var senhaVisivel = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // ✅ REMOVIDO: installSplashScreen() saiu daqui. A LoginActivity não
@@ -189,7 +195,59 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
+        // ✅ NOVO: toque no ícone de olho (drawableEnd do campo Senha)
+        // alterna entre mostrar e ocultar a senha digitada. Ver
+        // configurarToggleSenha() pra detalhes de como o toque na área
+        // do ícone é identificado.
+        configurarToggleSenha()
+
         binding.etUsername.requestFocus()
+    }
+
+    // ✅ NOVO: "olho" de mostrar/ocultar senha.
+    //
+    // EditText não tem um listener de "cliquei no drawableEnd" pronto —
+    // o truque padrão é usar setOnTouchListener e, no ACTION_UP,
+    // verificar se o toque aconteceu dentro da área ocupada pelo ícone
+    // (da borda direita do campo pra dentro, na largura do drawable +
+    // padding). Se sim, alterna a visibilidade e consome o toque (não
+    // deixa abrir o teclado nem mover o cursor pra ali); se não, deixa o
+    // toque seguir normal (foca o campo, abre o teclado etc.).
+    private fun configurarToggleSenha() {
+        binding.etPassword.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                val drawableEnd = binding.etPassword.compoundDrawables[2] // 0=start,1=top,2=end,3=bottom
+                if (drawableEnd != null) {
+                    val areaDoIcone = drawableEnd.bounds.width() + binding.etPassword.paddingEnd
+                    val tocouNoIcone = event.rawX >= (v.right - areaDoIcone)
+                    if (tocouNoIcone) {
+                        alternarVisibilidadeSenha()
+                        v.performClick()
+                        return@setOnTouchListener true
+                    }
+                }
+            }
+            false
+        }
+    }
+
+    private fun alternarVisibilidadeSenha() {
+        senhaVisivel = !senhaVisivel
+
+        val cursorPos = binding.etPassword.selectionStart
+        binding.etPassword.inputType = if (senhaVisivel) {
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        } else {
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        // Trocar o inputType reseta a fonte (monospace) e pode mover o
+        // cursor pro início — restaura a posição de digitação de antes.
+        binding.etPassword.setSelection(cursorPos.coerceIn(0, binding.etPassword.text?.length ?: 0))
+
+        val icone = if (senhaVisivel) R.drawable.ic_eye_off else R.drawable.ic_eye
+        binding.etPassword.setCompoundDrawablesWithIntrinsicBounds(
+            R.drawable.ic_lock, 0, icone, 0
+        )
     }
 
     private fun iniciarAnimacaoPontinhos() {
