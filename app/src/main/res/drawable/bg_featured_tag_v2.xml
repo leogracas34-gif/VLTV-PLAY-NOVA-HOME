@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NOVO HOME — pill do rótulo "Destaque da semana" no card editorial
+     (Firebase Remote Config). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#26C1443B"/>
+    <stroke android:width="1dp" android:color="#66C1443B"/>
+    <corners android:radius="20dp"/>
+</shape>

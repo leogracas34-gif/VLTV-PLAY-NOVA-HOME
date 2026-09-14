@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NOVO HOME — card "Jogo ao vivo / placar" (Firebase Remote Config)
+     redesenhado: degradê vermelho da marca (brand_red*), cantos 18dp,
+     filete sutil claro por cima. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="18dp"/>
+            <gradient
+                android:type="linear"
+                android:angle="45"
+                android:startColor="@color/brand_red_darkest"
+                android:centerColor="@color/brand_red_dark"
+                android:endColor="@color/brand_red"/>
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="18dp"/>
+            <stroke android:width="1dp" android:color="#33F5F3EF"/>
+        </shape>
+    </item>
+</layer-list>

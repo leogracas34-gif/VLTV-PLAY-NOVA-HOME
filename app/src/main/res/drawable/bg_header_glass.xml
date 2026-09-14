@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NOVO HOME — header flutuante estilo "glass": gradiente escuro que
+     esmaece pra transparente + uma linha de brilho vermelho (cor da
+     marca) bem fina na borda inferior, dando um acabamento premium sem
+     precisar de blur real (não suportado em todas as versões). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#EC0B0B0C"
+                android:endColor="#000B0B0C"/>
+        </shape>
+    </item>
+
+    <item android:gravity="bottom" android:height="1.5dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="0"
+                android:startColor="#00C1443B"
+                android:centerColor="#66C1443B"
+                android:endColor="#00C1443B"/>
+        </shape>
+    </item>
+
+</layer-list>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NOVO HOME — pill reutilizável nos cabeçalhos de fileira (ex.: selo
+     "TOP 10" ou "NOVO" ao lado do título da seção). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/brand_red"/>
+    <corners android:radius="20dp"/>
+</shape>

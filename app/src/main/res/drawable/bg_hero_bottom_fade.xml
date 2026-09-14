@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NOVO HOME — faixa de transição no rodapé do banner hero: sólida na
+     cor de fundo do app embaixo, esmaecendo pra transparente subindo,
+     pra "derreter" o hero no resto da tela em vez de cortar seco. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="90"
+        android:startColor="@color/mocha_bg"
+        android:endColor="#000B0B0C"/>
+</shape>
