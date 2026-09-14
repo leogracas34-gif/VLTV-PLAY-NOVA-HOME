@@ -140,6 +140,13 @@
             app:layout_constraintEnd_toEndOf="parent"/>
 
         <!-- Campo senha -->
+        <!-- ✅ NOVO: ícone de olho em drawableEnd — toca (ou clica com
+             o controle remoto, dando ENTER com o foco no campo já vai
+             até o botão; num TV Box o toque costuma ser via mouse
+             virtual/apontador) pra mostrar/ocultar a senha digitada. A
+             troca de ícone (ic_eye / ic_eye_off) e do inputType
+             acontece via código em LoginActivity.kt
+             (alternarVisibilidadeSenha()). -->
         <EditText
             android:id="@+id/etPassword"
             android:layout_width="match_parent"
@@ -147,7 +154,7 @@
             android:layout_marginTop="12dp"
             android:background="@drawable/bg_login_input_premium"
             android:paddingStart="44dp"
-            android:paddingEnd="14dp"
+            android:paddingEnd="44dp"
             android:hint="Senha"
             android:inputType="textPassword"
             android:textColor="#FFFFFF"
@@ -156,6 +163,7 @@
             android:imeOptions="actionDone"
             android:singleLine="true"
             android:drawableStart="@drawable/ic_lock"
+            android:drawableEnd="@drawable/ic_eye"
             android:drawablePadding="8dp"
             android:drawableTint="#44FFFFFF"
             android:focusable="true"
