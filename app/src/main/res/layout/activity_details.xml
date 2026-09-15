@@ -420,4 +420,12 @@
         app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_menu"/>
 
+
+    <!-- ✅ NOVO: camada decorativa de tema sazonal — ver overlay_tema_decorativo.xml -->
+    <include
+        android:id="@+id/overlayTemaSazonal"
+        layout="@layout/overlay_tema_decorativo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
 </FrameLayout>

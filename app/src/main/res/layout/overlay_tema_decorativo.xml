@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    ✅ NOVO: Camada decorativa de TEMA SAZONAL (Halloween, Dia das Crianças,
+    Natal, Ano Novo, Carnaval), aplicada por cima do conteúdo normal da tela
+    — não altera nenhuma cor, botão ou layout existente.
+
+    Como funciona: ver TemaVisualManager.kt. Resumo — as imagens de canto
+    (teia de aranha, guirlanda, confete etc.) ficam hospedadas na VPS e são
+    carregadas aqui via Glide, conforme o tema ativo no Firebase Remote
+    Config. Sem tema ativo, as duas ImageViews ficam GONE e este layout
+    fica 100% invisível (não ocupa espaço nem intercepta toque).
+
+    IMPORTANTE sobre toque: nenhuma view aqui é clicável/focável, então
+    cliques e scroll passam direto para o conteúdo da tela por baixo,
+    mesmo estando por cima visualmente.
+
+    Incluído (via <include>) como ÚLTIMO filho do layout raiz de cada tela
+    onde o tema deve aparecer: Home, Filmes/Séries (activity_vod), Canais
+    (activity_live_tv), Detalhes de Filme (activity_details), Detalhes de
+    Série (activity_series_details), Novidades e Busca.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clickable="false"
+    android:focusable="false">
+
+    <!-- Canto superior esquerdo. Margem-topo generosa (72dp) pra não
+         disputar espaço visual com o header/toolbar de cada tela — ajuste
+         o layout_marginTop numa tela específica se o header dela for
+         mais alto/baixo que o padrão. -->
+    <ImageView
+        android:id="@+id/imgTemaCantoEsquerdo"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="top|start"
+        android:layout_marginTop="72dp"
+        android:layout_marginStart="4dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:importantForAccessibility="no"
+        android:scaleType="fitStart"
+        android:visibility="gone" />
+
+    <!-- Canto superior direito -->
+    <ImageView
+        android:id="@+id/imgTemaCantoDireito"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="72dp"
+        android:layout_marginEnd="4dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:importantForAccessibility="no"
+        android:scaleType="fitEnd"
+        android:visibility="gone" />
+
+</FrameLayout>
