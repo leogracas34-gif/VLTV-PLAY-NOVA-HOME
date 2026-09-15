@@ -1,23 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 =============================================================
-  INSTRUÇÕES DE INSTALAÇÃO DO ÍCONE SAZONAL DA COPA
+  ✅ NOVO: MÚLTIPLOS TEMAS DE ÍCONE SAZONAL (Halloween, Dia das
+  Crianças, Natal, Ano Novo) — generalização do sistema da Copa
 =============================================================
 
-1. IMAGENS: Copie as pastas do ZIP para app/src/main/res/
-   (mipmap-mdpi, mipmap-hdpi, mipmap-xhdpi, mipmap-xxhdpi, mipmap-xxxhdpi)
-   Cada pasta contém: ic_launcher_copa.png, ic_launcher_copa_round.png,
-   ic_launcher_copa_background.png e ic_launcher_copa_foreground.png
+1. IMAGENS: para CADA tema novo (halloween, criancas, natal, ano_novo, carnaval),
+   coloque nas pastas mipmap-mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi um arquivo
+   "ic_launcher_<tema>_foreground.png" (mesmo tamanho/formato que os
+   arquivos ic_launcher_copa_foreground.png já usados). O fundo de cada
+   tema já está pronto como cor sólida em
+   res/drawable/ic_launcher_<tema>_background.xml — troque a cor ali ou
+   substitua por um drawable próprio se quiser um fundo com imagem.
 
-2. MANIFEST: Este arquivo já está pronto — basta substituir o seu AndroidManifest.xml
+   Não é necessário gerar ic_launcher_<tema>.png "chapado" (não-adaptativo):
+   os XMLs em mipmap-anydpi-v26/ já cobrem Android 8+; para versões
+   antigas o sistema cai no ícone padrão automaticamente.
 
-3. FIREBASE: No console do Firebase Remote Config, crie a chave:
-   - Nome: show_copa_icon
-   - Tipo: Boolean
-   - Valor padrão: true
-   Quando a copa acabar, mude para false → ícone volta ao normal em até 1h
+2. MANIFEST: este arquivo já está pronto com os 4 novos activity-alias
+   (LauncherHalloween, LauncherCriancas, LauncherNatal, LauncherAnoNovo),
+   todos desabilitados por padrão — igual o da Copa.
 
-4. KOTLIN: Substitua HomeActivity.kt e IconeSazonalHelper.kt pelos arquivos do ZIP
+3. FIREBASE: no console do Remote Config, crie a chave:
+   - Nome: tema_icone_ativo
+   - Tipo: String
+   - Valores aceitos: normal | copa | halloween | criancas | natal | ano_novo | carnaval
+   - Valor padrão: normal
+   Troque o valor e publique quando quiser mudar o ícone — sem gerar
+   APK novo. (A chave antiga show_copa_icon continua funcionando como
+   fallback caso tema_icone_ativo esteja vazia, mas prefira a nova.)
+
+   Também dá pra exibir um BANNER de tema na Home (imagem hospedada na
+   VPS, sem precisar tocar no ícone) com as chaves:
+   - show_tema_banner (Boolean)
+   - tema_banner_image_url (String) → ex: https://cdn.vltvplay.tech/temas/halloween.jpg
+
+4. KOTLIN: substitua HomeActivity.kt e IconeSazonalHelper.kt pelos
+   arquivos atualizados.
 
 =============================================================
   ✅ NOVO: DOWNLOADS VIA MEDIA3
@@ -167,6 +186,87 @@
             android:exported="true"
             android:icon="@mipmap/ic_launcher_copa"
             android:roundIcon="@mipmap/ic_launcher_copa_round"
+            android:label="VLTV+">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ NOVO: LAUNCHER HALLOWEEN (desativado por padrão, ativado
+             pela chave tema_icone_ativo="halloween" no Remote Config) -->
+        <activity-alias
+            android:name=".LauncherHalloween"
+            android:targetActivity=".SplashActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_halloween"
+            android:roundIcon="@mipmap/ic_launcher_halloween_round"
+            android:label="VLTV+">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ NOVO: LAUNCHER DIA DAS CRIANÇAS (tema_icone_ativo="criancas") -->
+        <activity-alias
+            android:name=".LauncherCriancas"
+            android:targetActivity=".SplashActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_criancas"
+            android:roundIcon="@mipmap/ic_launcher_criancas_round"
+            android:label="VLTV+">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ NOVO: LAUNCHER NATAL (tema_icone_ativo="natal") -->
+        <activity-alias
+            android:name=".LauncherNatal"
+            android:targetActivity=".SplashActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_natal"
+            android:roundIcon="@mipmap/ic_launcher_natal_round"
+            android:label="VLTV+">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ NOVO: LAUNCHER ANO NOVO (tema_icone_ativo="ano_novo") -->
+        <activity-alias
+            android:name=".LauncherAnoNovo"
+            android:targetActivity=".SplashActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_ano_novo"
+            android:roundIcon="@mipmap/ic_launcher_ano_novo_round"
+            android:label="VLTV+">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- ✅ NOVO: LAUNCHER CARNAVAL (tema_icone_ativo="carnaval") -->
+        <activity-alias
+            android:name=".LauncherCarnaval"
+            android:targetActivity=".SplashActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_carnaval"
+            android:roundIcon="@mipmap/ic_launcher_carnaval_round"
             android:label="VLTV+">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
