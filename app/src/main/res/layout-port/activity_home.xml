@@ -215,6 +215,33 @@
 
             </LinearLayout>
 
+            <!-- ✅ NOVO: BANNER DE TEMA SAZONAL (Halloween, Dia das Crianças,
+                 Natal, Ano Novo, Carnaval) — 100% controlado via Firebase Remote
+                 Config, imagem hospedada na VPS. Ver TemaVisualManager.kt /
+                 aplicarTemaBanner() na HomeActivity. -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardTemaSazonal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
+                android:layout_marginTop="14dp"
+                android:visibility="gone"
+                android:clickable="false"
+                android:focusable="false"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="#17171A">
+
+                <ImageView
+                    android:id="@+id/imgTemaSazonal"
+                    android:layout_width="match_parent"
+                    android:layout_height="110dp"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="Banner do tema sazonal"/>
+
+            </androidx.cardview.widget.CardView>
+
             <!-- ========= DESTAQUE DA SEMANA (Firebase) =========
                  Card editorial: imagem no topo + bloco de texto sólido
                  embaixo (mais legível que texto em cima da imagem). -->
@@ -825,5 +852,17 @@
         app:menu="@menu/bottom_nav_menu"
         app:labelVisibilityMode="labeled"
         app:layout_constraintBottom_toBottomOf="parent"/>
+
+
+    <!-- ✅ NOVO: camada decorativa de tema sazonal — ver overlay_tema_decorativo.xml -->
+    <include
+        android:id="@+id/overlayTemaSazonal"
+        layout="@layout/overlay_tema_decorativo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
