@@ -156,6 +156,7 @@ class SeriesDetailsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_series_details)
+        TemaVisualManager.aplicarEm(this, findViewById(R.id.overlayTemaSazonal))
 
         val vltvPrefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         currentProfile = intent.getStringExtra("PROFILE_NAME")

@@ -96,6 +96,7 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_search)
+        TemaVisualManager.aplicarEm(this, findViewById(R.id.overlayTemaSazonal))
 
         val vltvPrefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
         currentProfile = intent.getStringExtra("PROFILE_NAME")

@@ -254,6 +254,7 @@ class LiveTvActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_live_tv)
+        TemaVisualManager.aplicarEm(this, findViewById(R.id.overlayTemaSazonal))
 
         // ✅ Mantém a tela acordada enquanto o usuário está assistindo,
         // mesmo sem tocar (a mini tela sozinha não gerava nenhuma

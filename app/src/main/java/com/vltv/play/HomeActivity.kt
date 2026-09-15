@@ -1438,6 +1438,19 @@ class HomeActivity : AppCompatActivity() {
         val remoteConfig = Firebase.remoteConfig
         remoteConfig.setDefaultsAsync(mapOf(
             "show_copa_icon"        to false,
+            // ✅ NOVO: chave única de tema de ÍCONE do launcher. Valores aceitos:
+            // "normal" | "copa" | "halloween" | "criancas" | "natal" | "ano_novo"
+            // Se vazia, cai no comportamento antigo (show_copa_icon). Ver TemaSazonalHelper.kt.
+            "tema_icone_ativo"      to "",
+            // ✅ NOVO: banner de tema sazonal (imagem hospedada na VPS) exibido
+            // na Home, independente do ícone. Ver aplicarTemaBanner() abaixo.
+            "show_tema_banner"      to false,
+            "tema_banner_image_url" to "",
+            // ✅ NOVO: tema visual sazonal (cantos decorativos) aplicado em
+            // Home, Filmes/Séries, Canais, Detalhes, Novidades e Busca.
+            // Ver TemaVisualManager.kt. Valores: "" | "halloween" |
+            // "criancas" | "natal" | "ano_novo" | "carnaval"
+            "tema_app_ativo"        to "",
             "show_game_banner"      to false,
             "game_banner_title"     to "",
             "game_banner_date"      to "",
@@ -1476,6 +1489,8 @@ class HomeActivity : AppCompatActivity() {
             aplicarGameBanner(remoteConfig)
             aplicarFeaturedBanner(remoteConfig)
             aplicarRetroGamesCard(remoteConfig)
+            aplicarTemaBanner(remoteConfig)
+            TemaVisualManager.aplicarEm(this, binding.overlayTemaSazonal.root)
             return
         }
 
@@ -1511,12 +1526,52 @@ class HomeActivity : AppCompatActivity() {
             aplicarGameBanner(remoteConfig)
             aplicarFeaturedBanner(remoteConfig)
             aplicarRetroGamesCard(remoteConfig)
+            aplicarTemaBanner(remoteConfig)
+            TemaVisualManager.aplicarEm(this, binding.overlayTemaSazonal.root)
         }
     }
 
     private fun aplicarRetroGamesCard(remoteConfig: com.google.firebase.remoteconfig.FirebaseRemoteConfig) {
         val show = remoteConfig.getBoolean("show_retro_games")
         binding.cardRetroGames?.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * ✅ NOVO: Banner de tema sazonal (Halloween, Dia das Crianças, Natal,
+     * Ano Novo etc.) exibido na Home. A imagem fica hospedada na VPS
+     * (não vai dentro do APK) e a URL é controlada pelo Firebase Remote Config:
+     *
+     *   show_tema_banner      (Boolean) → true/false liga ou desliga o banner
+     *   tema_banner_image_url (String)  → ex: https://cdn.vltvplay.tech/temas/halloween.jpg
+     *
+     * Para trocar de tema: só suba a imagem nova pra VPS (pode até manter o
+     * mesmo nome de arquivo, o Glide já busca a versão mais recente por causa
+     * do diskCacheStrategy) e ajuste a URL/flag no console do Firebase.
+     * Não precisa gerar APK novo nem passar pelo GitHub Actions.
+     */
+    private fun aplicarTemaBanner(remoteConfig: com.google.firebase.remoteconfig.FirebaseRemoteConfig) {
+        val show     = remoteConfig.getBoolean("show_tema_banner")
+        val imageUrl = remoteConfig.getString("tema_banner_image_url")
+        val card = binding.cardTemaSazonal ?: return
+
+        if (!show || imageUrl.isBlank()) {
+            card.visibility = View.GONE
+            return
+        }
+
+        try {
+            Glide.with(this)
+                .load(imageUrl)
+                .centerCrop()
+                .format(DecodeFormat.PREFER_RGB_565)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .override(1080, 220)
+                .into(binding.imgTemaSazonal)
+            card.visibility = View.VISIBLE
+        } catch (e: Exception) {
+            e.printStackTrace()
+            card.visibility = View.GONE
+        }
     }
 
     private fun aplicarGameBanner(remoteConfig: com.google.firebase.remoteconfig.FirebaseRemoteConfig) {

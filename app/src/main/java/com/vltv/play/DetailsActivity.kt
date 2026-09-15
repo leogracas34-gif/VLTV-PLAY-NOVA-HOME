@@ -145,6 +145,7 @@ class DetailsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             setContentView(R.layout.activity_details)
+            TemaVisualManager.aplicarEm(this, findViewById(R.id.overlayTemaSazonal))
             configurarTelaTV()
 
             val vltvPrefs = getSharedPreferences("vltv_prefs", Context.MODE_PRIVATE)
