@@ -1838,7 +1838,7 @@ class HomeActivity : AppCompatActivity() {
         }
 
     private fun buscarIdFeaturedBanner(
-        card: androidx.cardview.widget.CardView,
+        card: View,
         title: String,
         isSeriesRC: Boolean,
         contentIdRC: String
