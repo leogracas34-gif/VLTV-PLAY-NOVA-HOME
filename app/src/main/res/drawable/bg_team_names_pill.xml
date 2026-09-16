@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fundo do "selo" atrás do nome dos times no card de jogo (placar).
+     Preto semi-transparente com cantos arredondados, garante leitura
+     fácil do texto branco independente da cor/imagem por trás. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <corners android:radius="8dp"/>
+    <solid android:color="#B3000000"/>
+</shape>
