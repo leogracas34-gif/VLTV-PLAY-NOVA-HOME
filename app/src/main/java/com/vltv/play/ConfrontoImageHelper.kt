@@ -191,8 +191,8 @@ object ConfrontoImageHelper {
         var resultado = Bitmap.createBitmap(largura, altura, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(resultado)
 
-        val corCasa = escurecer(corPrincipalTime(timeCasa), 0.55f)
-        val corFora = escurecer(corPrincipalTime(timeFora), 0.55f)
+        val corCasa = escurecer(corPrincipalTime(timeCasa), 0.78f)
+        val corFora = escurecer(corPrincipalTime(timeFora), 0.78f)
 
         desenharFundoDegrade(canvas, corCasa, corFora, largura, altura)
         desenharListrasDeLuz(canvas, largura, altura)
@@ -250,7 +250,7 @@ object ConfrontoImageHelper {
     private fun escurecer(cor: Int, fator: Float): Int {
         val hsv = FloatArray(3)
         Color.colorToHSV(cor, hsv)
-        hsv[1] = (hsv[1] * 0.92f).coerceIn(0f, 1f)
+        hsv[1] = (hsv[1] * 1.05f).coerceIn(0f, 1f)
         hsv[2] = (hsv[2] * fator).coerceIn(0f, 1f)
         return Color.HSVToColor(hsv)
     }
@@ -302,18 +302,18 @@ object ConfrontoImageHelper {
         // Escurece a base — ajuda a legibilidade de título/canal/horário
         // quando esses textos são sobrepostos por cima da imagem no card.
         val gradienteInferior = LinearGradient(
-            0f, altura * 0.4f, 0f, altura.toFloat(),
-            Color.TRANSPARENT, Color.parseColor("#C2000000"),
+            0f, altura * 0.55f, 0f, altura.toFloat(),
+            Color.TRANSPARENT, Color.parseColor("#8A000000"),
             Shader.TileMode.CLAMP
         )
         val paintInferior = Paint().apply { shader = gradienteInferior }
         canvas.drawRect(0f, 0f, largura.toFloat(), altura.toFloat(), paintInferior)
 
         // Vinheta radial sutil nas bordas, focando a atenção no centro
-        val raioVinheta = largura * 0.7f
+        val raioVinheta = largura * 0.8f
         val gradienteRadial = RadialGradient(
             largura / 2f, altura / 2f, raioVinheta,
-            Color.TRANSPARENT, Color.parseColor("#4D000000"),
+            Color.TRANSPARENT, Color.parseColor("#2E000000"),
             Shader.TileMode.CLAMP
         )
         val paintRadial = Paint().apply { shader = gradienteRadial }
