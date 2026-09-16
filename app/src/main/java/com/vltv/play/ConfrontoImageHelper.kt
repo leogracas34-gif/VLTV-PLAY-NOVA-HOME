@@ -191,8 +191,12 @@ object ConfrontoImageHelper {
         var resultado = Bitmap.createBitmap(largura, altura, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(resultado)
 
-        val corCasa = escurecer(corPrincipalTime(timeCasa), 0.55f)
-        val corFora = escurecer(corPrincipalTime(timeFora), 0.55f)
+        // ✅ CORRIGIDO: fator de brilho baixado de 0.55f pra 0.30f — a cor
+        // de cada time continua sendo usada (não mudou a lógica, só o
+        // quão escura ela fica), garantindo contraste bem mais alto com o
+        // texto branco do nome dos times por cima. Único ajuste feito.
+        val corCasa = escurecer(corPrincipalTime(timeCasa), 0.30f)
+        val corFora = escurecer(corPrincipalTime(timeFora), 0.30f)
 
         desenharFundoDegrade(canvas, corCasa, corFora, largura, altura)
         desenharListrasDeLuz(canvas, largura, altura)
