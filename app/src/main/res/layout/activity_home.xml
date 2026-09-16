@@ -25,14 +25,10 @@
 
         <TextView
             android:id="@+id/tvHeaderTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="VLTV"
-            android:textColor="@android:color/white"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.02"
-            android:visibility="visible"/>
+            android:layout_weight="1"
+            android:visibility="gone"/>
 
         <ImageView
             android:id="@+id/ivLogo"
