@@ -53,14 +53,15 @@
 
         <TextView
             android:id="@+id/tvHeaderTitle"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:text="VLTV"
             android:textColor="@color/mocha_cream"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold"
             android:fontFamily="sans-serif-medium"
-            android:visibility="gone"/>
+            android:letterSpacing="0.02"
+            android:visibility="visible"/>
 
         <ImageView
             android:id="@+id/ivLogo"
