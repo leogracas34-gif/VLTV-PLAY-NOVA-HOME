@@ -375,6 +375,11 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
                     filmes + series
                 }
 
+                // ✅ CORREÇÃO: Room (SyncManager) já é a fonte completa e atualizada,
+                // igual ao que VodActivity/SeriesActivity usam. Guardamos essa base
+                // separadamente para nunca perder itens dela.
+                val baseLocalCompleta = resultadosLocal
+
                 if (resultadosLocal.isNotEmpty()) {
                     catalogoCompleto = resultadosLocal
                     finalizarUI()
@@ -393,7 +398,17 @@ class SearchActivity : AppCompatActivity(), CoroutineScope {
                 }
 
                 if (resultadosAPI.isNotEmpty()) {
-                    catalogoCompleto = resultadosAPI
+                    // ✅ CORREÇÃO: antes isso SUBSTITUÍA catalogoCompleto por resultadosAPI.
+                    // Se a chamada direta à API Xtream (sem passar por categoria/paginação)
+                    // retornasse uma lista menor ou diferente da do Room, itens que
+                    // apareciam nas telas de Filmes/Séries sumiam da busca.
+                    // Agora fazemos um MERGE: a base local (Room) nunca é descartada;
+                    // a API só adiciona ou atualiza itens, nunca remove.
+                    val mapaFinal = LinkedHashMap<String, SearchResultItem>()
+                    baseLocalCompleta.forEach { item -> mapaFinal["${item.type}_${item.id}"] = item }
+                    resultadosAPI.forEach { item -> mapaFinal["${item.type}_${item.id}"] = item }
+
+                    catalogoCompleto = mapaFinal.values.toList()
                     finalizarUI()
                 }
 
