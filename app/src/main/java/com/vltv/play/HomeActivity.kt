@@ -23,6 +23,7 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
@@ -143,6 +144,16 @@ class HomeActivity : AppCompatActivity() {
     private var top10SeriesAdapterRef: Top10Adapter? = null
 
     private var ultimoIconeAplicadoNoNav: String? = null
+
+    // ✅ NOVO: controle do fade da logo "VLTV" fixa no topo da Home. Antes
+    // ela ficava sempre visível por cima de tudo (inclusive dos pôsteres e
+    // cards quando a página era rolada). Agora ela some suavemente assim
+    // que o usuário começa a rolar a tela, e volta a aparecer ao voltar
+    // pro topo — sem depender do id do container de rolagem, usando o
+    // banner principal (bannerViewPager) como referência de posição.
+    private var wordmarkRef: TextView? = null
+    private var wordmarkAnchorInitialTop: Int = -1
+    private var wordmarkScrollListener: ViewTreeObserver.OnScrollChangedListener? = null
 
     companion object {
         private val REGEX_EXIBICAO_TAGS = Regex("(?i)\\b(4K|FULL\\.?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT[-.]?BR|PTBR|WEB[-.]?DL|BLURAY|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|HEVC|WEB|HDR|UHD|FHD|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO)\\b")
@@ -275,6 +286,7 @@ class HomeActivity : AppCompatActivity() {
             setPadding(20.dp, 0, 20.dp, 0)
             isClickable = false
             isFocusable = false
+            elevation = 24f
         }
 
         val params = FrameLayout.LayoutParams(
@@ -286,6 +298,44 @@ class HomeActivity : AppCompatActivity() {
         }
 
         contentRoot.addView(wordmark, params)
+        wordmarkRef = wordmark
+
+        // ✅ CORRIGIDO: a logo "VLTV" era adicionada fixa na tela e nunca
+        // saía do lugar — então, ao rolar a Home, o conteúdo (pôsteres,
+        // Top 10, cards) subia por baixo dela e ela ficava sobreposta a
+        // tudo. Agora usamos o banner principal (bannerViewPager) como
+        // referência: assim que ele começa a sair de baixo da logo (ou
+        // seja, assim que o usuário rola a tela), a logo vai desaparecendo
+        // suavemente; ao voltar pro topo, ela reaparece. Não depende do id
+        // do container de rolagem (seja NestedScrollView, RecyclerView etc).
+        val anchor = binding.bannerViewPager ?: return
+        val fadeDistancePx = 160.dp.toFloat()
+
+        anchor.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                if (wordmarkAnchorInitialTop == -1) {
+                    val loc = IntArray(2)
+                    anchor.getLocationOnScreen(loc)
+                    if (loc[1] != 0) {
+                        wordmarkAnchorInitialTop = loc[1]
+                        anchor.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    }
+                }
+            }
+        })
+
+        val listener = ViewTreeObserver.OnScrollChangedListener {
+            val wm = wordmarkRef ?: return@OnScrollChangedListener
+            if (wordmarkAnchorInitialTop == -1) return@OnScrollChangedListener
+            val loc = IntArray(2)
+            anchor.getLocationOnScreen(loc)
+            val scrolled = (wordmarkAnchorInitialTop - loc[1]).coerceAtLeast(0)
+            val alpha = (1f - (scrolled / fadeDistancePx)).coerceIn(0f, 1f)
+            wm.alpha = alpha
+            wm.visibility = if (alpha <= 0.01f) View.INVISIBLE else View.VISIBLE
+        }
+        wordmarkScrollListener = listener
+        binding.root.viewTreeObserver.addOnScrollChangedListener(listener)
     }
 
     private fun iniciarCarrosselBanner() {
@@ -2036,6 +2086,11 @@ class HomeActivity : AppCompatActivity() {
         top10SeriesJob?.cancel()
         removerOuvinteSync?.invoke()
         removerOuvinteSync = null
+        wordmarkScrollListener?.let {
+            binding.root.viewTreeObserver.removeOnScrollChangedListener(it)
+        }
+        wordmarkScrollListener = null
+        wordmarkRef = null
     }
 
     private fun setupClicks() {
