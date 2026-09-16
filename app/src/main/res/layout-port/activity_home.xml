@@ -27,7 +27,19 @@
      - Cabeçalhos de fileira padronizados com uma pill de destaque
        (TOP 10 / NOVO) em vez da barrinha colorida simples.
      - Bottom nav com cantos superiores mais arredondados
-       (bg_bottom_nav_v2 — arquivo novo, não mexe na TV). -->
+       (bg_bottom_nav_v2 — arquivo novo, não mexe na TV).
+
+     ✅ CORRIGIDO (set/2026):
+     - headerLayout não tinha nenhuma referência de uso no Kotlin (os
+       dois filhos já ficavam sempre "gone") mas continuava desenhando
+       o fundo "bg_header_glass" no topo da tela — a borda/realce desse
+       drawable era a linha fina que aparecia atravessando a tela por
+       trás da logo "VLTV". Como o header não é usado, foi escondido
+       (visibility="gone") para não desenhar mais nada.
+     - tvGameTitle (nome dos times no card de jogo/placar) ganhou um
+       fundo próprio (bg_team_names_pill: preto semi-transparente,
+       cantos arredondados) para garantir contraste alto com o texto
+       branco, independente da cor da imagem/escudos por trás. -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -37,7 +49,9 @@
 
     <!-- HEADER FLUTUANTE — mesmos ids de antes; visibilidade
          controlada 100% via Kotlin (nenhuma referência encontrada no
-         código atual, mas mantido por segurança/uso futuro). -->
+         código atual, mas mantido por segurança/uso futuro).
+         ✅ Escondido: não tem nenhum uso real hoje e o fundo dele
+         estava aparecendo como a linha fina no topo da tela. -->
     <LinearLayout
         android:id="@+id/headerLayout"
         android:layout_width="match_parent"
@@ -49,6 +63,7 @@
         android:background="@drawable/bg_header_glass"
         android:elevation="20dp"
         android:translationZ="20dp"
+        android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent">
 
         <TextView
@@ -548,18 +563,30 @@
 
                             </LinearLayout>
 
+                            <!-- ✅ CORRIGIDO: fundo próprio (bg_team_names_pill)
+                                 atrás do nome dos times, pra garantir contraste
+                                 alto com o texto branco independente da cor da
+                                 imagem/escudos por trás — antes o texto ficava
+                                 direto sobre o fundo do card, sem nenhum realce,
+                                 dificultando a leitura em alguns confrontos. -->
                             <TextView
                                 android:id="@+id/tvGameTitle"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="6dp"
+                                android:layout_marginTop="8dp"
                                 android:text="Brasil x Escócia"
-                                android:textColor="#F5F3EF"
-                                android:textSize="17sp"
+                                android:textColor="#FFFFFF"
+                                android:textSize="16sp"
                                 android:textStyle="bold"
                                 android:fontFamily="sans-serif-medium"
                                 android:maxLines="1"
-                                android:ellipsize="end"/>
+                                android:ellipsize="end"
+                                android:includeFontPadding="false"
+                                android:background="@drawable/bg_team_names_pill"
+                                android:paddingStart="10dp"
+                                android:paddingEnd="10dp"
+                                android:paddingTop="6dp"
+                                android:paddingBottom="6dp"/>
 
                             <TextView
                                 android:id="@+id/tvGameDatetime"
@@ -568,7 +595,7 @@
                                 android:text="18 de Junho  •  16h00 (Brasília)"
                                 android:textColor="#E0DAD8"
                                 android:textSize="12sp"
-                                android:layout_marginTop="3dp"/>
+                                android:layout_marginTop="6dp"/>
 
                             <TextView
                                 android:id="@+id/tvGameChannel"
