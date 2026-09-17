@@ -27,7 +27,10 @@
      - Cabeçalhos de fileira padronizados com uma pill de destaque
        (TOP 10 / NOVO) em vez da barrinha colorida simples.
      - Bottom nav com cantos superiores mais arredondados
-       (bg_bottom_nav_v2 — arquivo novo, não mexe na TV). -->
+       (bg_bottom_nav_v2 — arquivo novo, não mexe na TV).
+     - ✅ NOVO: badge circular (tvDownloadsBadge) sobreposto ao botão de
+       Downloads no header, mostrando quantos downloads ainda não
+       terminaram. Controlado 100% via Kotlin (HomeActivity.observarBadgeDownloads). -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -77,30 +80,65 @@
         <!-- Botão de Downloads no topo, como na Netflix — mesmo id/tipo
              de antes (cardDownloads), só que devolvido ao header no
              layout de celular; nenhuma mudança necessária no
-             HomeActivity.kt (click/foco já tratados genericamente). -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardDownloads"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardCornerRadius="19dp"
-            app:cardElevation="0dp"
-            app:cardBackgroundColor="#00000000"
-            app:rippleColor="#66C1443B">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
+             HomeActivity.kt (click/foco já tratados genericamente).
+             ✅ NOVO: envolvido num FrameLayout só pra poder sobrepor o
+             badge circular (tvDownloadsBadge) no canto — o cardDownloads
+             em si continua exatamente igual, com o mesmo id/atributos. -->
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardDownloads"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardCornerRadius="19dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="#00000000"
+                app:rippleColor="#66C1443B">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="@drawable/bg_icon_button_header">
+                    <ImageView
+                        android:layout_width="19dp"
+                        android:layout_height="19dp"
+                        android:src="@drawable/ic_download_box_premium"
+                        android:contentDescription="Downloads"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- ✅ NOVO: badge circular com a contagem de downloads em
+                 andamento (na fila + baixando + pausado). Começa
+                 escondido (visibility="gone") — HomeActivity.kt mostra e
+                 atualiza o número sozinho via LiveData do Room. -->
+            <TextView
+                android:id="@+id/tvDownloadsBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="-3dp"
+                android:layout_marginEnd="-3dp"
+                android:minWidth="18dp"
+                android:minHeight="18dp"
                 android:gravity="center"
-                android:background="@drawable/bg_icon_button_header">
-                <ImageView
-                    android:layout_width="19dp"
-                    android:layout_height="19dp"
-                    android:src="@drawable/ic_download_box_premium"
-                    android:contentDescription="Downloads"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+                android:paddingHorizontal="4dp"
+                android:background="@drawable/bg_downloads_badge"
+                android:text="1"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:elevation="2dp"
+                android:visibility="gone"
+                android:importantForAccessibility="no"/>
+
+        </FrameLayout>
 
     </LinearLayout>
 
