@@ -2534,6 +2534,3 @@ class HomeActivity : AppCompatActivity() {
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 }
-erride fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = list[position]
-            holder.tvRank.text  = (position + 1).toString()
