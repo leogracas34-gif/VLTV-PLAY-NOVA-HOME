@@ -74,6 +74,34 @@
 
         <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1"/>
 
+        <!-- Botão de Downloads no topo, como na Netflix — mesmo id/tipo
+             de antes (cardDownloads), só que devolvido ao header no
+             layout de celular; nenhuma mudança necessária no
+             HomeActivity.kt (click/foco já tratados genericamente). -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardDownloads"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardCornerRadius="19dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#00000000"
+            app:rippleColor="#66C1443B">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_icon_button_header">
+                <ImageView
+                    android:layout_width="19dp"
+                    android:layout_height="19dp"
+                    android:src="@drawable/ic_download_box_premium"
+                    android:contentDescription="Downloads"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
     </LinearLayout>
 
     <!-- SCROLL PRINCIPAL -->
@@ -196,7 +224,7 @@
                     android:background="@drawable/divider_quick_action"/>
 
                 <LinearLayout
-                    android:id="@+id/cardDownloads"
+                    android:id="@+id/cardRetroGames"
                     android:layout_width="0dp"
                     android:layout_height="72dp"
                     android:layout_weight="1"
@@ -204,13 +232,10 @@
                     android:gravity="center"
                     android:clickable="true"
                     android:focusable="true"
+                    android:visibility="gone"
                     android:foreground="?attr/selectableItemBackground">
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_download_box_premium"
-                        android:contentDescription="Downloads"/>
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Downloads" android:textColor="#F5F3EF" android:textSize="10.5sp" android:textStyle="bold" android:letterSpacing="0.02" android:layout_marginTop="4dp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🎮" android:textSize="20sp"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Jogos" android:textColor="#F5F3EF" android:textSize="10.5sp" android:textStyle="bold" android:letterSpacing="0.02" android:layout_marginTop="4dp"/>
                 </LinearLayout>
 
             </LinearLayout>
@@ -389,100 +414,6 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- ========= JOGOS RETRÔ (Firebase) — card compacto ========= -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardRetroGames"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginTop="14dp"
-                android:visibility="gone"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardCornerRadius="18dp"
-                app:cardElevation="8dp"
-                app:cardBackgroundColor="@android:color/transparent">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="92dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="18dp"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/bg_retro_card_v2">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🕹️"
-                        android:textSize="30sp"
-                        android:layout_marginEnd="16dp"/>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Jogos retrô"
-                                android:textColor="#F5F3EF"
-                                android:textSize="16.5sp"
-                                android:textStyle="bold"
-                                android:fontFamily="sans-serif-medium"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:text="Novo"
-                                android:textColor="#F5F3EF"
-                                android:textSize="9sp"
-                                android:textStyle="bold"
-                                android:letterSpacing="0.06"
-                                android:background="@drawable/bg_badge_novo"
-                                android:paddingStart="8dp"
-                                android:paddingEnd="8dp"
-                                android:paddingTop="3dp"
-                                android:paddingBottom="3dp"/>
-
-                        </LinearLayout>
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Clássicos de vídeo game direto no app, sem baixar nada"
-                            android:textColor="#F5E6C8"
-                            android:textSize="12sp"
-                            android:maxLines="1"
-                            android:ellipsize="end"
-                            android:layout_marginTop="3dp"/>
-
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="›"
-                        android:textColor="#F5F3EF"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:layout_marginStart="8dp"/>
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
             <!-- ========= JOGO AO VIVO / PLACAR (Firebase) — card compacto ========= -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardGameBanner"
@@ -582,14 +513,20 @@
 
                         </LinearLayout>
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="▶"
-                            android:textColor="#F5F3EF"
-                            android:textSize="24sp"
-                            android:alpha="0.85"
-                            android:layout_marginStart="12dp"/>
+                        <FrameLayout
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_marginStart="10dp"
+                            android:background="@drawable/bg_pill_icon_circle">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:layout_marginStart="2dp"
+                                android:text="▶"
+                                android:textColor="#F5F3EF"
+                                android:textSize="15sp"/>
+                        </FrameLayout>
 
                     </LinearLayout>
 
