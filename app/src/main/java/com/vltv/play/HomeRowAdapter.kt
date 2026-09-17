@@ -27,6 +27,11 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 class HomeRowAdapter(
     private var list: List<VodItem>,
     private val useWideLayout: Boolean = false,
+    // ✅ NOVO: fileiras "densas" (ex.: Novidades) usam cards ~22% menores
+    // que as fileiras normais (ex.: Séries/Filmes Para Você), criando a
+    // mesma variação de tamanho entre fileiras que a Netflix tem — sem
+    // precisar de um layout XML novo, só reduzindo o card na hora do bind.
+    private val compact: Boolean = false,
     private val onItemClick: (VodItem) -> Unit
 ) : RecyclerView.Adapter<HomeRowAdapter.ViewHolder>() {
 
@@ -63,6 +68,21 @@ class HomeRowAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = list[position]
         val context = holder.itemView.context
+
+        // ✅ Redimensiona o card pra 78% quando a fileira é "compacta"
+        // (Novidades) — não usa fileiras diferentes, só um root menor;
+        // o resto do conteúdo (poster/título/badges) escala junto porque
+        // é tudo match_parent dentro do card.
+        if (compact) {
+            val density = context.resources.displayMetrics.density
+            val params = holder.itemView.layoutParams
+            if (params != null) {
+                params.width = (132 * 0.78f * density).toInt()
+                params.height = (198 * 0.78f * density).toInt()
+                holder.itemView.layoutParams = params
+            }
+        }
+
         holder.tvTitle.text = item.name
 
         // ✅ Sem busca de rede aqui — só lê o que já está salvo.
