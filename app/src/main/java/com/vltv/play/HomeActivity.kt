@@ -325,16 +325,15 @@ class HomeActivity : AppCompatActivity() {
         contentRoot.addView(wordmark, params)
         wordmarkRef = wordmark
 
-        // ✅ CORRIGIDO: a logo "VLTV" era adicionada fixa na tela e nunca
-        // saía do lugar — então, ao rolar a Home, o conteúdo (pôsteres,
-        // Top 10, cards) subia por baixo dela e ela ficava sobreposta a
-        // tudo. Agora usamos o banner principal (bannerViewPager) como
-        // referência: assim que ele começa a sair de baixo da logo (ou
-        // seja, assim que o usuário rola a tela), a logo vai desaparecendo
-        // suavemente; ao voltar pro topo, ela reaparece. Não depende do id
-        // do container de rolagem (seja NestedScrollView, RecyclerView etc).
+        // ✅ AJUSTADO A PEDIDO: antes a logo "VLTV" ia sumindo aos poucos
+        // conforme rolava (acompanhando a rolagem por ~160dp), o que
+        // fazia ela "viajar" junto com a tela por cima de botões e capas
+        // por um instante. Agora é um corte seco: ao menor sinal de
+        // rolagem (poucos pixels) ela some na hora; ao voltar pro topo
+        // exato, reaparece na hora. Não depende do id do container de
+        // rolagem (seja NestedScrollView, RecyclerView etc).
         val anchor = binding.bannerViewPager ?: return
-        val fadeDistancePx = 160.dp.toFloat()
+        val limiarSumicoPx = 6.dp.toFloat()
 
         anchor.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
@@ -355,9 +354,9 @@ class HomeActivity : AppCompatActivity() {
             val loc = IntArray(2)
             anchor.getLocationOnScreen(loc)
             val scrolled = (wordmarkAnchorInitialTop - loc[1]).coerceAtLeast(0)
-            val alpha = (1f - (scrolled / fadeDistancePx)).coerceIn(0f, 1f)
-            wm.alpha = alpha
-            wm.visibility = if (alpha <= 0.01f) View.INVISIBLE else View.VISIBLE
+            val deveAparecer = scrolled <= limiarSumicoPx
+            wm.alpha = if (deveAparecer) 1f else 0f
+            wm.visibility = if (deveAparecer) View.VISIBLE else View.INVISIBLE
         }
         wordmarkScrollListener = listener
         binding.root.viewTreeObserver.addOnScrollChangedListener(listener)
