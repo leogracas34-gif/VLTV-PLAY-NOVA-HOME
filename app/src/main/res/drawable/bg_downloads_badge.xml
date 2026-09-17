@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ✅ NOVO: círculo do badge de downloads (número de downloads em
+     andamento), sobreposto ao botão de Downloads no header da Home.
+     Cor de destaque do app (mesma usada no ripple do cardDownloads),
+     com um contorno sutil escuro pra separar bem do ícone atrás. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <solid android:color="#C1443B"/>
+
+    <stroke
+        android:width="1.5dp"
+        android:color="#1A1714"/>
+
+</shape>
