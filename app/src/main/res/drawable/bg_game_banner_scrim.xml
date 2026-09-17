@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gradiente diagonal usado no banner de jogo/placar remodelado:
+     mais escuro à esquerda (onde fica o texto) e mais transparente
+     à direita (onde aparece a imagem de fundo do confronto). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:startColor="#E60B0B0C"
+        android:centerColor="#B30B0B0C"
+        android:endColor="#4D0B0B0C"
+        android:angle="0"/>
+</shape>
