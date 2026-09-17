@@ -8,8 +8,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/cardPoster"
-    android:layout_width="122dp"
-    android:layout_height="180dp"
+    android:layout_width="132dp"
+    android:layout_height="198dp"
     android:layout_marginEnd="10dp"
     android:layout_marginBottom="4dp"
     android:focusable="true"
@@ -70,11 +70,12 @@
             android:shadowDx="0"
             android:shadowDy="1"/>
 
-        <!-- ✅ Selo de status — agora em formato de pill flutuante (em vez
-             da barra reta de ponta a ponta), mais alinhado ao resto do
-             novo design. Continua só um por vez / mesma lógica de
-             prioridade do HomeRowAdapter.kt, e a 2ª linha ("EM BREVE")
-             continua existindo pro caso de duas linhas empilhadas. -->
+        <!-- ✅ Selo de status — formato de pill flutuante embaixo do
+             pôster (igual a própria Netflix faz — "Novidade"/"Nova
+             temporada" ficam na parte de baixo do card, não num canto).
+             Continua só um por vez / mesma lógica de prioridade do
+             HomeRowAdapter.kt, e a 2ª linha ("EM BREVE") continua
+             existindo pro caso de duas linhas empilhadas. -->
         <LinearLayout
             android:id="@+id/llBadgeStatus"
             android:layout_width="wrap_content"
