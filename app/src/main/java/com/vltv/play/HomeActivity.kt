@@ -238,6 +238,7 @@ class HomeActivity : AppCompatActivity() {
             setupClicks()
 
             adicionarWordmarkVLTV()
+            ajustarHeaderParaStatusBar()
 
             if (ContentRepository.pronto) {
                 popularTelaDoRepositorio()
@@ -266,6 +267,27 @@ class HomeActivity : AppCompatActivity() {
 
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    // ✅ CORRIGIDO: o botão de Downloads no header flutuante (novo layout
+    // estilo Netflix) ficava embaixo da status bar, sobrepondo o relógio
+    // e a bateria — o headerLayout tinha altura fixa e nenhum respiro pra
+    // status bar. Agora empurramos o conteúdo do header pra baixo pela
+    // altura real da status bar do aparelho (varia por notch/furo de
+    // câmera) e aumentamos a altura do header na mesma medida, mantendo
+    // os 60dp visuais de antes abaixo da status bar.
+    private fun ajustarHeaderParaStatusBar() {
+        val header = binding.headerLayout ?: return
+        val statusBarHeightPx = run {
+            val id = resources.getIdentifier("status_bar_height", "dimen", "android")
+            if (id > 0) resources.getDimensionPixelSize(id) else (24 * resources.displayMetrics.density).toInt()
+        }
+        header.setPadding(header.paddingLeft, statusBarHeightPx, header.paddingRight, header.paddingBottom)
+        val params = header.layoutParams
+        if (params != null && params.height > 0) {
+            params.height += statusBarHeightPx
+            header.layoutParams = params
         }
     }
 
@@ -618,7 +640,7 @@ class HomeActivity : AppCompatActivity() {
                     if (isFinishing || isDestroyed) return@withContext
                     if (novidades.isNotEmpty()) {
                         binding.rvNovidades?.itemAnimator = null
-                        binding.rvNovidades?.adapter = HomeRowAdapter(novidades) { selectedItem ->
+                        binding.rvNovidades?.adapter = HomeRowAdapter(novidades, compact = true) { selectedItem ->
                             val ehSerie = seriesIds.contains(selectedItem.id)
                             val intent = if (ehSerie)
                                 Intent(this@HomeActivity, SeriesDetailsActivity::class.java).apply { putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0) }
@@ -2512,3 +2534,6 @@ class HomeActivity : AppCompatActivity() {
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 }
+erride fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val item = list[position]
+            holder.tvRank.text  = (position + 1).toString()
