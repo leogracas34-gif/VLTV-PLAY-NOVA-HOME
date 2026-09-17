@@ -47,6 +47,7 @@ import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.LiveStreamEntity
 import com.vltv.play.data.VodEntity
 import com.vltv.play.data.SeriesEntity
+import com.vltv.play.data.DownloadEntity
 import com.vltv.play.retro.RetroGamesActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -236,6 +237,13 @@ class HomeActivity : AppCompatActivity() {
             setupSingleBanner()
             setupBottomNavigation()
             setupClicks()
+
+            // ✅ NOVO: badge circular no botão de Downloads (header),
+            // mostrando quantos downloads ainda não terminaram (na fila +
+            // baixando + pausado) do perfil atual. Usa a LiveData que já
+            // existe no StreamDao (getDownloadsByProfile) — atualiza
+            // sozinho, sem polling, toda vez que a tabela "downloads" muda.
+            observarBadgeDownloads()
 
             adicionarWordmarkVLTV()
             ajustarHeaderParaStatusBar()
@@ -2115,6 +2123,43 @@ class HomeActivity : AppCompatActivity() {
         }
         wordmarkScrollListener = null
         wordmarkRef = null
+    }
+
+    // ✅ NOVO: observa a LiveData que já existe no StreamDao
+    // (getDownloadsByProfile) pra manter o badge circular do botão de
+    // Downloads sempre em dia — sem polling, sem consulta manual. O Room
+    // já notifica essa LiveData sozinho toda vez que a tabela "downloads"
+    // muda (novo download, progresso, pausa, exclusão, conclusão), e a
+    // LiveData só entrega os valores quando a Home está em STARTED/RESUMED
+    // — ou seja, nada é consultado à toa com a tela em segundo plano.
+    //
+    // Registrado uma única vez no onCreate, com o currentProfile já
+    // resolvido; se o usuário trocar de perfil, a HomeActivity de hoje é
+    // recriada (mesmo padrão já usado no resto do app), então não precisa
+    // re-registrar em onResume.
+    private fun observarBadgeDownloads() {
+        database.streamDao().getDownloadsByProfile(currentProfile).observe(this) { lista ->
+            atualizarBadgeDownloads(lista)
+        }
+    }
+
+    // Conta só o que ainda não terminou (na fila + baixando + pausado) —
+    // BAIXADO e ERRO não entram na contagem, então o número reflete
+    // exatamente o que ainda está em andamento.
+    private fun atualizarBadgeDownloads(lista: List<DownloadEntity>) {
+        if (isFinishing || isDestroyed) return
+        val total = lista.count {
+            it.status == DownloadHelper.STATE_NA_FILA ||
+                it.status == DownloadHelper.STATE_BAIXANDO ||
+                it.status == DownloadHelper.STATE_PAUSADO
+        }
+        val badge = binding.root.findViewById<TextView>(R.id.tvDownloadsBadge) ?: return
+        if (total > 0) {
+            badge.text = if (total > 99) "99+" else total.toString()
+            badge.visibility = View.VISIBLE
+        } else {
+            badge.visibility = View.GONE
+        }
     }
 
     private fun setupClicks() {
