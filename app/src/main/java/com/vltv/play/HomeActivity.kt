@@ -85,7 +85,10 @@ class HomeActivity : AppCompatActivity() {
     private var bannerItemAtual: Any? = null
     private var bannerBuscaJob: kotlinx.coroutines.Job? = null
     private val bannerHandler = Handler(Looper.getMainLooper())
-    private val BANNER_INTERVALO_MS = 8000L
+    // ✅ Carrossel do banner de destaque mais lento (estilo Netflix — era
+    // 8s, ficava rápido demais). 20s dá tempo de ler título/sinopse antes
+    // de trocar de item.
+    private val BANNER_INTERVALO_MS = 20000L
 
     private var bannerRequestId = 0
 
