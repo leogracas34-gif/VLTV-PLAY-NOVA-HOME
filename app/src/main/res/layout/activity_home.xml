@@ -217,6 +217,50 @@
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
 
+                    <!-- ✅ NOVO: pill "Jogos" — ocupa o lugar que era do card
+                         grande "Jogos Retrô" abaixo do banner (removido).
+                         Mesmo id (cardRetroGames) e mesma visibilidade
+                         controlada via Firebase Remote Config
+                         (show_retro_games) e mesmo destino de clique
+                         (RetroGamesActivity) — nenhuma mudança necessária
+                         em setupClicks()/aplicarRetroGamesCard() no
+                         HomeActivity.kt. -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cardRetroGames"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="10dp"
+                        android:visibility="gone"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:cardBackgroundColor="#00000000"
+                        app:rippleColor="#66C1443B">
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:orientation="horizontal"
+                            android:gravity="center"
+                            android:paddingStart="6dp"
+                            android:paddingEnd="16dp"
+                            android:background="@drawable/bg_pill_tab">
+                            <FrameLayout
+                                android:layout_width="26dp"
+                                android:layout_height="26dp"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_pill_icon_circle">
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    android:text="🎮"
+                                    android:textSize="12sp"/>
+                            </FrameLayout>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Jogos" android:textColor="#F5F3EF" android:textSize="12sp" android:textStyle="bold" android:letterSpacing="0.02"/>
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+
                 </LinearLayout>
             </HorizontalScrollView>
 
@@ -378,102 +422,13 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- CARD "JOGOS RETRÔ" -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardRetroGames"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:layout_marginTop="14dp"
-                android:visibility="gone"
-                android:clickable="true"
-                android:focusable="true"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="10dp"
-                app:cardBackgroundColor="#00000000">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="90dp"
-                    android:orientation="horizontal"
-                    android:paddingStart="22dp"
-                    android:paddingEnd="22dp"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/bg_card_retro_games">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🕹️"
-                        android:textSize="32sp"
-                        android:layout_marginEnd="16dp"/>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Jogos retrô"
-                                android:textColor="#F5F3EF"
-                                android:textSize="17sp"
-                                android:textStyle="bold"
-                                android:fontFamily="sans-serif-medium"
-                                android:letterSpacing="0.02"/>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:text="Novo"
-                                android:textColor="#F5F3EF"
-                                android:textSize="9sp"
-                                android:textStyle="bold"
-                                android:letterSpacing="0.08"
-                                android:background="@drawable/bg_badge_novo"
-                                android:paddingStart="8dp"
-                                android:paddingEnd="8dp"
-                                android:paddingTop="3dp"
-                                android:paddingBottom="3dp"/>
-
-                        </LinearLayout>
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Clássicos de vídeo game direto no app, sem baixar nada"
-                            android:textColor="#F5E6C8"
-                            android:textSize="12.5sp"
-                            android:maxLines="1"
-                            android:ellipsize="end"
-                            android:layout_marginTop="3dp"/>
-
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="›"
-                        android:textColor="#F5F3EF"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:layout_marginStart="8dp"/>
-
-                </LinearLayout>
-
-            </androidx.cardview.widget.CardView>
-
-            <!-- BANNER JOGO AO VIVO (Firebase Remote Config) -->
+            <!-- BANNER JOGO AO VIVO / PLACAR (Firebase Remote Config) —
+                 layout remodelado: cantos mais arredondados, faixa
+                 "AO VIVO" com ponto pulsante quando game_banner_is_live,
+                 tipografia realinhada ao restante do app. Mesmos
+                 ids/estrutura interna usados pelo Kotlin
+                 (aplicarGameBanner()) — nenhuma mudança de código
+                 necessária. -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardGameBanner"
                 android:layout_width="match_parent"
@@ -484,28 +439,28 @@
                 android:visibility="gone"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="8dp"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="10dp"
                 app:cardBackgroundColor="#17171A">
 
                 <ImageView
                     android:id="@+id/imgGameBanner"
                     android:layout_width="match_parent"
-                    android:layout_height="118dp"
+                    android:layout_height="128dp"
                     android:scaleType="centerCrop"
-                    android:alpha="0.45"/>
+                    android:alpha="0.5"/>
 
                 <View
                     android:layout_width="match_parent"
-                    android:layout_height="118dp"
-                    android:background="#990B0B0C"/>
+                    android:layout_height="128dp"
+                    android:background="@drawable/bg_game_banner_scrim"/>
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="118dp"
+                    android:layout_height="128dp"
                     android:orientation="horizontal"
                     android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
+                    android:paddingEnd="18dp"
                     android:gravity="center_vertical">
 
                     <LinearLayout
@@ -563,14 +518,20 @@
 
                     </LinearLayout>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="▶"
-                        android:textColor="#F5F3EF"
-                        android:textSize="24sp"
-                        android:alpha="0.7"
-                        android:layout_marginStart="12dp"/>
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="10dp"
+                        android:background="@drawable/bg_pill_icon_circle">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:layout_marginStart="2dp"
+                            android:text="▶"
+                            android:textColor="#F5F3EF"
+                            android:textSize="16sp"/>
+                    </FrameLayout>
 
                 </LinearLayout>
 
