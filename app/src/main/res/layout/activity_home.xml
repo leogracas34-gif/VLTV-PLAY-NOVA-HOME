@@ -439,28 +439,28 @@
                 android:visibility="gone"
                 android:clickable="true"
                 android:focusable="true"
-                app:cardCornerRadius="18dp"
-                app:cardElevation="10dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="8dp"
                 app:cardBackgroundColor="#17171A">
 
                 <ImageView
                     android:id="@+id/imgGameBanner"
                     android:layout_width="match_parent"
-                    android:layout_height="128dp"
+                    android:layout_height="118dp"
                     android:scaleType="centerCrop"
-                    android:alpha="0.5"/>
+                    android:alpha="0.45"/>
 
                 <View
                     android:layout_width="match_parent"
-                    android:layout_height="128dp"
-                    android:background="@drawable/bg_game_banner_scrim"/>
+                    android:layout_height="118dp"
+                    android:background="#990B0B0C"/>
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="128dp"
+                    android:layout_height="118dp"
                     android:orientation="horizontal"
                     android:paddingStart="20dp"
-                    android:paddingEnd="18dp"
+                    android:paddingEnd="20dp"
                     android:gravity="center_vertical">
 
                     <LinearLayout
@@ -518,20 +518,14 @@
 
                     </LinearLayout>
 
-                    <FrameLayout
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="10dp"
-                        android:background="@drawable/bg_pill_icon_circle">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:layout_marginStart="2dp"
-                            android:text="▶"
-                            android:textColor="#F5F3EF"
-                            android:textSize="16sp"/>
-                    </FrameLayout>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="▶"
+                        android:textColor="#F5F3EF"
+                        android:textSize="24sp"
+                        android:alpha="0.7"
+                        android:layout_marginStart="12dp"/>
 
                 </LinearLayout>
 
