@@ -543,12 +543,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun buscarETocarTrailer() {
         val apiKey = TmdbConfig.API_KEY
-        var cleanName = seriesName
-        cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-        cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
-        listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
-            .forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
-        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+        // ✅ Delega pro TituloCleaner (fonte única) em vez de ter sua
+        // própria lista de tags sujas, incompleta em relação às outras telas.
+        val cleanName = TituloCleaner.limparParaBusca(seriesName)
 
         val encoded = try { URLEncoder.encode(cleanName, "UTF-8") } catch (e: Exception) { cleanName }
         val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encoded&language=pt-BR&region=BR"
@@ -727,12 +724,9 @@ class SeriesDetailsActivity : AppCompatActivity() {
 
     private fun sincronizarDadosTMDB() {
         val apiKey = TmdbConfig.API_KEY
-        var cleanName = seriesName
-        cleanName = cleanName.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-        cleanName = cleanName.replace(Regex("\\b\\d{4}\\b"), "")
-        listOf("FHD", "HD", "SD", "4K", "8K", "H265", "LEG", "DUBLADO", "DUB", "|", "-", "_", ".")
-            .forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
-        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+        // ✅ Delega pro TituloCleaner (fonte única) em vez de ter sua
+        // própria lista de tags sujas, incompleta em relação às outras telas.
+        val cleanName = TituloCleaner.limparParaBusca(seriesName)
         val encodedName = try { URLEncoder.encode(cleanName, "UTF-8") } catch (e: Exception) { cleanName }
         val url = "https://api.themoviedb.org/3/search/tv?api_key=$apiKey&query=$encodedName&language=pt-BR&region=BR"
 
