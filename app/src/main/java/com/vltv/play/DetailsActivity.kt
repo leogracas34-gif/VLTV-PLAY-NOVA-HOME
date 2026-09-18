@@ -165,14 +165,22 @@ class DetailsActivity : AppCompatActivity() {
                 ?.takeIf { it.isNotEmpty() && it != "null" }
 
             inicializarViews()
+            // ✅ Movido pra logo após inicializarViews(): antes, essas três
+            // chamadas ficavam por último no onCreate. Se qualquer função
+            // entre elas e o fim (carregarConteudo, setupEventos,
+            // setupEpisodesRecycler etc.) lançasse uma exceção pra um filme
+            // específico, o catch abaixo só mostrava um Toast e o nome/logo
+            // nunca chegava a aparecer — tela ficava sem nome nenhum. Agora
+            // o nome/logo começa a carregar antes de qualquer coisa que
+            // possa falhar.
+            tentarCarregarTextoCache()
+            tentarCarregarLogoCache()
+            sincronizarDadosTMDB()
             setupWebViewTrailer()
             setupBottomNavigation()
             carregarConteudo()
             setupEventos()
             setupEpisodesRecycler()
-            tentarCarregarTextoCache()
-            tentarCarregarLogoCache()
-            sincronizarDadosTMDB()
 
             trailerHandler.postDelayed({
                 if (!isFinishing && !isDestroyed) buscarETocarTrailer()
@@ -1186,11 +1194,10 @@ class DetailsActivity : AppCompatActivity() {
                 .edit().putString("player_preferido", p[i]).apply() }.show()
     }
 
+    // ✅ Delega pro TituloCleaner (fonte única) em vez de ter sua própria
+    // lista de tags sujas, que cobria menos termos que as outras telas.
     private fun limparNomeParaTMDB(nome: String): String =
-        nome.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-            .replace(Regex("\\b\\d{4}\\b"), "")
-            .replace(Regex("(?i)\\b(FHD|HD|4K|H265|LEG|DUBLADO|BR:|SP:|UHD|HDR)\\b"), "")
-            .replace(Regex("\\s+"), " ").trim()
+        TituloCleaner.limparParaBusca(nome)
 
     // Detecção de TV centralizada em DeviceUtils.kt (isTelevisionDevice()),
     // usada em todo o app — não reimplementar localmente aqui.
@@ -1199,12 +1206,10 @@ class DetailsActivity : AppCompatActivity() {
     // RESOLUÇÃO DE ID REAL NO CATÁLOGO (Sugestões do TMDB)
     // ─────────────────────────────────────────────────────────────
 
-    private fun normalizarTituloParaMatch(titulo: String): String {
-        return titulo
-            .replace(Regex("\\(\\d{4}\\)"), "")
-            .replace(Regex("(?i)\\b(4K|FULL HD|HD|SD|DUBLADO|LEGENDADO|DUAL|BLURAY|WEB-DL|HEVC|H264|H265|UHD|FHD|HDR)\\b"), "")
-            .trim()
-    }
+    // ✅ Delega pro TituloCleaner (fonte única) em vez de ter sua própria
+    // lista de tags sujas.
+    private fun normalizarTituloParaMatch(titulo: String): String =
+        TituloCleaner.limparParaBusca(titulo)
 
     private suspend fun resolverStreamIdReal(tituloTmdb: String): Pair<Int, String>? =
         withContext(Dispatchers.IO) {
