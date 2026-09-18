@@ -310,13 +310,9 @@ class SeriesActivity : AppCompatActivity() {
 
     private suspend fun searchTmdbLogoSeries(rawName: String): String? {
         val apiKey = TmdbConfig.API_KEY
-        var cleanName = rawName
-            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-            .replace(Regex("\\b\\d{4}\\b"), "").trim()
-            .replace(Regex("\\s+"), " ")
-        val sujeiras = listOf("FHD","HD","SD","4K","8K","H265","LEG","DUB","MKV","MP4","COMPLETE","S01","S02","E01")
-        sujeiras.forEach { cleanName = cleanName.replace(it, "", ignoreCase = true) }
-        cleanName = cleanName.trim().replace(Regex("\\s+"), " ")
+        // ✅ Delega pro TituloCleaner (fonte única) em vez de ter sua
+        // própria lista de tags sujas, incompleta em relação às outras telas.
+        val cleanName = TituloCleaner.limparParaBusca(rawName)
         return try {
             val query = URLEncoder.encode(cleanName, "UTF-8")
             val searchJson = URL(
