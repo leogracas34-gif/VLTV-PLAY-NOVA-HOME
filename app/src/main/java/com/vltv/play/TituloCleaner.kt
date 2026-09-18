@@ -15,20 +15,29 @@ package com.vltv.play
  */
 object TituloCleaner {
 
-    // Lista consolidada: junção de tudo que já existia em DetailsActivity,
-    // SeriesDetailsActivity e NovidadesActivity/Adapter, mais tags comuns
-    // que nenhuma delas cobria (CAM, TS, BLURAY, WEB-DL, WEBRIP, BRRIP,
-    // DVDRIP, HEVC, X264/X265, HDTV, DUAL, NACIONAL, faixas de áudio, etc).
+    // Lista consolidada: junção de TUDO que já existia em DetailsActivity,
+    // SeriesDetailsActivity, NovidadesActivity/Adapter, VodActivity e
+    // SeriesActivity (8 implementações diferentes ao todo!), mais termos
+    // que nenhuma delas cobria.
     private val TAGS_SUJAS = listOf(
-        "FHD", "FULL HD", "HD", "SD", "4K", "8K", "UHD", "HDR",
-        "H264", "H265", "X264", "X265", "HEVC",
-        "BLURAY", "BLU-RAY", "WEB-DL", "WEBRIP", "WEB", "BRRIP", "DVDRIP",
-        "HDTV", "HDCAM", "CAM", "TS", "R5",
-        "DUAL", "DUAL AUDIO", "5.1", "2.0", "AAC",
+        "FHD", "FULL HD", "FULL-HD", "HD", "SD", "4K", "8K", "UHD", "HDR",
+        "720P", "1080P", "2160P",
+        "H264", "H265", "H.264", "H.265", "X264", "X265", "HEVC",
+        "BLURAY", "BLU-RAY", "REMUX", "REPACK",
+        "WEB-DL", "WEBRIP", "WEB", "BRRIP", "DVDRIP", "AVI", "MKV", "MP4",
+        "HDTV", "HDCAM", "CAM", "TS", "TC", "R5", "SCREENER",
+        "DUAL", "DUAL AUDIO", "AUDIO", "5.1", "2.0", "AAC", "LATINO",
         "LEG", "LEG.", "LEGENDADO", "SUBTITLED",
         "DUB", "DUB.", "DUBLADO", "DUBBED",
-        "NACIONAL", "BR:", "SP:", "ITA", "ESP"
+        "NACIONAL", "BR:", "SP:", "ITA", "ESP", "PT-BR", "PTBR",
+        "CINEMA", "LANÇAMENTO", "LANCAMENTO", "EXCLUSIVO",
+        "COMPLETO", "COMPLETE"
     )
+
+    // Códigos de temporada/episódio (S01, S02, E01, S01E01 etc.) — vêm de
+    // nomes de série "sujos"; não fazem sentido em nome de filme, mas
+    // removê-los não causa problema nenhum nesse caso.
+    private val REGEX_TEMPORADA_EPISODIO = Regex("(?i)\\bS\\d{1,2}(E\\d{1,3})?\\b|\\bE\\d{1,3}\\b")
 
     // Regex pronta (uma vez só), com \b (borda de palavra) pra não cortar
     // pedaço de palavra normal do título — ordenada da mais longa pra mais
@@ -49,6 +58,7 @@ object TituloCleaner {
         nome = nome.replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
         nome = nome.replace(Regex("\\b\\d{4}\\b"), "")
         nome = nome.replace(REGEX_TAGS, "")
+        nome = nome.replace(REGEX_TEMPORADA_EPISODIO, "")
         nome = nome.replace(Regex("[|_]"), " ")
         return nome.trim().replace(Regex("\\s+"), " ")
     }
