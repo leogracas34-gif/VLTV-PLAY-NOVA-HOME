@@ -372,13 +372,10 @@ class NovidadesAdapter(
         }
     }
 
-    private fun normalizarNome(nome: String): String {
-        var n = nome.lowercase()
-        listOf("fhd", "hd", "sd", "4k", "8k", "h265", "leg", "dublado", "dub",
-               "nacional", "legendado", "|", "-", "_", ".", "(", ")")
-            .forEach { n = n.replace(it, " ") }
-        return n.trim().replace(Regex("\\s+"), " ")
-    }
+    // ✅ Delega pro TituloCleaner (fonte única) em vez de ter sua própria
+    // lista de tags sujas, incompleta em relação às outras telas.
+    private fun normalizarNome(nome: String): String =
+        TituloCleaner.normalizarParaComparacao(nome)
 
     // CORREÇÃO: agora grava LOGO_AUSENTE no cache quando não encontra logo,
     // em vez de simplesmente retornar null sem persistir nada. Isso é o que
