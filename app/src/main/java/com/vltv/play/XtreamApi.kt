@@ -281,6 +281,14 @@ object XtreamApi {
     // como fonte única de verdade, pra não haver risco de duas listas
     // desatualizadas em lugares diferentes. A LoginActivity pode passar
     // a referenciar XtreamApi.SERVERS em vez de manter a própria cópia.
+    // ✅ ATUALIZADO: lista sincronizada com a mesma usada em LoginActivity.kt
+    // e SettingsActivity.kt. Os 6 domínios antigos que estavam aqui
+    // (zeroum.pro, shozcdn.site, edgelow.site, cdtune.site,
+    // radiodiamond.site, gort2.site) não existem mais — o
+    // DnsFailoverInterceptor perdia tempo tentando servidores mortos antes
+    // de chegar num válido. fx12.sbs foi incluído: é o único da lista com
+    // nameserver fora da Cloudflare (BunnyCDN), então continua resolvível
+    // mesmo numa queda total do DNS da Cloudflare.
     val SERVERS = listOf(
         "http://fibercdn.sbs",
         "http://ranos.sbs",
@@ -289,12 +297,14 @@ object XtreamApi {
         "http://cmdtv.sbs",
         "http://cmdtv.top",
         "http://cmdbr.life",
-        "http://zeroum.pro",
-        "http://shozcdn.site",
-        "http://edgelow.site",
-        "http://cdtune.site",
-        "http://radiodiamond.site",
-        "http://gort2.site"
+        "http://supertv.red",
+        "http://kodexk.click",
+        "http://maisplaytech.space",
+        "http://pthdtv.sbs",
+        "http://pthdtv.top",
+        "http://cdnsec.cyou",
+        "http://fx12.sbs",
+        "http://cybertronplay.space"
     )
 
     private val lock = Any()
