@@ -327,13 +327,9 @@ object TmdbSyncHelper {
     // ─────────────────────────────────────────────────────────────────────────
     // VINCULAÇÃO RETROATIVA DE tmdb_id (séries antigas tipo Reacher)
     // ─────────────────────────────────────────────────────────────────────────
-    private val REGEX_TARJAS_CATALOGO = Regex(
-        "(?i)\\b(4K|8K|FULL[\\s.-]?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|LEG|DUB|DUAL|AUDIO|LATINO|" +
-        "NACIONAL|PT[-.]?BR|PTBR|WEB[-.]?DL|WEBRIP|BLU-?RAY|REMUX|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|" +
-        "HEVC|X264|X265|WEB|HDR|UHD|FHD|CAM|HDCAM|TS|TC|R5|SCREENER|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO|" +
-        "COMPLETO|COMPLETE|S\\d{1,2}|E\\d{1,3}|EP\\d{1,3}|TEMPORADA|SEASON)\\b"
-    )
-
+    // ✅ A lista de tarjas que existia aqui (REGEX_TARJAS_CATALOGO) foi
+    // movida pro TituloCleaner.kt (fonte única, usada em 7 outras telas).
+    // A lógica de pontuação/matching abaixo continua exatamente igual.
     private suspend fun vincularTmdbIdsFaltantes(db: AppDatabase) {
         val candidatas = db.streamDao().getSeriesSemTmdbId(LIMITE_SERIES_SEM_TMDB_ID)
         if (candidatas.isEmpty()) return
@@ -359,11 +355,7 @@ object TmdbSyncHelper {
     }
 
     private fun buscarTmdbIdPorNomeCatalogo(nomeCatalogo: String): Int? {
-        val limpo = nomeCatalogo
-            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-            .replace(REGEX_TARJAS_CATALOGO, "")
-            .replace(Regex("\\s{2,}"), " ")
-            .trim()
+        val limpo = TituloCleaner.limparParaBusca(nomeCatalogo)
         if (limpo.isBlank()) return null
 
         return try {
@@ -729,13 +721,9 @@ object TmdbSyncHelper {
     }
 
     private fun wordBoundaryPatterns(titulo: String, acentoCuringa: Boolean = false): List<String> {
-        val limpo = titulo
-            .replace(Regex("\\(\\d{4}\\)"), "")
-            .replace(
-                Regex("(?i)\\b(4K|FULL HD|HD|SD|DUBLADO|LEGENDADO|DUAL|BLURAY|BLU-RAY|WEB-DL|HEVC|H264|H265|UHD|FHD|HDR|REMUX)\\b"),
-                ""
-            )
-            .trim()
+        // ✅ Delega a limpeza de tarjas pro TituloCleaner (fonte única);
+        // a geração de padrões com curinga abaixo continua igual.
+        val limpo = TituloCleaner.limparParaBusca(titulo)
 
         if (limpo.isBlank()) return emptyList()
 
