@@ -313,26 +313,14 @@ class VodActivity : AppCompatActivity() {
         }
     }
 
-    // ✅ "Vassoura" — remove tarjas comuns de qualidade/idioma/formato do
-    // nome (LEGENDADO, DUBLADO, 4K, CINEMA, CAM etc.) antes de buscar a
-    // logo no TMDB. Sem isso, um nome "sujo" tipo "Nome do Filme
-    // Legendado 4K" nunca casa com o título real no TMDB e a logo nunca
-    // aparece (mesma lógica já usada em SeriesActivity, agora também
-    // aqui em Filmes).
-    private val REGEX_TARJAS_LOGO = Regex(
-        "(?i)\\b(4K|8K|FULL[\\s.-]?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|LEG|DUB|DUAL|AUDIO|LATINO|" +
-        "NACIONAL|PT[-.]?BR|PTBR|WEB[-.]?DL|WEBRIP|BLU-?RAY|REMUX|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|" +
-        "HEVC|X264|X265|WEB|HDR|UHD|FHD|CAM|HDCAM|TS|TC|R5|SCREENER|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO|" +
-        "COMPLETO|COMPLETE)\\b"
-    )
+    // ✅ "Vassoura" — a lista de tarjas de qualidade/idioma/formato foi
+    // movida pro TituloCleaner.kt (fonte única, usada em várias telas).
 
+    // ✅ Delega pro TituloCleaner (fonte única, também usado em Details,
+    // SeriesDetails, Novidades e SeriesActivity) em vez de manter sua
+    // própria regex de tarjas aqui.
     private fun limparNomeParaBuscaLogo(rawName: String, yearRegex: Regex): String {
-        return rawName
-            .replace(Regex("[\\(\\[\\{].*?[\\)\\]\\}]"), "")
-            .replace(yearRegex, "")
-            .replace(REGEX_TARJAS_LOGO, "")
-            .replace(Regex("\\s{2,}"), " ")
-            .trim()
+        return TituloCleaner.limparParaBusca(rawName)
     }
 
     private suspend fun searchTmdbLogoVod(rawName: String): String? {
