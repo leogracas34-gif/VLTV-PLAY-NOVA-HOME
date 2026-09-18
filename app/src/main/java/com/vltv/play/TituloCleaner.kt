@@ -34,10 +34,13 @@ object TituloCleaner {
         "COMPLETO", "COMPLETE"
     )
 
-    // Códigos de temporada/episódio (S01, S02, E01, S01E01 etc.) — vêm de
-    // nomes de série "sujos"; não fazem sentido em nome de filme, mas
-    // removê-los não causa problema nenhum nesse caso.
-    private val REGEX_TEMPORADA_EPISODIO = Regex("(?i)\\bS\\d{1,2}(E\\d{1,3})?\\b|\\bE\\d{1,3}\\b")
+    // Códigos/palavras de temporada e episódio (S01, S02, E01, S01E01,
+    // EP01, TEMPORADA, SEASON) — vêm de nomes de série "sujos"; não fazem
+    // sentido em nome de filme, mas removê-los não causa problema nenhum
+    // nesse caso.
+    private val REGEX_TEMPORADA_EPISODIO = Regex(
+        "(?i)\\bS\\d{1,2}(E\\d{1,3})?\\b|\\bE\\d{1,3}\\b|\\bEP\\d{1,3}\\b|\\bTEMPORADA\\b|\\bSEASON\\b"
+    )
 
     // Regex pronta (uma vez só), com \b (borda de palavra) pra não cortar
     // pedaço de palavra normal do título — ordenada da mais longa pra mais
