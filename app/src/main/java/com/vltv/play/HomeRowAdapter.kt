@@ -83,7 +83,11 @@ class HomeRowAdapter(
             }
         }
 
-        holder.tvTitle.text = item.name
+        // ✅ Nome exibido (fallback de texto quando não tem logo) agora passa
+        // pelo TituloCleaner — mesma fonte usada nas outras 8 telas. É só
+        // transformação de texto, sem rede, então não afeta a velocidade
+        // da Home nem muda a lógica de leitura do banco.
+        holder.tvTitle.text = TituloCleaner.limparParaBusca(item.name)
 
         // ✅ Sem busca de rede aqui — só lê o que já está salvo.
         if (holder.ivLogo != null) {
