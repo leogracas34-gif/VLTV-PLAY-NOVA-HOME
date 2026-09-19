@@ -147,6 +147,14 @@ class HomeActivity : AppCompatActivity() {
     private var top10MoviesAdapterRef: Top10Adapter? = null
     private var top10SeriesAdapterRef: Top10Adapter? = null
 
+    // ✅ NOVO: Top 10 Brasil (ranking oficial Netflix por país, calculado
+    // pelo vltv-backend) — jobs/adapters separados dos do Top 10 Mundial
+    // acima, já que agora são duas fileiras independentes.
+    private var top10FilmesBrasilJob: kotlinx.coroutines.Job? = null
+    private var top10SeriesBrasilJob: kotlinx.coroutines.Job? = null
+    private var top10MoviesBrasilAdapterRef: Top10Adapter? = null
+    private var top10SeriesBrasilAdapterRef: Top10Adapter? = null
+
     private var ultimoIconeAplicadoNoNav: String? = null
 
     // ✅ NOVO: controle do fade da logo "VLTV" fixa no topo da Home. Antes
@@ -619,6 +627,47 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
+        // ✅ NOVO: Top 10 Brasil (ranking oficial Netflix por país, vindo
+        // do vltv-backend) — SEM fallback de tendência TMDB, de propósito:
+        // essa fileira existe justamente pra mostrar o ranking REAL da
+        // Netflix Brasil, sem mistura nenhuma. Se ainda não tiver nada
+        // calculado (backend não configurado ainda, ou nenhum título do
+        // ranking bateu no catálogo), a fileira inteira fica escondida
+        // em vez de mostrar algo genérico no lugar.
+        top10FilmesBrasilJob?.cancel()
+        top10FilmesBrasilJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val top10DbVodsBrasil = database.streamDao().getTop10VodsBrasil()
+                val itens = top10DbVodsBrasil.map { it.paraItem() }
+                withContext(Dispatchers.Main) {
+                    if (isFinishing || isDestroyed) return@withContext
+                    if (itens.isNotEmpty()) aplicarTop10FilmesBrasil(itens) else esconderTop10FilmesBrasil()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    if (!isFinishing && !isDestroyed) esconderTop10FilmesBrasil()
+                }
+            }
+        }
+
+        top10SeriesBrasilJob?.cancel()
+        top10SeriesBrasilJob = lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val top10DbSeriesBrasil = database.streamDao().getTop10SeriesBrasil()
+                val itens = top10DbSeriesBrasil.map { it.paraItem() }
+                withContext(Dispatchers.Main) {
+                    if (isFinishing || isDestroyed) return@withContext
+                    if (itens.isNotEmpty()) aplicarTop10SeriesBrasil(itens) else esconderTop10SeriesBrasil()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    if (!isFinishing && !isDestroyed) esconderTop10SeriesBrasil()
+                }
+            }
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val novidadesDbFilmes = database.streamDao().getNovidadesVods()
@@ -706,6 +755,65 @@ class HomeActivity : AppCompatActivity() {
             top10SeriesAdapterRef = novoAdapter
             binding.rvTop10Series?.adapter = novoAdapter
         }
+    }
+
+    // ✅ NOVO: Top 10 Filmes BRASIL — mesmo padrão de aplicarTop10Filmes(),
+    // mostrando o header + RecyclerView (ambos começam GONE no layout).
+    private fun aplicarTop10FilmesBrasil(lista: List<VodItem>) {
+        binding.llTop10FilmesBrasilHeader?.visibility = View.VISIBLE
+        binding.rvTop10MoviesBrasil?.visibility = View.VISIBLE
+        val onClick: (VodItem) -> Unit = { selectedItem ->
+            val intent = Intent(this@HomeActivity, DetailsActivity::class.java)
+            intent.putExtra("stream_id", selectedItem.id.toIntOrNull() ?: 0)
+            intent.putExtra("name", selectedItem.name)
+            intent.putExtra("icon", selectedItem.streamIcon)
+            intent.putExtra("PROFILE_NAME", currentProfile)
+            intent.putExtra("is_series", false)
+            startActivity(intent)
+        }
+        val existente = top10MoviesBrasilAdapterRef
+        if (existente != null) {
+            existente.updateList(lista)
+        } else {
+            binding.rvTop10MoviesBrasil?.itemAnimator = null
+            val novoAdapter = Top10Adapter(lista, onClick)
+            top10MoviesBrasilAdapterRef = novoAdapter
+            binding.rvTop10MoviesBrasil?.adapter = novoAdapter
+        }
+    }
+
+    private fun esconderTop10FilmesBrasil() {
+        binding.llTop10FilmesBrasilHeader?.visibility = View.GONE
+        binding.rvTop10MoviesBrasil?.visibility = View.GONE
+    }
+
+    // ✅ NOVO: Top 10 Séries BRASIL — mesma ideia acima, agora pra séries.
+    private fun aplicarTop10SeriesBrasil(lista: List<VodItem>) {
+        binding.llTop10SeriesBrasilHeader?.visibility = View.VISIBLE
+        binding.rvTop10SeriesBrasil?.visibility = View.VISIBLE
+        val onClick: (VodItem) -> Unit = { selectedItem ->
+            val intent = Intent(this@HomeActivity, SeriesDetailsActivity::class.java)
+            intent.putExtra("series_id", selectedItem.id.toIntOrNull() ?: 0)
+            intent.putExtra("name", selectedItem.name)
+            intent.putExtra("icon", selectedItem.streamIcon)
+            intent.putExtra("PROFILE_NAME", currentProfile)
+            intent.putExtra("is_series", true)
+            startActivity(intent)
+        }
+        val existente = top10SeriesBrasilAdapterRef
+        if (existente != null) {
+            existente.updateList(lista)
+        } else {
+            binding.rvTop10SeriesBrasil?.itemAnimator = null
+            val novoAdapter = Top10Adapter(lista, onClick)
+            top10SeriesBrasilAdapterRef = novoAdapter
+            binding.rvTop10SeriesBrasil?.adapter = novoAdapter
+        }
+    }
+
+    private fun esconderTop10SeriesBrasil() {
+        binding.llTop10SeriesBrasilHeader?.visibility = View.GONE
+        binding.rvTop10SeriesBrasil?.visibility = View.GONE
     }
 
     private suspend fun buscarTop10FilmesAgora(): List<VodEntity> {
@@ -2107,6 +2215,8 @@ class HomeActivity : AppCompatActivity() {
         gameRotationFetchJob?.cancel()
         top10FilmesJob?.cancel()
         top10SeriesJob?.cancel()
+        top10FilmesBrasilJob?.cancel()
+        top10SeriesBrasilJob?.cancel()
         removerOuvinteSync?.invoke()
         removerOuvinteSync = null
         wordmarkScrollListener?.let {
