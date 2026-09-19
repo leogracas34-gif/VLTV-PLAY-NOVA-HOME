@@ -26,6 +26,7 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import java.text.SimpleDateFormat
@@ -627,18 +628,20 @@ class HomeActivity : AppCompatActivity() {
             }
         }
 
-        // ✅ NOVO: Top 10 Brasil (ranking oficial Netflix por país, vindo
-        // do vltv-backend) — SEM fallback de tendência TMDB, de propósito:
-        // essa fileira existe justamente pra mostrar o ranking REAL da
-        // Netflix Brasil, sem mistura nenhuma. Se ainda não tiver nada
-        // calculado (backend não configurado ainda, ou nenhum título do
-        // ranking bateu no catálogo), a fileira inteira fica escondida
-        // em vez de mostrar algo genérico no lugar.
+        // ✅ Top 10 Brasil (ranking oficial Netflix por país, vindo do
+        // vltv-backend). O ranking em si continua sendo o oficial, sem
+        // mistura — mas agora passa por completarTop10BrasilFilmes()/
+        // completarTop10BrasilSeries() antes de exibir: 1) tira qualquer
+        // duplicata (mesmo título em 2 ranks diferentes), 2) se sobrar
+        // menos de 10 (rank oficial incompleto porque nem tudo bateu no
+        // catálogo do painel), completa com tendência TMDB — sempre no
+        // FINAL da lista. Só esconde a fileira inteira se não sobrar
+        // NADA depois disso (backend não configurado, ou nada bateu).
         top10FilmesBrasilJob?.cancel()
         top10FilmesBrasilJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val top10DbVodsBrasil = database.streamDao().getTop10VodsBrasil()
-                val itens = top10DbVodsBrasil.map { it.paraItem() }
+                val itens = completarTop10BrasilFilmes(top10DbVodsBrasil)
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
                     if (itens.isNotEmpty()) aplicarTop10FilmesBrasil(itens) else esconderTop10FilmesBrasil()
@@ -655,7 +658,7 @@ class HomeActivity : AppCompatActivity() {
         top10SeriesBrasilJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val top10DbSeriesBrasil = database.streamDao().getTop10SeriesBrasil()
-                val itens = top10DbSeriesBrasil.map { it.paraItem() }
+                val itens = completarTop10BrasilSeries(top10DbSeriesBrasil)
                 withContext(Dispatchers.Main) {
                     if (isFinishing || isDestroyed) return@withContext
                     if (itens.isNotEmpty()) aplicarTop10SeriesBrasil(itens) else esconderTop10SeriesBrasil()
@@ -816,7 +819,12 @@ class HomeActivity : AppCompatActivity() {
         binding.rvTop10SeriesBrasil?.visibility = View.GONE
     }
 
-    private suspend fun buscarTop10FilmesAgora(): List<VodEntity> {
+    // ✅ NOVO: aceita um conjunto de stream_id pra EXCLUIR da busca (usado
+    // pelo preenchimento do Top 10 Brasil — ver completarTop10BrasilFilmes
+    // — pra não repetir um filme que já apareceu na própria fileira).
+    // Comportamento antigo preservado: chamar sem argumento (excluir
+    // vazio) continua igual ao Top 10 Mundial.
+    private suspend fun buscarTop10FilmesAgora(excluir: Set<Int> = emptySet()): List<VodEntity> {
         return try {
             val tmdbUrl = "https://api.themoviedb.org/3/trending/movie/week?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
             val tmdbResults = JSONObject(fetchUrlComTimeout(tmdbUrl)).getJSONArray("results")
@@ -828,13 +836,12 @@ class HomeActivity : AppCompatActivity() {
                     async {
                         val tituloPt   = obj.optString("title", "")
                         val tituloOrig = obj.optString("original_title", "")
-                        val vazio = emptySet<Int>()
-                        queryVodEntityExato(tituloOrig, vazio)
-                            ?: queryVodEntityExato(tituloPt, vazio)
-                            ?: queryVodEntity(likeExato(tituloOrig), vazio)
-                            ?: queryVodEntity(likeExato(tituloPt), vazio)
-                            ?: palavraMaisLonga(tituloOrig)?.let { queryVodEntity("%$it%", vazio) }
-                            ?: palavraMaisLonga(tituloPt)?.let { queryVodEntity("%$it%", vazio) }
+                        queryVodEntityExato(tituloOrig, excluir)
+                            ?: queryVodEntityExato(tituloPt, excluir)
+                            ?: queryVodEntity(likeExato(tituloOrig), excluir)
+                            ?: queryVodEntity(likeExato(tituloPt), excluir)
+                            ?: palavraMaisLonga(tituloOrig)?.let { queryVodEntity("%$it%", excluir) }
+                            ?: palavraMaisLonga(tituloPt)?.let { queryVodEntity("%$it%", excluir) }
                     }
                 }.awaitAll()
             }
@@ -852,7 +859,8 @@ class HomeActivity : AppCompatActivity() {
         } catch (e: Exception) { emptyList() }
     }
 
-    private suspend fun buscarTop10SeriesAgora(): List<SeriesEntity> {
+    // ✅ NOVO: mesma ideia acima, pra série.
+    private suspend fun buscarTop10SeriesAgora(excluir: Set<Int> = emptySet()): List<SeriesEntity> {
         return try {
             val tmdbUrl = "https://api.themoviedb.org/3/trending/tv/week?api_key=$TMDB_API_KEY&language=pt-BR&region=BR"
             val tmdbResults = JSONObject(fetchUrlComTimeout(tmdbUrl)).getJSONArray("results")
@@ -864,13 +872,12 @@ class HomeActivity : AppCompatActivity() {
                     async {
                         val tituloPt   = obj.optString("name", "")
                         val tituloOrig = obj.optString("original_name", "")
-                        val vazio = emptySet<Int>()
-                        querySerieEntityExato(tituloOrig, vazio)
-                            ?: querySerieEntityExato(tituloPt, vazio)
-                            ?: querySerieEntity(likeExato(tituloOrig), vazio)
-                            ?: querySerieEntity(likeExato(tituloPt), vazio)
-                            ?: palavraMaisLonga(tituloOrig)?.let { querySerieEntity("%$it%", vazio) }
-                            ?: palavraMaisLonga(tituloPt)?.let { querySerieEntity("%$it%", vazio) }
+                        querySerieEntityExato(tituloOrig, excluir)
+                            ?: querySerieEntityExato(tituloPt, excluir)
+                            ?: querySerieEntity(likeExato(tituloOrig), excluir)
+                            ?: querySerieEntity(likeExato(tituloPt), excluir)
+                            ?: palavraMaisLonga(tituloOrig)?.let { querySerieEntity("%$it%", excluir) }
+                            ?: palavraMaisLonga(tituloPt)?.let { querySerieEntity("%$it%", excluir) }
                     }
                 }.awaitAll()
             }
@@ -886,6 +893,59 @@ class HomeActivity : AppCompatActivity() {
             }
             resultado
         } catch (e: Exception) { emptyList() }
+    }
+
+    // ✅ NOVO: monta a versão final da fileira "Top 10 Filmes Brasil" —
+    // 1) tira duplicata (mesmo tmdb_id, ou mesmo título normalizado
+    //    quando não tem tmdb_id ainda) mantendo a ordem de rank oficial
+    //    que veio do vltv-backend; 2) se sobrar menos de 10 depois de
+    //    tirar duplicata (ou se o backend só encontrou 8/9 no catálogo
+    //    do painel), completa o resto com a MESMA tendência TMDB usada
+    //    no Top 10 Mundial — sempre no FINAL da lista, sem embaralhar o
+    //    ranking oficial já validado.
+    private suspend fun completarTop10BrasilFilmes(brutos: List<VodEntity>): List<VodItem> {
+        val vistos = mutableSetOf<String>()
+        val semDuplicata = mutableListOf<VodEntity>()
+        for (vod in brutos) {
+            val chave = vod.tmdb_id?.toString() ?: normalizarTituloParaMatch(vod.name)
+            if (vistos.add(chave)) semDuplicata.add(vod)
+        }
+
+        if (semDuplicata.size < 10) {
+            try {
+                val idsUsados = semDuplicata.map { it.stream_id }.toSet()
+                val extras = buscarTop10FilmesAgora(idsUsados)
+                for (extra in extras) {
+                    if (semDuplicata.size >= 10) break
+                    if (semDuplicata.none { it.stream_id == extra.stream_id }) semDuplicata.add(extra)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        return semDuplicata.take(10).map { it.paraItem() }
+    }
+
+    // ✅ NOVO: mesma ideia acima, pra "Top 10 Séries Brasil".
+    private suspend fun completarTop10BrasilSeries(brutos: List<SeriesEntity>): List<VodItem> {
+        val vistos = mutableSetOf<String>()
+        val semDuplicata = mutableListOf<SeriesEntity>()
+        for (serie in brutos) {
+            val chave = serie.tmdb_id?.toString() ?: normalizarTituloParaMatch(serie.name)
+            if (vistos.add(chave)) semDuplicata.add(serie)
+        }
+
+        if (semDuplicata.size < 10) {
+            try {
+                val idsUsados = semDuplicata.map { it.series_id }.toSet()
+                val extras = buscarTop10SeriesAgora(idsUsados)
+                for (extra in extras) {
+                    if (semDuplicata.size >= 10) break
+                    if (semDuplicata.none { it.series_id == extra.series_id }) semDuplicata.add(extra)
+                }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        return semDuplicata.take(10).map { it.paraItem() }
     }
 
     // ✅ Delega a limpeza de tags pro TituloCleaner (fonte única). Essa
@@ -2645,6 +2705,13 @@ class HomeActivity : AppCompatActivity() {
             val ivPoster: ImageView = view.findViewById(R.id.ivPoster)
             val tvRank: TextView    = view.findViewById(R.id.tvRankNumber)
             val tvTitle: TextView   = view.findViewById(R.id.tvTitle)
+            // ✅ NOVO: selo de status (Novidade/Nova Temporada/Novo
+            // Episódio/Em Breve) — mesmas views/mesma lógica de
+            // prioridade do HomeRowAdapter, pra este card bater com os
+            // outros ("Filmes/Séries Para Você").
+            val llBadgeStatus: LinearLayout? = view.findViewById(R.id.llBadgeStatus)
+            val tvBadgeStatus: TextView?     = view.findViewById(R.id.tvBadgeNew)
+            val tvBadgeStatusLine2: TextView? = view.findViewById(R.id.tvBadgeNewLine2)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -2656,6 +2723,45 @@ class HomeActivity : AppCompatActivity() {
             val item = list[position]
             holder.tvRank.text  = (position + 1).toString()
             holder.tvTitle.text = item.name
+
+            // Mesma prioridade do HomeRowAdapter: Nova Temporada > Novo
+            // Episódio > Nova Temporada Em Breve > Novo Episódio Em
+            // Breve > Novidade > nenhum.
+            val llBadge = holder.llBadgeStatus
+            val tvBadge = holder.tvBadgeStatus
+            val tvBadgeLinha2 = holder.tvBadgeStatusLine2
+            if (llBadge != null && tvBadge != null && tvBadgeLinha2 != null) {
+                when {
+                    item.isNovaTemporada -> {
+                        tvBadge.text = "NOVA TEMPORADA"
+                        tvBadgeLinha2.visibility = View.GONE
+                        llBadge.visibility = View.VISIBLE
+                    }
+                    item.isNovoEpisodio -> {
+                        tvBadge.text = "NOVO EPISÓDIO"
+                        tvBadgeLinha2.visibility = View.GONE
+                        llBadge.visibility = View.VISIBLE
+                    }
+                    item.isNovaTemporadaEmBreve -> {
+                        tvBadge.text = "NOVA TEMPORADA"
+                        tvBadgeLinha2.visibility = View.VISIBLE
+                        llBadge.visibility = View.VISIBLE
+                    }
+                    item.isNovoEpisodioEmBreve -> {
+                        tvBadge.text = "NOVO EPISÓDIO"
+                        tvBadgeLinha2.visibility = View.VISIBLE
+                        llBadge.visibility = View.VISIBLE
+                    }
+                    item.isNovidade -> {
+                        tvBadge.text = "NOVIDADE"
+                        tvBadgeLinha2.visibility = View.GONE
+                        llBadge.visibility = View.VISIBLE
+                    }
+                    else -> {
+                        llBadge.visibility = View.GONE
+                    }
+                }
+            }
 
             Glide.with(holder.itemView.context)
                 .asBitmap()
