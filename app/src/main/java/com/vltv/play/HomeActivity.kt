@@ -156,6 +156,16 @@ class HomeActivity : AppCompatActivity() {
     private var top10MoviesBrasilAdapterRef: Top10Adapter? = null
     private var top10SeriesBrasilAdapterRef: Top10Adapter? = null
 
+    // ✅ NOVO: cache (só em memória, por abertura da Home) do preenchimento
+    // do Top 10 Brasil com tendência TMDB. Sem isso, toda vez que a Home
+    // era redesenhada (abertura + cada aviso do SyncManager) e o ranking
+    // do backend vinha incompleto, o app refazia a chamada de rede ao TMDB
+    // e até ~120 buscas LIKE '%...%' no catálogo inteiro — o Top 10 Mundial
+    // já tinha esse cache (top10FilmesTmdbCache), o Brasil não. A chave é
+    // o conjunto de ids já usados, então o resultado é o mesmo de antes.
+    private val top10FilmesBrasilExtrasCache = java.util.concurrent.ConcurrentHashMap<String, List<VodEntity>>()
+    private val top10SeriesBrasilExtrasCache = java.util.concurrent.ConcurrentHashMap<String, List<SeriesEntity>>()
+
     private var ultimoIconeAplicadoNoNav: String? = null
 
     // ✅ NOVO: controle do fade da logo "VLTV" fixa no topo da Home. Antes
@@ -455,10 +465,20 @@ class HomeActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch(Dispatchers.Default) {
-            val movieItems = localMovies.map {
+            // ✅ CORRIGIDO (Home vazia por ~5s ao reabrir o app): antes, TODO
+            // o catálogo (17 mil+ filmes e 8 mil+ séries) era convertido em
+            // VodItem aqui — cada conversão roda a limpeza de nome (várias
+            // Regex) e, nas séries, cria um SimpleDateFormat — e só DEPOIS
+            // disso a tela era desenhada (banner e fileiras são montados em
+            // popularSections). Só que popularSections usa essas listas
+            // completas apenas pra 2 coisas: as 20 primeiras (pré-carga de
+            // capas) e as 10 últimas (fallback de Novidades). Então
+            // convertemos só essas pontas — resultado idêntico, sem esperar
+            // 25 mil conversões antes de mostrar a Home.
+            val movieItems = amostraPontas(localMovies).map {
                 it.paraItem()
             }
-            val seriesItems = localSeries.map {
+            val seriesItems = amostraPontas(localSeries).map {
                 it.paraItem()
             }
 
@@ -468,6 +488,13 @@ class HomeActivity : AppCompatActivity() {
             }
         }
     }
+
+    // ✅ NOVO: devolve só o que popularSections realmente lê das listas
+    // completas — as 20 primeiras (take(20) em ativarModoSupersonico) e as
+    // 10 últimas (takeLast(10) no fallback de Novidades). Se a lista tiver
+    // 30 itens ou menos, devolve ela inteira (nada muda).
+    private fun <T> amostraPontas(lista: List<T>): List<T> =
+        if (lista.size <= 30) lista else lista.take(20) + lista.takeLast(10)
 
     private fun agendarPopularSections(
         movieItems: List<VodItem>,
@@ -904,20 +931,37 @@ class HomeActivity : AppCompatActivity() {
     //    no Top 10 Mundial — sempre no FINAL da lista, sem embaralhar o
     //    ranking oficial já validado.
     private suspend fun completarTop10BrasilFilmes(brutos: List<VodEntity>): List<VodItem> {
-        val vistos = mutableSetOf<String>()
+        // ✅ CORRIGIDO: mesma regra de duplicata das séries (mesmo
+        // stream_id, mesmo tmdb_id OU mesmo título normalizado).
+        val idsTmdbVistos = mutableSetOf<Int>()
+        val titulosVistos = mutableSetOf<String>()
         val semDuplicata = mutableListOf<VodEntity>()
-        for (vod in brutos) {
-            val chave = vod.tmdb_id?.toString() ?: normalizarTituloParaMatch(vod.name)
-            if (vistos.add(chave)) semDuplicata.add(vod)
+
+        fun tentarAdicionar(vod: VodEntity) {
+            val titulo = TituloCleaner.normalizarParaComparacao(vod.name)
+            val tmdbId = vod.tmdb_id
+            val repetido = semDuplicata.any { it.stream_id == vod.stream_id } ||
+                (tmdbId != null && tmdbId in idsTmdbVistos) ||
+                (titulo.isNotBlank() && titulo in titulosVistos)
+            if (repetido) return
+            semDuplicata.add(vod)
+            if (tmdbId != null) idsTmdbVistos.add(tmdbId)
+            if (titulo.isNotBlank()) titulosVistos.add(titulo)
         }
+
+        for (vod in brutos) tentarAdicionar(vod)
 
         if (semDuplicata.size < 10) {
             try {
                 val idsUsados = semDuplicata.map { it.stream_id }.toSet()
-                val extras = buscarTop10FilmesAgora(idsUsados)
+                val chaveCache = idsUsados.sorted().joinToString(",")
+                val extras = top10FilmesBrasilExtrasCache[chaveCache]
+                    ?: buscarTop10FilmesAgora(idsUsados).also {
+                        if (it.isNotEmpty()) top10FilmesBrasilExtrasCache[chaveCache] = it
+                    }
                 for (extra in extras) {
                     if (semDuplicata.size >= 10) break
-                    if (semDuplicata.none { it.stream_id == extra.stream_id }) semDuplicata.add(extra)
+                    tentarAdicionar(extra)
                 }
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -927,20 +971,44 @@ class HomeActivity : AppCompatActivity() {
 
     // ✅ NOVO: mesma ideia acima, pra "Top 10 Séries Brasil".
     private suspend fun completarTop10BrasilSeries(brutos: List<SeriesEntity>): List<VodItem> {
-        val vistos = mutableSetOf<String>()
+        // ✅ CORRIGIDO (mesma série aparecendo 2x no Top 10 Brasil, ex:
+        // posições 1 e 2): antes a chave de duplicata era o tmdb_id QUANDO
+        // existia e o título só quando o tmdb_id era nulo — então duas
+        // entradas da mesma série no painel (ex: dublada e legendada, uma
+        // já com tmdb_id e outra ainda sem, ou com tmdb_id diferentes)
+        // tinham chaves diferentes e passavam as duas. Agora uma série é
+        // considerada repetida se bater em QUALQUER um dos três: mesmo
+        // series_id, mesmo tmdb_id OU mesmo título normalizado (sem
+        // acento/caixa/tarjas). Mantém sempre a de melhor posição.
+        val idsTmdbVistos = mutableSetOf<Int>()
+        val titulosVistos = mutableSetOf<String>()
         val semDuplicata = mutableListOf<SeriesEntity>()
-        for (serie in brutos) {
-            val chave = serie.tmdb_id?.toString() ?: normalizarTituloParaMatch(serie.name)
-            if (vistos.add(chave)) semDuplicata.add(serie)
+
+        fun tentarAdicionar(serie: SeriesEntity) {
+            val titulo = TituloCleaner.normalizarParaComparacao(serie.name)
+            val tmdbId = serie.tmdb_id
+            val repetida = semDuplicata.any { it.series_id == serie.series_id } ||
+                (tmdbId != null && tmdbId in idsTmdbVistos) ||
+                (titulo.isNotBlank() && titulo in titulosVistos)
+            if (repetida) return
+            semDuplicata.add(serie)
+            if (tmdbId != null) idsTmdbVistos.add(tmdbId)
+            if (titulo.isNotBlank()) titulosVistos.add(titulo)
         }
+
+        for (serie in brutos) tentarAdicionar(serie)
 
         if (semDuplicata.size < 10) {
             try {
                 val idsUsados = semDuplicata.map { it.series_id }.toSet()
-                val extras = buscarTop10SeriesAgora(idsUsados)
+                val chaveCache = idsUsados.sorted().joinToString(",")
+                val extras = top10SeriesBrasilExtrasCache[chaveCache]
+                    ?: buscarTop10SeriesAgora(idsUsados).also {
+                        if (it.isNotEmpty()) top10SeriesBrasilExtrasCache[chaveCache] = it
+                    }
                 for (extra in extras) {
                     if (semDuplicata.size >= 10) break
-                    if (semDuplicata.none { it.series_id == extra.series_id }) semDuplicata.add(extra)
+                    tentarAdicionar(extra)
                 }
             } catch (e: Exception) { e.printStackTrace() }
         }
