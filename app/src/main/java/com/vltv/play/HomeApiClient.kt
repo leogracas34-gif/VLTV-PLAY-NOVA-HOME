@@ -69,6 +69,16 @@ object HomeApiClient {
     data class HomeCatalogo(
         val top10FilmesRank: Map<Int, Int>,       // stream_id -> rank
         val top10SeriesRank: Map<Int, Int>,       // series_id -> rank
+        // ✅ NOVO: Top 10 BRASIL — ranking oficial da Netflix por país
+        // (Tudum), calculado pelo backend SEM misturar com a tendência
+        // TMDB (essa mistura é o que já vira top10FilmesRank/
+        // top10SeriesRank acima, que é o Top 10 "Mundial"). Mapas vazios
+        // (não null) quando o backend ainda não manda "top10_brasil" —
+        // assim o app antigo continua funcionando normal contra um
+        // backend antigo, e o backend novo funciona normal com um app
+        // que já sabe ler isso.
+        val top10FilmesBrasilRank: Map<Int, Int>, // stream_id -> rank
+        val top10SeriesBrasilRank: Map<Int, Int>, // series_id -> rank
         val novidadeFilmesData: Map<Int, String>, // stream_id -> release_date
         val novidadeSeriesData: Map<Int, String>, // series_id -> release_date
         val badgesSeries: List<JSONObject>        // series_id, is_nova_temporada, is_novo_episodio, datas "em breve"
@@ -215,6 +225,24 @@ object HomeApiClient {
                 val o = top10Series.getJSONObject(it)
                 o.getInt("series_id") to o.getInt("rank")
             }
+
+            // ✅ NOVO: "top10_brasil" — usa optJSONObject (não getJSONObject)
+            // de propósito, pra não quebrar contra um backend antigo que
+            // ainda não tenha esse campo no /home; nesse caso os mapas
+            // ficam vazios e a fileira de Top 10 Brasil simplesmente fica
+            // escondida na Home (ver HomeActivity.esconderTop10FilmesBrasil).
+            val top10BrasilObj = json.optJSONObject("top10_brasil")
+            val top10FilmesBrasilArr = top10BrasilObj?.optJSONArray("filmes") ?: JSONArray()
+            val top10FilmesBrasilRank = (0 until top10FilmesBrasilArr.length()).associate {
+                val o = top10FilmesBrasilArr.getJSONObject(it)
+                o.getInt("stream_id") to o.getInt("rank")
+            }
+            val top10SeriesBrasilArr = top10BrasilObj?.optJSONArray("series") ?: JSONArray()
+            val top10SeriesBrasilRank = (0 until top10SeriesBrasilArr.length()).associate {
+                val o = top10SeriesBrasilArr.getJSONObject(it)
+                o.getInt("series_id") to o.getInt("rank")
+            }
+
             val novFilmes = json.getJSONObject("novidades").getJSONArray("filmes")
             val novidadeFilmesData = (0 until novFilmes.length()).associate {
                 val o = novFilmes.getJSONObject(it)
@@ -228,7 +256,11 @@ object HomeApiClient {
             val badgesArr = json.getJSONArray("badges_series")
             val badges = (0 until badgesArr.length()).map { badgesArr.getJSONObject(it) }
 
-            HomeCatalogo(top10FilmesRank, top10SeriesRank, novidadeFilmesData, novidadeSeriesData, badges)
+            HomeCatalogo(
+                top10FilmesRank, top10SeriesRank,
+                top10FilmesBrasilRank, top10SeriesBrasilRank,
+                novidadeFilmesData, novidadeSeriesData, badges
+            )
         } catch (e: Exception) {
             e.printStackTrace()
             null
