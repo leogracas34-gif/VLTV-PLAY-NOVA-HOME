@@ -160,15 +160,12 @@ class HomeActivity : AppCompatActivity() {
     private var wordmarkScrollListener: ViewTreeObserver.OnScrollChangedListener? = null
 
     companion object {
-        private val REGEX_EXIBICAO_TAGS = Regex("(?i)\\b(4K|FULL\\.?HD|HD|SD|720P|1080P|2160P|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT[-.]?BR|PTBR|WEB[-.]?DL|BLURAY|MKV|MP4|AVI|REPACK|H\\.?264|H\\.?265|HEVC|WEB|HDR|UHD|FHD|CINEMA|LAN[ÇC]AMENTO|EXCLUSIVO)\\b")
-        private val REGEX_EXIBICAO_BRACKETS = Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}")
-        private val REGEX_EXIBICAO_YEAR = Regex("\\d{4}")
-        private val REGEX_EXIBICAO_SPACES = Regex("\\s{2,}")
+        // ✅ As listas de tarjas (REGEX_EXIBICAO_TAGS, REGEX_EXIBICAO_BRACKETS,
+        // REGEX_EXIBICAO_YEAR, REGEX_TMDB_TAGS, REGEX_TMDB_BRACKETS,
+        // REGEX_TMDB_SPACES) foram movidas pro TituloCleaner.kt (fonte
+        // única, usada em 9 outras telas). Só ficou aqui o que é específico
+        // desta tela: corte de traço/bullet sobrando no final do nome.
         private val REGEX_EXIBICAO_TRAILING = Regex("[-|•·]+\\s*$")
-
-        private val REGEX_TMDB_TAGS = Regex("(?i)\\b(4K|FULL HD|HD|SD|DUBLADO|LEGENDADO|DUAL|AUDIO|LATINO|PT-BR|PTBR|WEB-DL|BLURAY|MKV|MP4|AVI|REPACK|H264|H265|HEVC|WEB|S\\d+E\\d+|SEASON|TEMPORADA)\\b")
-        private val REGEX_TMDB_BRACKETS = Regex("\\(\\d{4}\\)|\\[.*?\\]|\\{.*?\\}|\\(.*\\d{4}.*\\)")
-        private val REGEX_TMDB_SPACES = Regex("\\s+")
 
         private const val WORDMARK_TAG = "vltv_home_wordmark"
 
@@ -783,12 +780,11 @@ class HomeActivity : AppCompatActivity() {
         } catch (e: Exception) { emptyList() }
     }
 
-    private fun normalizarTituloParaMatch(titulo: String): String {
-        return titulo
-            .replace(Regex("\\(\\d{4}\\)"), "")
-            .replace(Regex("(?i)\\b(4K|FULL HD|HD|SD|DUBLADO|LEGENDADO|DUAL|BLURAY|WEB-DL|HEVC|H264|H265|UHD|FHD|HDR)\\b"), "")
-            .trim()
-    }
+    // ✅ Delega a limpeza de tags pro TituloCleaner (fonte única). Essa
+    // função não tem ligação nenhuma com o banner — só é usada no fallback
+    // de busca do Top 10.
+    private fun normalizarTituloParaMatch(titulo: String): String =
+        TituloCleaner.limparParaBusca(titulo)
 
     private suspend fun queryVodEntityExato(titulo: String, excluir: Set<Int>): VodEntity? =
         withContext(Dispatchers.IO) {
@@ -1212,12 +1208,11 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    // ✅ Delega a limpeza de tags pro TituloCleaner (fonte única, usada em
+    // 9 outras telas). Mantém o corte de traço/bullet sobrando no final
+    // (ex: "Nome do Filme -"), que é específico dessa função.
     private fun limparNomeExibicao(nome: String): String {
-        return nome
-            .replace(REGEX_EXIBICAO_TAGS, "")
-            .replace(REGEX_EXIBICAO_BRACKETS, "")
-            .replace(REGEX_EXIBICAO_YEAR, "")
-            .replace(REGEX_EXIBICAO_SPACES, " ")
+        return TituloCleaner.limparParaBusca(nome)
             .replace(REGEX_EXIBICAO_TRAILING, "")
             .trim()
     }
@@ -1252,13 +1247,9 @@ class HomeActivity : AppCompatActivity() {
         )
     }
 
+    // ✅ Delega a limpeza de tags pro TituloCleaner (fonte única).
     private fun limparNomeParaTMDB(nome: String): String {
-        return nome
-            .replace(REGEX_TMDB_TAGS, "")
-            .replace(REGEX_TMDB_BRACKETS, "")
-            .replace(REGEX_TMDB_SPACES, " ")
-            .trim()
-            .take(50)
+        return TituloCleaner.limparParaBusca(nome).take(50)
     }
 
     private fun aplicarBannerCompleto(
