@@ -12,6 +12,18 @@
      rvRecentSeries, rvNovidades, bottomNavigation. Nada disso foi
      renomeado — só o visual/estrutura ao redor mudou.
 
+     ✅ NOVO (Top 10 Brasil): duas fileiras novas — rvTop10MoviesBrasil e
+     rvTop10SeriesBrasil — com o ranking OFICIAL da Netflix por país
+     (vindo do vltv-backend, ver [[vltv-sync-backend]]), separado do
+     Top 10 "Mundial" que já existia (rvTop10Movies/rvTop10Series,
+     tendência TMDB + preenchimento com o ranking Netflix). Os cabeçalhos
+     "Top 10 Filmes/Séries Hoje" foram renomeados pra "Mundial" pra
+     deixar clara a diferença entre as duas fileiras. Os headers das
+     fileiras novas (llTop10FilmesBrasilHeader/llTop10SeriesBrasilHeader)
+     ficam GONE por padrão — o HomeActivity.kt só mostra cada um quando
+     o Top 10 Brasil daquele tipo (filme/série) realmente tiver itens no
+     catálogo.
+
      O que mudou de verdade:
      - Header flutuante com acabamento "vidro" (bg_header_glass).
      - Banner hero mais alto e cinematográfico, com uma faixa de
@@ -28,7 +40,7 @@
        (TOP 10 / NOVO) em vez da barrinha colorida simples.
      - Bottom nav com cantos superiores mais arredondados
        (bg_bottom_nav_v2 — arquivo novo, não mexe na TV).
-     - ✅ NOVO: badge circular (tvDownloadsBadge) sobreposto ao botão de
+     - ✅ badge circular (tvDownloadsBadge) sobreposto ao botão de
        Downloads no header, mostrando quantos downloads ainda não
        terminaram. Controlado 100% via Kotlin (HomeActivity.observarBadgeDownloads). -->
 <androidx.constraintlayout.widget.ConstraintLayout
@@ -81,7 +93,7 @@
              de antes (cardDownloads), só que devolvido ao header no
              layout de celular; nenhuma mudança necessária no
              HomeActivity.kt (click/foco já tratados genericamente).
-             ✅ NOVO: envolvido num FrameLayout só pra poder sobrepor o
+             ✅ envolvido num FrameLayout só pra poder sobrepor o
              badge circular (tvDownloadsBadge) no canto — o cardDownloads
              em si continua exatamente igual, com o mesmo id/atributos. -->
         <FrameLayout
@@ -112,7 +124,7 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- ✅ NOVO: badge circular com a contagem de downloads em
+            <!-- badge circular com a contagem de downloads em
                  andamento (na fila + baixando + pausado). Começa
                  escondido (visibility="gone") — HomeActivity.kt mostra e
                  atualiza o número sozinho via LiveData do Room. -->
@@ -278,7 +290,7 @@
 
             </LinearLayout>
 
-            <!-- ✅ NOVO: BANNER DE TEMA SAZONAL (Halloween, Dia das Crianças,
+            <!-- BANNER DE TEMA SAZONAL (Halloween, Dia das Crianças,
                  Natal, Ano Novo, Carnaval) — 100% controlado via Firebase Remote
                  Config, imagem hospedada na VPS. Ver TemaVisualManager.kt /
                  aplicarTemaBanner() na HomeActivity. -->
@@ -605,7 +617,11 @@
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 android:visibility="gone"/>
 
-            <!-- ========= TOP 10 FILMES ========= -->
+            <!-- ========= TOP 10 FILMES MUNDIAL =========
+                 ✅ RENOMEADO (era "Top 10 Filmes Hoje") — tendência TMDB
+                 + preenchimento com o ranking Netflix Brasil, pra não
+                 confundir com a fileira "Top 10 Filmes Brasil" logo
+                 abaixo (ranking oficial da Netflix, sem mistura). -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -618,7 +634,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Top 10 Filmes Hoje"
+                    android:text="Top 10 Filmes Mundial"
                     android:textColor="#F5F3EF"
                     android:textSize="17sp"
                     android:textStyle="bold"
@@ -647,6 +663,57 @@
                 android:paddingEnd="16dp"
                 android:overScrollMode="never"
                 android:orientation="horizontal"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
+
+            <!-- ========= TOP 10 FILMES BRASIL =========
+                 ✅ NOVO: ranking OFICIAL da Netflix Brasil (Tudum), sem
+                 mistura com tendência TMDB. Header começa GONE — só
+                 aparece quando getTop10VodsBrasil() retornar algo (ver
+                 HomeActivity.aplicarTop10FilmesBrasil()). -->
+            <LinearLayout
+                android:id="@+id/llTop10FilmesBrasilHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="26dp"
+                android:paddingBottom="12dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Top 10 Filmes Brasil"
+                    android:textColor="#F5F3EF"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.01"
+                    android:layout_marginEnd="8dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="BRASIL"
+                    android:textColor="@color/white"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:background="@drawable/bg_section_pill"/>
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTop10MoviesBrasil"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:overScrollMode="never"
+                android:orientation="horizontal"
+                android:visibility="gone"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
 
             <!-- ========= FILMES PARA VOCÊ ========= -->
@@ -680,7 +747,9 @@
                 android:orientation="horizontal"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
 
-            <!-- ========= TOP 10 SÉRIES ========= -->
+            <!-- ========= TOP 10 SÉRIES MUNDIAL =========
+                 ✅ RENOMEADO (era "Top 10 Séries Hoje") — mesma lógica da
+                 fileira de filmes acima. -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -693,7 +762,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Top 10 Séries Hoje"
+                    android:text="Top 10 Séries Mundial"
                     android:textColor="#F5F3EF"
                     android:textSize="17sp"
                     android:textStyle="bold"
@@ -721,6 +790,53 @@
                 android:paddingEnd="16dp"
                 android:overScrollMode="never"
                 android:orientation="horizontal"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
+
+            <!-- ========= TOP 10 SÉRIES BRASIL =========
+                 ✅ NOVO: mesma ideia da fileira de filmes Brasil acima. -->
+            <LinearLayout
+                android:id="@+id/llTop10SeriesBrasilHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="26dp"
+                android:paddingBottom="12dp"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Top 10 Séries Brasil"
+                    android:textColor="#F5F3EF"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginEnd="8dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="BRASIL"
+                    android:textColor="@color/white"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:background="@drawable/bg_section_pill"/>
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTop10SeriesBrasil"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:overScrollMode="never"
+                android:orientation="horizontal"
+                android:visibility="gone"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
 
             <!-- ========= SÉRIES PARA VOCÊ ========= -->
@@ -823,7 +939,7 @@
         app:layout_constraintBottom_toBottomOf="parent"/>
 
 
-    <!-- ✅ NOVO: camada decorativa de tema sazonal — ver overlay_tema_decorativo.xml -->
+    <!-- camada decorativa de tema sazonal — ver overlay_tema_decorativo.xml -->
     <include
         android:id="@+id/overlayTemaSazonal"
         layout="@layout/overlay_tema_decorativo"
