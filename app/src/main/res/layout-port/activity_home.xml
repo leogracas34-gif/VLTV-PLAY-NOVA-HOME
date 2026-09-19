@@ -617,54 +617,6 @@
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 android:visibility="gone"/>
 
-            <!-- ========= TOP 10 FILMES MUNDIAL =========
-                 ✅ RENOMEADO (era "Top 10 Filmes Hoje") — tendência TMDB
-                 + preenchimento com o ranking Netflix Brasil, pra não
-                 confundir com a fileira "Top 10 Filmes Brasil" logo
-                 abaixo (ranking oficial da Netflix, sem mistura). -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:paddingTop="26dp"
-                android:paddingBottom="12dp"
-                android:gravity="center_vertical">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Top 10 Filmes Mundial"
-                    android:textColor="#F5F3EF"
-                    android:textSize="17sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-medium"
-                    android:letterSpacing="0.01"
-                    android:layout_marginEnd="8dp"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="TOP 10"
-                    android:textColor="@color/white"
-                    android:textSize="9sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.04"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="3dp"
-                    android:background="@drawable/bg_section_pill"/>
-            </LinearLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvTop10Movies"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:overScrollMode="never"
-                android:orientation="horizontal"
-                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
-
             <!-- ========= TOP 10 FILMES BRASIL =========
                  ✅ NOVO: ranking OFICIAL da Netflix Brasil (Tudum), sem
                  mistura com tendência TMDB. Header começa GONE — só
@@ -715,7 +667,6 @@
                 android:orientation="horizontal"
                 android:visibility="gone"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
-
             <!-- ========= FILMES PARA VOCÊ ========= -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -746,10 +697,11 @@
                 android:overScrollMode="never"
                 android:orientation="horizontal"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
-
-            <!-- ========= TOP 10 SÉRIES MUNDIAL =========
-                 ✅ RENOMEADO (era "Top 10 Séries Hoje") — mesma lógica da
-                 fileira de filmes acima. -->
+            <!-- ========= TOP 10 FILMES MUNDIAL =========
+                 ✅ RENOMEADO (era "Top 10 Filmes Hoje") — tendência TMDB
+                 + preenchimento com o ranking Netflix Brasil, pra não
+                 confundir com a fileira "Top 10 Filmes Brasil" logo
+                 acima (ranking oficial da Netflix, sem mistura). -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -762,11 +714,12 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Top 10 Séries Mundial"
+                    android:text="Top 10 Filmes Mundial"
                     android:textColor="#F5F3EF"
                     android:textSize="17sp"
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.01"
                     android:layout_marginEnd="8dp"/>
                 <TextView
                     android:layout_width="wrap_content"
@@ -782,7 +735,7 @@
             </LinearLayout>
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvTop10Series"
+                android:id="@+id/rvTop10Movies"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
@@ -791,9 +744,9 @@
                 android:overScrollMode="never"
                 android:orientation="horizontal"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
-
             <!-- ========= TOP 10 SÉRIES BRASIL =========
-                 ✅ NOVO: mesma ideia da fileira de filmes Brasil acima. -->
+                 ✅ NOVO: mesma ideia da fileira de filmes Brasil, logo
+                 acima da fileira "Séries Para Você". -->
             <LinearLayout
                 android:id="@+id/llTop10SeriesBrasilHeader"
                 android:layout_width="match_parent"
@@ -838,7 +791,6 @@
                 android:orientation="horizontal"
                 android:visibility="gone"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
-
             <!-- ========= SÉRIES PARA VOCÊ ========= -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -861,6 +813,50 @@
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvRecentSeries"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:overScrollMode="never"
+                android:orientation="horizontal"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"/>
+            <!-- ========= TOP 10 SÉRIES MUNDIAL =========
+                 ✅ RENOMEADO (era "Top 10 Séries Hoje") — mesma lógica da
+                 fileira "Top 10 Filmes Mundial", só que pra série. -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="26dp"
+                android:paddingBottom="12dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Top 10 Séries Mundial"
+                    android:textColor="#F5F3EF"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:layout_marginEnd="8dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TOP 10"
+                    android:textColor="@color/white"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.04"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:background="@drawable/bg_section_pill"/>
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTop10Series"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:clipToPadding="false"
