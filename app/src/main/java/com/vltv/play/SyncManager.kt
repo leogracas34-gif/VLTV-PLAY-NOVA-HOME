@@ -1,6 +1,7 @@
 package com.vltv.play
 
 import android.content.Context
+import android.util.Log
 import com.vltv.play.data.AppDatabase
 import com.vltv.play.data.LiveStreamEntity
 import com.vltv.play.data.SeriesEntity
@@ -248,6 +249,10 @@ object SyncManager {
         val dns = dnsRaw
         val db = AppDatabase.getDatabase(context)
         val palavrasProibidas = listOf("XXX", "PORN", "ADULTO", "SEXO", "EROTICO", "🔞", "PORNÔ")
+        val t0 = System.currentTimeMillis()
+        fun logTempo(etapa: String) {
+            Log.d("SyncManager", "⏱ $etapa: ${System.currentTimeMillis() - t0}ms desde o início da sincronização")
+        }
 
         try {
             // ⚠️ CORREÇÃO (selos somem sozinhos / só aparecem depois de
@@ -267,20 +272,34 @@ object SyncManager {
             // realmente vêm do Xtream são atualizados.
             val vodsExistentes = try { db.streamDao().getAllVods().associateBy { it.stream_id } } catch (e: Exception) { emptyMap() }
             val seriesExistentes = try { db.streamDao().getAllSeries().associateBy { it.series_id } } catch (e: Exception) { emptyMap() }
+            logTempo("leitura local (vodsExistentes/seriesExistentes)")
 
-            // ✅ NOVO (backend / catálogo pronto): pergunta pro backend
-            // ANTES de tocar no Xtream se ele já tem o catálogo inteiro
-            // desse domínio (salvo por outro cliente que sincronizou
-            // antes). Se tiver, os arrays abaixo já chegam prontos e as
-            // chamadas get_vod_streams/get_series no Xtream são puladas
-            // de vez — é a etapa mais pesada do login, e passa a não
-            // existir mais pra clientes de um painel já conhecido.
+            // ✅ CORRIGIDO (Home demorando 6-7s pra aparecer ao reabrir o
+            // app, quando antes era quase instantâneo): buscarCatalogo()
+            // baixa o CATÁLOGO INTEIRO do backend (17 mil+ filmes, 8 mil+
+            // séries em painéis grandes) — só faz sentido pra um painel
+            // que ESTE aparelho ainda não tem local (instalação nova, ou
+            // troca de conta pra um painel nunca sincronizado aqui). Antes
+            // dessa correção, essa chamada de rede pesada rodava TODA VEZ
+            // que o app abria do zero (jaSincronizouNestaSessao reseta a
+            // cada processo novo), mesmo com o Room já 100% populado de
+            // uma sessão anterior — sempre pra descartar o resultado
+            // (vodsExistentes/seriesExistentes já preservam tudo do jeito
+            // que o app sempre fez, então o catálogo baixado nem era
+            // realmente necessário nesse caso, só ficava competindo com
+            // as outras chamadas na inicialização). Agora só pergunta pro
+            // backend quando o Room LOCAL ainda estiver vazio — o resto do
+            // fluxo (get_vod_streams/get_series direto no Xtream) continua
+            // exatamente como sempre funcionou pra quem já tem o catálogo.
             var catalogoBackend: HomeApiClient.CatalogoBackend? = null
-            try {
-                catalogoBackend = HomeApiClient.buscarCatalogo(dns)
-            } catch (e: Exception) {
-                e.printStackTrace()
+            if (vodsExistentes.isEmpty() && seriesExistentes.isEmpty()) {
+                try {
+                    catalogoBackend = HomeApiClient.buscarCatalogo(dns)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
+            logTempo("buscarCatalogo (catálogo pronto do backend, só quando local está vazio)")
 
             // ✅ CORREÇÃO (demora de 1-2 min pra aparecer o catálogo
             // correto na 1ª instalação): VOD, Séries e Live eram buscados
@@ -312,33 +331,41 @@ object SyncManager {
                 seriesCompletos = seriesJob.await()
                 liveJob.await()
             }
+            logTempo("VOD + Séries + Live (Xtream ou catálogo do backend, em paralelo)")
 
             // ── TMDB (nomes oficiais + top10/novidades) ─────────────────────
-            // Se o catálogo já veio pronto do backend (catalogoBackend !=
-            // null), isso significa que outro cliente desse mesmo painel
-            // já fez esse upload antes — não faz sentido reenviar os
-            // mesmos dados de volta. Só faz enviarCatalogo() quando o app
-            // teve que buscar do Xtream ele mesmo (painel novo pro
-            // backend), pra que o PRÓXIMO cliente já encontre tudo pronto.
-            //
-            // Em ambos os casos, buscarHome() é chamado pra tentar aplicar
-            // Top10/Novidades/selos prontos — inclusive o Top10 Brasil
-            // (top10_brasil), já vindo separado do Top10 Mundial. Se
-            // qualquer parte disso falhar (backend fora do ar, ainda não
-            // configurado, domínio ainda não processado, etc.), caímos
-            // automaticamente no TmdbSyncHelper LOCAL — exatamente o
-            // comportamento de antes, sem quebrar nada pra quem ainda não
-            // tem o backend rodando (esse caminho local não calcula Top10
-            // Brasil — só o backend faz isso hoje).
+            // ⚠️ CORRIGIDO: antes, "já enviei o catálogo pra esse domínio"
+            // dependia de catalogoBackend != null — mas catalogoBackend só
+            // é buscado agora quando o Room local está vazio (ver correção
+            // acima). Pra um aparelho que JÁ sincronizou antes,
+            // catalogoBackend sempre vem null, então "if (catalogoBackend
+            // == null) enviarCatalogo(...)" reenviaria o catálogo INTEIRO
+            // pro backend EM TODA ABERTURA do app — um upload pesado (até
+            // 40s de timeout) que nem existia antes do backend, e que
+            // seria uma causa de lentidão pior do que a que estamos
+            // corrigindo. Agora o controle de "já mandei esse domínio pro
+            // backend" é uma flag local por domínio (SharedPreferences),
+            // marcada só depois de um enviarCatalogo() bem-sucedido —
+            // então o upload acontece de verdade só a primeira vez que
+            // ESTE app encontra um painel que o backend ainda não conhece,
+            // exatamente como o comentário original pretendia.
+            val prefsBackend = context.getSharedPreferences("vltv_backend_sync", Context.MODE_PRIVATE)
+            val chaveJaEnviou = "catalogo_enviado_" + dns.hashCode()
+            val jaEnviouCatalogoAntes = prefsBackend.getBoolean(chaveJaEnviou, false)
+
             var aplicadoPeloBackend = false
             try {
-                if (catalogoBackend == null) {
+                if (catalogoBackend == null && !jaEnviouCatalogoAntes) {
                     HomeApiClient.enviarCatalogo(dns, vodsCompletos, seriesCompletos)
+                    prefsBackend.edit().putBoolean(chaveJaEnviou, true).apply()
                 }
+                logTempo("enviarCatalogo (só roda na 1ª vez que este app vê esse painel)")
                 val resultadoBackend = HomeApiClient.buscarHome(dns)
+                logTempo("buscarHome (Top10/Novidades/selos prontos do backend)")
                 if (resultadoBackend != null) {
                     HomeBackendSync.aplicar(db, resultadoBackend)
                     aplicadoPeloBackend = true
+                    logTempo("HomeBackendSync.aplicar (grava Top10/Novidades/selos no Room)")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -350,6 +377,7 @@ object SyncManager {
                 // caso o backend não tenha respondido com nada pronto.
                 try {
                     TmdbSyncHelper.sincronizar(db)
+                    logTempo("TmdbSyncHelper.sincronizar (fallback local, backend não respondeu)")
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -374,6 +402,7 @@ object SyncManager {
             val seriesFinal = db.streamDao().getAllSeries()
             ContentRepository.atualizarVods(vodsFinal)
             ContentRepository.atualizarSeries(seriesFinal)
+            logTempo("FIM da sincronização (ContentRepository atualizado)")
 
         } catch (e: Exception) {
             e.printStackTrace()
