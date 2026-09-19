@@ -40,7 +40,8 @@ data class LiveStreamEntity(
         Index(value = ["category_id", "added"]),
         Index(value = ["category_id", "name"]),
         Index(value = ["is_top10"]),
-        Index(value = ["is_novidade"])
+        Index(value = ["is_novidade"]),
+        Index(value = ["is_top10_brasil"])
     ]
 )
 data class VodEntity(
@@ -58,7 +59,14 @@ data class VodEntity(
     val is_top10: Int = 0,
     val is_novidade: Int = 0,
     val tmdb_id: Int? = null,
-    val backdrop_path: String? = null
+    val backdrop_path: String? = null,
+    // ✅ NOVO (v15 → v16): Top 10 BRASIL — ranking oficial da Netflix por
+    // país (Tudum), calculado pelo vltv-backend e SEM misturar com a
+    // tendência TMDB (essa mistura é o que já existe em is_top10/
+    // tmdb_rank, que virou o Top 10 "Mundial"). Ver [[vltv-sync-backend]]
+    // syncEngine.js/sincronizarTop10().
+    val is_top10_brasil: Int = 0,
+    val tmdb_rank_brasil: Int = 0
 )
 
 @Entity(
@@ -70,7 +78,8 @@ data class VodEntity(
         Index(value = ["category_id", "last_modified"]),
         Index(value = ["category_id", "name"]),
         Index(value = ["is_top10"]),
-        Index(value = ["is_novidade"])
+        Index(value = ["is_novidade"]),
+        Index(value = ["is_top10_brasil"])
     ]
 )
 data class SeriesEntity(
@@ -113,7 +122,10 @@ data class SeriesEntity(
     // quando o próximo episódio já é de uma temporada nova). Antes só
     // existia um campo pros dois casos, o que fazia séries com episódio
     // semanal (ex: Reacher) mostrarem "Nova Temporada Em Breve" errado.
-    val tmdb_proximo_episodio_data: String? = null
+    val tmdb_proximo_episodio_data: String? = null,
+    // ✅ NOVO (v15 → v16): Top 10 BRASIL — mesma ideia de VodEntity acima.
+    val is_top10_brasil: Int = 0,
+    val tmdb_rank_brasil: Int = 0
 )
 
 // ✅ projeção leve (só os 4 campos necessários) pra checar o progresso
@@ -306,17 +318,30 @@ interface StreamDao {
     @Query("SELECT * FROM vod_streams WHERE is_top10 = 1 ORDER BY tmdb_rank ASC LIMIT 10")
     suspend fun getTop10Vods(): List<VodEntity>
 
+    // ✅ NOVO: Top 10 Filmes BRASIL — ranking oficial da Netflix por país,
+    // sem mistura com tendência TMDB (ver comentário em VodEntity acima).
+    @Query("SELECT * FROM vod_streams WHERE is_top10_brasil = 1 ORDER BY tmdb_rank_brasil ASC LIMIT 10")
+    suspend fun getTop10VodsBrasil(): List<VodEntity>
+
     @Query("SELECT * FROM vod_streams WHERE is_novidade = 1 ORDER BY tmdb_release_date DESC LIMIT 20")
     suspend fun getNovidadesVods(): List<VodEntity>
 
     @Query("UPDATE vod_streams SET tmdb_rank = :rank, is_top10 = 1 WHERE stream_id = :id")
     suspend fun updateVodTop10(id: Int, rank: Int)
 
+    // ✅ NOVO
+    @Query("UPDATE vod_streams SET tmdb_rank_brasil = :rank, is_top10_brasil = 1 WHERE stream_id = :id")
+    suspend fun updateVodTop10Brasil(id: Int, rank: Int)
+
     @Query("UPDATE vod_streams SET is_novidade = 1, tmdb_release_date = :releaseDate WHERE stream_id = :id")
     suspend fun updateVodNovidade(id: Int, releaseDate: String)
 
     @Query("UPDATE vod_streams SET is_top10 = 0, tmdb_rank = 0")
     suspend fun clearVodTop10Flags()
+
+    // ✅ NOVO
+    @Query("UPDATE vod_streams SET is_top10_brasil = 0, tmdb_rank_brasil = 0")
+    suspend fun clearVodTop10BrasilFlags()
 
     @Query("UPDATE vod_streams SET is_novidade = 0, tmdb_release_date = NULL")
     suspend fun clearVodNovidadeFlags()
@@ -348,6 +373,10 @@ interface StreamDao {
     @Query("SELECT * FROM series_streams WHERE is_top10 = 1 ORDER BY tmdb_rank ASC LIMIT 10")
     suspend fun getTop10Series(): List<SeriesEntity>
 
+    // ✅ NOVO: Top 10 Séries BRASIL — mesma ideia da versão VOD acima.
+    @Query("SELECT * FROM series_streams WHERE is_top10_brasil = 1 ORDER BY tmdb_rank_brasil ASC LIMIT 10")
+    suspend fun getTop10SeriesBrasil(): List<SeriesEntity>
+
     @Query("SELECT * FROM vod_streams WHERE name LIKE :query LIMIT 1")
     suspend fun searchVodByName(query: String): VodEntity?
 
@@ -360,11 +389,19 @@ interface StreamDao {
     @Query("UPDATE series_streams SET tmdb_rank = :rank, is_top10 = 1 WHERE series_id = :id")
     suspend fun updateSeriesTop10(id: Int, rank: Int)
 
+    // ✅ NOVO
+    @Query("UPDATE series_streams SET tmdb_rank_brasil = :rank, is_top10_brasil = 1 WHERE series_id = :id")
+    suspend fun updateSeriesTop10Brasil(id: Int, rank: Int)
+
     @Query("UPDATE series_streams SET is_novidade = 1, tmdb_release_date = :releaseDate WHERE series_id = :id")
     suspend fun updateSeriesNovidade(id: Int, releaseDate: String)
 
     @Query("UPDATE series_streams SET is_top10 = 0, tmdb_rank = 0")
     suspend fun clearSeriesTop10Flags()
+
+    // ✅ NOVO
+    @Query("UPDATE series_streams SET is_top10_brasil = 0, tmdb_rank_brasil = 0")
+    suspend fun clearSeriesTop10BrasilFlags()
 
     @Query("UPDATE series_streams SET is_novidade = 0, tmdb_release_date = NULL")
     suspend fun clearSeriesNovidadeFlags()
@@ -491,15 +528,10 @@ interface StreamDao {
 }
 
 // ==========================================
-// DATABASE — version 15 (nova coluna em series_streams:
-// tmdb_proximo_episodio_data, separando "novo episódio em breve" de
-// "nova temporada em breve", que antes dividiam o mesmo campo)
-//
-// ✅ NOVO (backend / Opção B): as duas queries novas acima
-// (aplicarBadgeSerieDoBackend / limparBadgesSeriesBackend) NÃO mudam o
-// schema — só operam nas colunas que já existiam desde a v15 — por isso
-// a versão do banco continua 15, sem precisar de outra migração
-// destrutiva.
+// DATABASE — version 16 (novas colunas em vod_streams/series_streams:
+// is_top10_brasil e tmdb_rank_brasil — Top 10 BRASIL, ranking oficial
+// da Netflix por país calculado pelo vltv-backend, separado do Top 10
+// "Mundial" que já existia em is_top10/tmdb_rank)
 // ==========================================
 
 @Database(
@@ -513,7 +545,7 @@ interface StreamDao {
         DownloadEntity::class,
         ProfileEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -536,11 +568,12 @@ abstract class AppDatabase : RoomDatabase() {
                 "vltv_play_db"
             )
                 // ✅ fallbackToDestructiveMigration recria as tabelas por
-                // causa da mudança de versão 14→15 (nova coluna
-                // tmdb_proximo_episodio_data em "series_streams"). Apaga
-                // downloads salvos e o catálogo local, mas ele
-                // resincroniza sozinho na próxima abertura do app — mesmo
-                // comportamento já aceito nas migrações anteriores.
+                // causa da mudança de versão 15→16 (colunas novas
+                // is_top10_brasil/tmdb_rank_brasil em "vod_streams" e
+                // "series_streams"). Apaga downloads salvos e o catálogo
+                // local, mas ele resincroniza sozinho na próxima abertura
+                // do app — mesmo comportamento já aceito nas migrações
+                // anteriores.
                 .fallbackToDestructiveMigration()
                 .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .setQueryExecutor(
