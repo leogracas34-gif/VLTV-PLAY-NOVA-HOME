@@ -33,6 +33,17 @@ object HomeBackendSync {
                 dao.updateSeriesTop10(seriesId, rank)
             }
 
+            // ── Top10 BRASIL (ranking oficial Netflix por país, separado
+            // do Top10 Mundial acima) ───────────────────────────────────
+            dao.clearVodTop10BrasilFlags()
+            dao.clearSeriesTop10BrasilFlags()
+            for ((streamId, rank) in resultado.top10FilmesBrasilRank) {
+                dao.updateVodTop10Brasil(streamId, rank)
+            }
+            for ((seriesId, rank) in resultado.top10SeriesBrasilRank) {
+                dao.updateSeriesTop10Brasil(seriesId, rank)
+            }
+
             // ── Novidades ────────────────────────────────────────────
             dao.clearVodNovidadeFlags()
             dao.clearSeriesNovidadeFlags()
