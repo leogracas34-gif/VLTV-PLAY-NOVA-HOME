@@ -322,11 +322,14 @@ object SyncManager {
             // backend), pra que o PRÓXIMO cliente já encontre tudo pronto.
             //
             // Em ambos os casos, buscarHome() é chamado pra tentar aplicar
-            // Top10/Novidades/selos prontos. Se qualquer parte disso
-            // falhar (backend fora do ar, ainda não configurado, domínio
-            // ainda não processado, etc.), caímos automaticamente no
-            // TmdbSyncHelper LOCAL — exatamente o comportamento de antes,
-            // sem quebrar nada pra quem ainda não tem o backend rodando.
+            // Top10/Novidades/selos prontos — inclusive o Top10 Brasil
+            // (top10_brasil), já vindo separado do Top10 Mundial. Se
+            // qualquer parte disso falhar (backend fora do ar, ainda não
+            // configurado, domínio ainda não processado, etc.), caímos
+            // automaticamente no TmdbSyncHelper LOCAL — exatamente o
+            // comportamento de antes, sem quebrar nada pra quem ainda não
+            // tem o backend rodando (esse caminho local não calcula Top10
+            // Brasil — só o backend faz isso hoje).
             var aplicadoPeloBackend = false
             try {
                 if (catalogoBackend == null) {
@@ -420,7 +423,12 @@ object SyncManager {
                     is_top10 = existente?.is_top10 ?: 0,
                     is_novidade = existente?.is_novidade ?: 0,
                     tmdb_id = existente?.tmdb_id,
-                    backdrop_path = existente?.backdrop_path
+                    backdrop_path = existente?.backdrop_path,
+                    // ✅ NOVO: preserva o Top 10 Brasil do mesmo jeito —
+                    // senão toda sincronização (a cada 10 min) apagava
+                    // esse selo até o backend recalcular de novo.
+                    is_top10_brasil = existente?.is_top10_brasil ?: 0,
+                    tmdb_rank_brasil = existente?.tmdb_rank_brasil ?: 0
                 )
                 vodBatch.add(entity)
                 todosVods.add(entity)
@@ -473,7 +481,10 @@ object SyncManager {
                     is_nova_temporada = existente?.is_nova_temporada ?: 0,
                     is_novo_episodio = existente?.is_novo_episodio ?: 0,
                     tmdb_flag_marcado_em = existente?.tmdb_flag_marcado_em ?: 0,
-                    tmdb_proxima_temporada_data = existente?.tmdb_proxima_temporada_data
+                    tmdb_proxima_temporada_data = existente?.tmdb_proxima_temporada_data,
+                    // ✅ NOVO: mesma preservação do Top 10 Brasil feita em sincronizarVod.
+                    is_top10_brasil = existente?.is_top10_brasil ?: 0,
+                    tmdb_rank_brasil = existente?.tmdb_rank_brasil ?: 0
                 )
                 seriesBatch.add(entity)
                 todasSeries.add(entity)
