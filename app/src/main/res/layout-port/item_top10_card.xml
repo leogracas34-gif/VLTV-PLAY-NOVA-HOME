@@ -50,6 +50,58 @@
                 android:layout_gravity="bottom"
                 android:background="@drawable/gradient_card_bottom"/>
 
+            <!-- ✅ NOVO: selo de status (Novidade/Nova Temporada/Novo
+                 Episódio/Em Breve) — mesma prioridade e mesmos textos do
+                 card de "Filmes/Séries Para Você" (ver HomeRowAdapter),
+                 só reduzido pro tamanho menor deste card (80dp de
+                 largura). Só um selo por vez; a 2ª linha ("EM BREVE") só
+                 aparece nas variantes "...Em Breve". -->
+            <LinearLayout
+                android:id="@+id/llBadgeStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="4dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvBadgeNew"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:text="NOVIDADE"
+                    android:textColor="@color/white"
+                    android:textSize="5.5sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.02"
+                    android:maxLines="1"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp"
+                    android:background="@drawable/bg_section_pill"/>
+
+                <TextView
+                    android:id="@+id/tvBadgeNewLine2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:gravity="center"
+                    android:text="EM BREVE"
+                    android:textColor="@color/brand_red_darkest"
+                    android:textSize="5.5sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="true"
+                    android:maxLines="1"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="1dp"
+                    android:background="@drawable/bg_section_pill"
+                    android:backgroundTint="@color/white"
+                    android:visibility="gone"/>
+
+            </LinearLayout>
+
         </FrameLayout>
 
     </androidx.cardview.widget.CardView>
