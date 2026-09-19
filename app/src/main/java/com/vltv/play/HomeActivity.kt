@@ -166,6 +166,12 @@ class HomeActivity : AppCompatActivity() {
     private val top10FilmesBrasilExtrasCache = java.util.concurrent.ConcurrentHashMap<String, List<VodEntity>>()
     private val top10SeriesBrasilExtrasCache = java.util.concurrent.ConcurrentHashMap<String, List<SeriesEntity>>()
 
+    // ✅ NOVO: pra cada série do Top 10 Séries Brasil, guarda (só em
+    // memória) o tmdb_id e o NOME OFICIAL em pt-BR que o TMDB devolveu.
+    // Chave = series_id do catálogo. Só guarda resultado encontrado — se
+    // a rede falhar, tenta de novo no próximo redesenho.
+    private val serieTmdbBrCache = java.util.concurrent.ConcurrentHashMap<Int, SerieTmdbBr>()
+
     private var ultimoIconeAplicadoNoNav: String? = null
 
     // ✅ NOVO: controle do fade da logo "VLTV" fixa no topo da Home. Antes
@@ -969,51 +975,179 @@ class HomeActivity : AppCompatActivity() {
         return semDuplicata.take(10).map { it.paraItem() }
     }
 
-    // ✅ NOVO: mesma ideia acima, pra "Top 10 Séries Brasil".
+    // ✅ NOVO: mesma ideia acima, pra "Top 10 Séries Brasil" — com dois
+    // acertos a mais (ver mesclarSeriesBr e resolverSerieTmdbBr):
+    //  1) a MESMA série cadastrada 2x no painel com nomes DIFERENTES (ex:
+    //     "Adim Farah" — título original — e "Meu Nome e Farah" — título
+    //     brasileiro) vira UM card só, na posição da melhor colocada; e
+    //  2) o nome exibido passa a ser o nome OFICIAL em português do
+    //     Brasil que o TMDB devolve (ex: "Meu Nome é Farah").
+    // Se o TMDB não responder (sem internet, série não encontrada), cai
+    // exatamente no comportamento anterior: nome do catálogo + tirar
+    // duplicata por id / tmdb_id / título igual.
+    private data class SerieTmdbBr(val id: Int, val nomePt: String, val nomeOriginal: String)
+
+    private data class SerieBrCandidata(
+        val serie: SeriesEntity,
+        val tmdbId: Int?,
+        val nomePt: String?,
+        val nomeOriginal: String?
+    )
+
     private suspend fun completarTop10BrasilSeries(brutos: List<SeriesEntity>): List<VodItem> {
-        // ✅ CORRIGIDO (mesma série aparecendo 2x no Top 10 Brasil, ex:
-        // posições 1 e 2): antes a chave de duplicata era o tmdb_id QUANDO
-        // existia e o título só quando o tmdb_id era nulo — então duas
-        // entradas da mesma série no painel (ex: dublada e legendada, uma
-        // já com tmdb_id e outra ainda sem, ou com tmdb_id diferentes)
-        // tinham chaves diferentes e passavam as duas. Agora uma série é
-        // considerada repetida se bater em QUALQUER um dos três: mesmo
-        // series_id, mesmo tmdb_id OU mesmo título normalizado (sem
-        // acento/caixa/tarjas). Mantém sempre a de melhor posição.
-        val idsTmdbVistos = mutableSetOf<Int>()
-        val titulosVistos = mutableSetOf<String>()
-        val semDuplicata = mutableListOf<SeriesEntity>()
+        val finais = mutableListOf<SerieBrCandidata>()
+        mesclarSeriesBr(resolverCandidatasBr(brutos), finais, permitirTrocar = true)
 
-        fun tentarAdicionar(serie: SeriesEntity) {
-            val titulo = TituloCleaner.normalizarParaComparacao(serie.name)
-            val tmdbId = serie.tmdb_id
-            val repetida = semDuplicata.any { it.series_id == serie.series_id } ||
-                (tmdbId != null && tmdbId in idsTmdbVistos) ||
-                (titulo.isNotBlank() && titulo in titulosVistos)
-            if (repetida) return
-            semDuplicata.add(serie)
-            if (tmdbId != null) idsTmdbVistos.add(tmdbId)
-            if (titulo.isNotBlank()) titulosVistos.add(titulo)
-        }
-
-        for (serie in brutos) tentarAdicionar(serie)
-
-        if (semDuplicata.size < 10) {
+        if (finais.size < 10) {
             try {
-                val idsUsados = semDuplicata.map { it.series_id }.toSet()
-                val chaveCache = idsUsados.sorted().joinToString(",")
+                // Exclui TODAS as séries que já vieram do ranking (inclusive
+                // a "gêmea" que foi descartada como duplicata), senão o
+                // preenchimento por tendência podia trazê-la de volta.
+                val idsExcluidos = brutos.map { it.series_id }.toSet()
+                val chaveCache = idsExcluidos.sorted().joinToString(",")
                 val extras = top10SeriesBrasilExtrasCache[chaveCache]
-                    ?: buscarTop10SeriesAgora(idsUsados).also {
+                    ?: buscarTop10SeriesAgora(idsExcluidos).also {
                         if (it.isNotEmpty()) top10SeriesBrasilExtrasCache[chaveCache] = it
                     }
-                for (extra in extras) {
-                    if (semDuplicata.size >= 10) break
-                    tentarAdicionar(extra)
-                }
+                val extrasCandidatas = resolverCandidatasBr(extras)
+                mesclarSeriesBr(extrasCandidatas, finais, permitirTrocar = false)
             } catch (e: Exception) { e.printStackTrace() }
         }
 
-        return semDuplicata.take(10).map { it.paraItem() }
+        return finais.take(10).map { c ->
+            val item = c.serie.paraItem()
+            c.nomePt?.takeIf { it.isNotBlank() }?.let { nome -> item.copy(name = nome) } ?: item
+        }
+    }
+
+    // Consulta o TMDB (em paralelo, com cache em memória) e devolve cada
+    // série junto com tmdb_id e nome pt-BR quando foi possível descobrir.
+    private suspend fun resolverCandidatasBr(lista: List<SeriesEntity>): List<SerieBrCandidata> {
+        try {
+            coroutineScope {
+                lista.map { s -> async { resolverSerieTmdbBr(s) } }.awaitAll()
+            }
+        } catch (e: Exception) { e.printStackTrace() }
+        return lista.map { s ->
+            val info = serieTmdbBrCache[s.series_id]
+            SerieBrCandidata(s, info?.id ?: s.tmdb_id, info?.nomePt, info?.nomeOriginal)
+        }
+    }
+
+    // Só aceita resultado do TMDB cujo título (pt-BR ou original) seja
+    // IGUAL ao nome do catálogo depois de normalizar (sem acento, caixa,
+    // tarjas) — bem conservador de propósito, pra nunca juntar duas séries
+    // diferentes. Se a série já tem tmdb_id no banco, só busca o nome pt-BR.
+    private suspend fun resolverSerieTmdbBr(serie: SeriesEntity): SerieTmdbBr? {
+        serieTmdbBrCache[serie.series_id]?.let { return it }
+
+        val resolvida: SerieTmdbBr? = withContext(Dispatchers.IO) {
+            try {
+                val tmdbIdLocal = serie.tmdb_id
+                if (tmdbIdLocal != null) {
+                    val url = "https://api.themoviedb.org/3/tv/$tmdbIdLocal" +
+                        "?api_key=$TMDB_API_KEY&language=pt-BR"
+                    val detalhes = JSONObject(fetchUrlComTimeout(url, 5000))
+                    val nome = detalhes.optString("name", "")
+                    if (nome.isNotBlank()) {
+                        SerieTmdbBr(tmdbIdLocal, nome, detalhes.optString("original_name", ""))
+                    } else null
+                } else {
+                    val limpo = TituloCleaner.limparParaBusca(serie.name)
+                    val alvo = normalizarTituloTmdbBr(limpo)
+                    if (alvo.isBlank()) return@withContext null
+
+                    val query = URLEncoder.encode(limpo, "UTF-8")
+                    val url = "https://api.themoviedb.org/3/search/tv" +
+                        "?api_key=$TMDB_API_KEY&query=$query&language=pt-BR&page=1"
+                    val results = JSONObject(fetchUrlComTimeout(url, 5000)).optJSONArray("results")
+                        ?: return@withContext null
+
+                    var melhor: SerieTmdbBr? = null
+                    var melhorPontuacao = 0
+                    for (i in 0 until minOf(results.length(), 10)) {
+                        val obj = results.getJSONObject(i)
+                        val id = obj.optInt("id", 0)
+                        val nome = obj.optString("name", "")
+                        if (id <= 0 || nome.isBlank()) continue
+                        val score = when {
+                            alvo == normalizarTituloTmdbBr(nome) -> 100
+                            alvo == normalizarTituloTmdbBr(obj.optString("original_name", "")) -> 95
+                            else -> 0
+                        }
+                        if (score > melhorPontuacao) {
+                            melhorPontuacao = score
+                            melhor = SerieTmdbBr(id, nome, obj.optString("original_name", ""))
+                        }
+                    }
+                    melhor
+                }
+            } catch (e: Exception) { null }
+        }
+
+        if (resolvida != null) serieTmdbBrCache[serie.series_id] = resolvida
+        return resolvida
+    }
+
+    // Normaliza pra comparar títulos. O "ı" turco (sem ponto) não é
+    // tratado pelo normalizador padrão e sumiria da palavra — ex: "Adım
+    // Farah" viraria "adm farah" e nunca bateria com "Adim Farah".
+    private fun normalizarTituloTmdbBr(titulo: String): String =
+        TituloCleaner.normalizarParaComparacao(titulo.replace('ı', 'i').replace('İ', 'I'))
+
+    // "É a mesma série?" — mesmo series_id, mesmo tmdb_id, mesmo título de
+    // catálogo, OU o nome oficial pt-BR de uma bate com o título (ou o
+    // nome oficial) da outra.
+    private fun mesmaSerieBr(a: SerieBrCandidata, b: SerieBrCandidata): Boolean {
+        if (a.serie.series_id == b.serie.series_id) return true
+        val ta = a.tmdbId
+        val tb = b.tmdbId
+        if (ta != null && ta == tb) return true
+
+        val catalogoA = normalizarTituloTmdbBr(a.serie.name)
+        val catalogoB = normalizarTituloTmdbBr(b.serie.name)
+        if (catalogoA.isNotBlank() && catalogoA == catalogoB) return true
+
+        val ptA = a.nomePt?.let { normalizarTituloTmdbBr(it) }.orEmpty()
+        val ptB = b.nomePt?.let { normalizarTituloTmdbBr(it) }.orEmpty()
+        if (ptA.isNotBlank() && (ptA == ptB || ptA == catalogoB)) return true
+        if (ptB.isNotBlank() && ptB == catalogoA) return true
+
+        // Título ORIGINAL do TMDB (ex: "Adım Farah") bate com o nome de
+        // catálogo da outra — cobre o caso em que o TMDB só achou uma das
+        // duas entradas (a de nome em português) e a outra tem o nome
+        // original no catálogo ("Adim Farah").
+        val origA = a.nomeOriginal?.let { normalizarTituloTmdbBr(it) }.orEmpty()
+        val origB = b.nomeOriginal?.let { normalizarTituloTmdbBr(it) }.orEmpty()
+        if (origA.isNotBlank() && origA == catalogoB) return true
+        if (origB.isNotBlank() && origB == catalogoA) return true
+        return false
+    }
+
+    // A entrada "brasileira" é a que já se chama, no catálogo, igual ao
+    // nome oficial pt-BR (ex: "Meu Nome e Farah" = "Meu Nome é Farah").
+    private fun ehEntradaPtBr(c: SerieBrCandidata): Boolean {
+        val pt = c.nomePt?.let { normalizarTituloTmdbBr(it) }.orEmpty()
+        return pt.isNotBlank() && pt == normalizarTituloTmdbBr(c.serie.name)
+    }
+
+    // Junta as candidatas em `base` (que já é a lista final, em ordem de
+    // ranking) tirando repetidas. A repetida ocupa a posição da primeira
+    // que apareceu; se permitirTrocar, a entrada "brasileira" assume o
+    // lugar da outra (mesma posição, mesmo rank).
+    private fun mesclarSeriesBr(
+        candidatas: List<SerieBrCandidata>,
+        base: MutableList<SerieBrCandidata>,
+        permitirTrocar: Boolean
+    ) {
+        for (c in candidatas) {
+            val idx = base.indexOfFirst { mesmaSerieBr(it, c) }
+            if (idx < 0) {
+                base.add(c)
+            } else if (permitirTrocar && !ehEntradaPtBr(base[idx]) && ehEntradaPtBr(c)) {
+                base[idx] = c
+            }
+        }
     }
 
     // ✅ Delega a limpeza de tags pro TituloCleaner (fonte única). Essa
